@@ -1,4 +1,5 @@
-export default {
+// PM2 конфігурація в форматі CommonJS (для сумісності)
+module.exports = {
   apps: [{
     name: 'affiliate-tracking-api',
     script: './server.js',
