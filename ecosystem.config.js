@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   apps: [{
     name: 'affiliate-tracking-api',
     script: './server.js',
@@ -14,7 +14,9 @@ export default {
     merge_logs: true,
     autorestart: true,
     max_memory_restart: '500M',
-    watch: false
+    watch: false,
+    interpreter: 'node',
+    interpreter_args: '--experimental-modules'
   }]
 };
 
