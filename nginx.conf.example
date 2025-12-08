@@ -1,0 +1,100 @@
+# Nginx конфігурація для Affiliate Tracking SaaS
+# Скопіюйте цей файл в /etc/nginx/sites-available/your-domain.com
+# Створіть симлінк: sudo ln -s /etc/nginx/sites-available/your-domain.com /etc/nginx/sites-enabled/
+# Перезавантажте nginx: sudo nginx -t && sudo systemctl reload nginx
+
+# Редирект HTTP на HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name your-domain.com www.your-domain.com;
+    
+    # Для Let's Encrypt
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+# HTTPS сервер
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name your-domain.com www.your-domain.com;
+
+    # SSL сертифікати (замініть на шляхи до ваших сертифікатів)
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+    
+    # SSL налаштування
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Розмір завантажених файлів
+    client_max_body_size 10M;
+
+    # Логи
+    access_log /var/log/nginx/affiliate-access.log;
+    error_log /var/log/nginx/affiliate-error.log;
+
+    # Статичні файли frontend (після npm run build)
+    root /var/www/affiliate-tracking/frontend/dist;
+    index index.html;
+
+    # API запити - проксуємо на Node.js backend
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # Tracking routes - проксуємо на Node.js backend
+    location /track {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+
+    # Статичні файли tracker.js
+    location /tracker.js {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Frontend - React SPA
+    location / {
+        try_files $uri $uri/ /index.html;
+        
+        # Кешування статичних файлів
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # Безпека
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+

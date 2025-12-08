@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестовий сайт - Товари</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .product-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .product-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .product-card .price {
+            font-size: 1.5em;
+            color: #11998e;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .product-card p {
+            color: #666;
+            margin: 10px 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Назад на головну</a>
+        <h1>📦 Наші товари</h1>
+        
+        <div class="products-grid">
+            <div class="product-card">
+                <h3>💻 Ноутбук</h3>
+                <div class="price">$999</div>
+                <p>Потужний ноутбук для роботи та розваг</p>
+                <a href="order.html" class="btn">Купити</a>
+            </div>
+            
+            <div class="product-card">
+                <h3>📱 Смартфон</h3>
+                <div class="price">$699</div>
+                <p>Новітній смартфон з потужною камерою</p>
+                <a href="order.html" class="btn">Купити</a>
+            </div>
+            
+            <div class="product-card">
+                <h3>🎧 Навушники</h3>
+                <div class="price">$199</div>
+                <p>Бездротові навушники з шумопоглинанням</p>
+                <a href="order.html" class="btn">Купити</a>
+            </div>
+            
+            <div class="product-card">
+                <h3>⌚ Смарт-годинник</h3>
+                <div class="price">$299</div>
+                <p>Фітнес-трекер та смарт-годинник</p>
+                <a href="order.html" class="btn">Купити</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

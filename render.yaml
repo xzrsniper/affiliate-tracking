@@ -1,0 +1,50 @@
+services:
+  # Backend API
+  - type: web
+    name: affiliate-tracking-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false  # Встановіть вручну в Render dashboard
+      - key: DB_HOST
+        sync: false  # Встановіть вручну в Render dashboard
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: GOOGLE_CLIENT_ID
+        sync: false  # Якщо використовуєте Google OAuth
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+  # Frontend
+  - type: web
+    name: affiliate-tracking-frontend
+    runtime: node
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_API_URL
+        fromService:
+          name: affiliate-tracking-backend
+          type: web
+          property: host
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+

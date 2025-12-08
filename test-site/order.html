@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестовий сайт - Замовлення</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+        .order-form {
+            margin: 30px 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #f5576c;
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .info-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Назад на головну</a>
+        <h1>🛒 Оформлення замовлення</h1>
+        
+        <div class="info-box">
+            <strong>💡 Примітка:</strong> Ця сторінка імітує сторінку замовлення. 
+            Після натискання "Оформити замовлення" вас перенаправить на сторінку подяки.
+        </div>
+
+        <form class="order-form" id="orderForm">
+            <div class="form-group">
+                <label for="name">Ім'я:</label>
+                <input type="text" id="name" name="name" required placeholder="Введіть ваше ім'я">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required placeholder="your@email.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="product">Товар:</label>
+                <select id="product" name="product" required>
+                    <option value="">Виберіть товар</option>
+                    <option value="laptop" data-price="999">💻 Ноутбук - $999</option>
+                    <option value="phone" data-price="699">📱 Смартфон - $699</option>
+                    <option value="headphones" data-price="199">🎧 Навушники - $199</option>
+                    <option value="watch" data-price="299">⌚ Смарт-годинник - $299</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="total">Сума замовлення:</label>
+                <input type="text" id="total" name="total" readonly value="$0" style="background: #f5f5f5;">
+            </div>
+            
+            <button type="submit" class="btn">✅ Оформити замовлення</button>
+        </form>
+    </div>
+
+    <script>
+        // Оновлення суми при виборі товару
+        const productSelect = document.getElementById('product');
+        const totalInput = document.getElementById('total');
+        
+        productSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const price = selectedOption.dataset.price || '0';
+            totalInput.value = `$${price}`;
+        });
+        
+        // Обробка форми замовлення
+        document.getElementById('orderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const total = totalInput.value.replace('$', '');
+            const orderId = 'ORDER-' + Date.now();
+            
+            // Перенаправляємо на сторінку подяки з параметрами
+            window.location.href = `thank-you.html?orderId=${orderId}&total=${total}`;
+        });
+    </script>
+</body>
+</html>

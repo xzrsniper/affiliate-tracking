@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example: How to Embed Tracker</title>
+    
+    <!-- ========== AFFILIATE TRACKER SCRIPT ========== -->
+    <!-- 
+        Replace 'http://localhost:3000/api/track' with your production backend URL
+        Optionally configure via TRACKER_CONFIG for custom settings
+    -->
+    <script>
+        // Optional: Configure tracker (before loading script)
+        window.TRACKER_CONFIG = {
+            BASE_URL: 'http://localhost:3000/api/track',  // Your backend API URL
+            DEBUG: false  // Set to true for debugging (logs errors to console)
+        };
+    </script>
+    <script src="http://localhost:3000/tracker.js"></script>
+    <!-- ========== END TRACKER SCRIPT ========== -->
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .example-url {
+            background: #e8f4f8;
+            padding: 10px;
+            border-left: 4px solid #2196F3;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Example: Affiliate Tracker Integration</h1>
+    
+    <h2>1. Basic Integration</h2>
+    <p>Add this to your <code>&lt;head&gt;</code> section:</p>
+    <pre>&lt;script src="http://your-backend-url/tracker.js"&gt;&lt;/script&gt;</pre>
+    
+    <h2>2. With Configuration (Recommended)</h2>
+    <pre>&lt;script&gt;
+    window.TRACKER_CONFIG = {
+        BASE_URL: 'http://your-backend-url/api/track',
+        DEBUG: false
+    };
+&lt;/script&gt;
+&lt;script src="http://your-backend-url/tracker.js"&gt;&lt;/script&gt;</pre>
+    
+    <h2>3. Testing</h2>
+    <p>To test tracking, visit your site with a referral code:</p>
+    <div class="example-url">
+        <strong>Example:</strong><br>
+        <code>https://yourshop.com?ref=YOUR_TRACKING_CODE</code>
+    </div>
+    
+    <h2>4. Conversion Tracking</h2>
+    <p>The tracker automatically detects conversion pages if the URL contains:</p>
+    <ul>
+        <li><code>order</code></li>
+        <li><code>thank-you</code> or <code>thankyou</code></li>
+        <li><code>success</code></li>
+        <li><code>confirmation</code></li>
+        <li><code>complete</code></li>
+        <li><code>purchase</code></li>
+    </ul>
+    
+    <p><strong>Example conversion URLs:</strong></p>
+    <ul>
+        <li><code>https://yourshop.com/order/12345</code></li>
+        <li><code>https://yourshop.com/thank-you</code></li>
+        <li><code>https://yourshop.com/purchase/success</code></li>
+    </ul>
+    
+    <h2>5. Manual Tracking (Advanced)</h2>
+    <p>You can manually trigger tracking if needed:</p>
+    <pre>// Track a view manually
+window.AffiliateTracker.trackView();
+
+// Track a conversion manually
+window.AffiliateTracker.trackConversion();
+
+// Get current visitor ID
+const visitorId = window.AffiliateTracker.getVisitorId();
+
+// Get stored referral code
+const refCode = window.AffiliateTracker.getRefCode();</pre>
+    
+    <hr>
+    <h2>Current Page Info</h2>
+    <p><strong>Visitor ID:</strong> <span id="visitor-id">-</span></p>
+    <p><strong>Stored Ref Code:</strong> <span id="ref-code">-</span></p>
+    <p><strong>Current URL:</strong> <code id="current-url">-</code></p>
+    
+    <script>
+        // Display tracker info (for testing)
+        setTimeout(function() {
+            if (window.AffiliateTracker) {
+                document.getElementById('visitor-id').textContent = window.AffiliateTracker.getVisitorId();
+                document.getElementById('ref-code').textContent = window.AffiliateTracker.getRefCode() || 'None';
+            }
+            document.getElementById('current-url').textContent = window.location.href;
+        }, 1000);
+    </script>
+</body>
+</html>
+
