@@ -324,14 +324,26 @@ router.put('/change-password', authenticate, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if user has a password (not Google OAuth only user)
+    if (!user.password_hash) {
+      return res.status(400).json({ error: 'Please sign in with Google or set a password first' });
+    }
+
+    // Ensure current_password is a string
+    const currentPasswordStr = String(current_password || '');
+    const passwordHashStr = String(user.password_hash || '');
+
     // Verify current password
-    const isValid = await bcrypt.compare(current_password, user.password_hash);
+    const isValid = await bcrypt.compare(currentPasswordStr, passwordHashStr);
     if (!isValid) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
+    // Ensure new_password is a string
+    const newPasswordStr = String(new_password || '');
+
     // Hash new password
-    const password_hash = await bcrypt.hash(new_password, 10);
+    const password_hash = await bcrypt.hash(newPasswordStr, 10);
 
     // Update password
     user.password_hash = password_hash;
