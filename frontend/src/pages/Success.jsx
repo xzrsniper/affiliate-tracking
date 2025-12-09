@@ -32,9 +32,9 @@ export default function Success() {
     // Встановлюємо data-атрибут для витягування суми
     document.body.setAttribute('data-order-value', value);
 
-    // Якщо tracker.js вже завантажений, викликаємо конверсію вручну
-    // Використовуємо більшу затримку (1500ms), щоб автоматичне відстеження встигло завершитися
-    // Автоматичне відстеження викликається через 500ms, тому 1500ms дає достатньо часу
+    // Якщо tracker.js вже завантажений, викликаємо конверсію вручну ТІЛЬКИ якщо автоматичне не спрацювало
+    // Використовуємо більшу затримку (2000ms), щоб автоматичне відстеження точно встигло завершитися
+    // Автоматичне відстеження викликається через 500ms, тому 2000ms дає достатньо часу
     if (window.AffiliateTracker && storedRefCode) {
       setTimeout(() => {
         // Додаткова перевірка - чи не вже відстежено автоматично
@@ -63,19 +63,24 @@ export default function Success() {
           return false;
         };
         
-        // Якщо вже відстежено, не викликаємо ручне відстеження
-        if (!checkIfAlreadyTracked()) {
-          const result = window.AffiliateTracker.trackConversionManually(parseFloat(value) || 0, id);
-          // Handle both sync and async returns
-          if (result && typeof result.then === 'function') {
-            result.catch((err) => {
-              console.warn('[Success Page] Manual conversion tracking error:', err);
-            });
-          }
-        } else {
+        // Перевіряємо глобальний прапорець автоматичного відстеження
+        const automaticCompleted = window.AffiliateTracker._automaticConversionCompleted || false;
+        
+        // Якщо вже відстежено автоматично, не викликаємо ручне відстеження
+        if (automaticCompleted || checkIfAlreadyTracked()) {
           console.log('[Success Page] Conversion already tracked automatically, skipping manual call');
+          return;
         }
-      }, 1500); // Збільшена затримка для гарантії, що автоматичне відстеження завершилося
+        
+        // Викликаємо ручне відстеження тільки якщо автоматичне не спрацювало
+        const result = window.AffiliateTracker.trackConversionManually(parseFloat(value) || 0, id);
+        // Handle both sync and async returns
+        if (result && typeof result.then === 'function') {
+          result.catch((err) => {
+            console.warn('[Success Page] Manual conversion tracking error:', err);
+          });
+        }
+      }, 2000); // Збільшена затримка до 2000ms для гарантії
     }
   }, [searchParams]);
 

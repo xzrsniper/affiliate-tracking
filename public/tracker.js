@@ -446,6 +446,14 @@
   // Global flag to track if automatic conversion tracking is in progress or completed
   let automaticConversionInProgress = false;
   let automaticConversionCompleted = false;
+  
+  // Helper function to update the exposed flag
+  function updateAutomaticConversionFlag() {
+    if (typeof window !== 'undefined' && window.AffiliateTracker) {
+      window.AffiliateTracker._automaticConversionCompleted = automaticConversionCompleted;
+      window.AffiliateTracker._automaticConversionInProgress = automaticConversionInProgress;
+    }
+  }
 
   /**
    * Step 4: Check if current page is a conversion page and track it
@@ -461,6 +469,7 @@
     
     // Mark that automatic conversion tracking is starting
     automaticConversionInProgress = true;
+    updateAutomaticConversionFlag();
 
     // Extract order ID for duplicate prevention
     const rawOrderId = extractOrderId();
@@ -640,6 +649,7 @@
       }
       // Mark that automatic tracking is not in progress (page not detected as conversion)
       automaticConversionInProgress = false;
+      updateAutomaticConversionFlag();
       return;
     }
 
@@ -924,6 +934,12 @@
     // Track if conversion was sent to prevent duplicate GET requests
     let conversionSent = false;
     
+    // Mark as in progress BEFORE sending request
+    markConversionAsSent(orderId);
+    if (rawOrderId && rawOrderId !== orderId) {
+      markConversionAsSent(rawOrderId);
+    }
+    
     // Try POST first, fallback to GET if POST fails
     sendConversionPOST().then(function(response) {
       if (response && (response.ok || response.status === 200)) {
@@ -931,11 +947,7 @@
         conversionSent = true;
         automaticConversionCompleted = true;
         automaticConversionInProgress = false;
-        // Mark all variations as sent to prevent duplicates
-        markConversionAsSent(orderId);
-        if (rawOrderId && rawOrderId !== orderId) {
-          markConversionAsSent(rawOrderId);
-        }
+        updateAutomaticConversionFlag();
         
         // Try to parse response for logging
         response.json().then(function(data) {
@@ -960,13 +972,10 @@
           if (window.TRACKER_CONFIG?.DEBUG) {
             console.warn('[Affiliate Tracker] ⚠️ POST failed (status:', response?.status, '), trying GET fallback...');
           }
-          markConversionAsSent(orderId); // Mark before sending to prevent duplicates
-          if (rawOrderId && rawOrderId !== orderId) {
-            markConversionAsSent(rawOrderId);
-          }
           sendConversionGET();
           automaticConversionCompleted = true;
           automaticConversionInProgress = false;
+          updateAutomaticConversionFlag();
           
           if (window.TRACKER_CONFIG?.DEBUG) {
             console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback):', {
@@ -982,19 +991,17 @@
         if (window.TRACKER_CONFIG?.DEBUG) {
           console.warn('[Affiliate Tracker] ❌ POST error, using GET fallback:', error);
         }
-        markConversionAsSent(orderId); // Mark before sending to prevent duplicates
-        if (rawOrderId && rawOrderId !== orderId) {
-          markConversionAsSent(rawOrderId);
-        }
         sendConversionGET();
         automaticConversionCompleted = true;
         automaticConversionInProgress = false;
+        updateAutomaticConversionFlag();
         
         if (window.TRACKER_CONFIG?.DEBUG) {
           console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback after error)');
         }
       } else {
         automaticConversionInProgress = false;
+        updateAutomaticConversionFlag();
       }
     });
   }
@@ -1178,6 +1185,8 @@
       getVisitorId: getVisitorId,
       getRefCode: getStoredRefCode,
       captureReferral: captureReferral,
+      _automaticConversionCompleted: false,
+      _automaticConversionInProgress: false,
       setConfig: function(config) {
         // Allow runtime configuration updates
         if (config.BASE_URL) {
@@ -1194,5 +1203,7 @@
         }
       }
     };
+    // Initialize flags
+    updateAutomaticConversionFlag();
   }
 })();
