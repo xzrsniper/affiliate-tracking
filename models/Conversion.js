@@ -22,6 +22,11 @@ const Conversion = sequelize.define('Conversion', {
     defaultValue: 0.00,
     comment: 'Purchase/order value in currency'
   },
+  order_id: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    comment: 'Order ID for duplicate prevention'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -38,6 +43,14 @@ const Conversion = sequelize.define('Conversion', {
     },
     {
       fields: ['created_at']
+    },
+    {
+      fields: ['order_id']
+    },
+    {
+      fields: ['link_id', 'order_id'],
+      unique: false,
+      name: 'link_order_unique'
     }
   ]
 });

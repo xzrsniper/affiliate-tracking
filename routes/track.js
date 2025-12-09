@@ -149,34 +149,64 @@ router.post('/conversion', async (req, res, next) => {
 
     // Check for duplicate conversions (if order_id provided)
     let isDuplicate = false;
+    let existingConversion = null;
+    
     if (order_id) {
       // Check if conversion with same order_id already exists for this link
-      // Note: We allow multiple conversions per link, but prevent exact duplicates by order_id
-      const existing = await Conversion.findOne({
+      existingConversion = await Conversion.findOne({
         where: {
           link_id: link.id,
-          // We don't have order_id field, so we'll use created_at as a proxy
-          // For now, we'll allow multiple conversions (real e-commerce sites handle this)
+          order_id: order_id
+        }
+      });
+      
+      if (existingConversion) {
+        isDuplicate = true;
+        console.log('[Conversion Warning] Duplicate conversion detected - order_id already exists', {
+          existing_id: existingConversion.id,
+          order_id: order_id,
+          link_id: link.id
+        });
+        
+        // Return existing conversion instead of creating a new one
+        return res.json({ 
+          success: true, 
+          message: 'Conversion already tracked (duplicate prevented)',
+          conversion_id: existingConversion.id,
+          order_value: existingConversion.order_value,
+          link_id: link.id,
+          unique_code: unique_code,
+          is_duplicate: true
+        });
+      }
+    } else {
+      // If no order_id, check for conversions in last 5 seconds (fallback duplicate prevention)
+      const recentConversion = await Conversion.findOne({
+        where: {
+          link_id: link.id,
+          created_at: {
+            [Op.gte]: new Date(Date.now() - 5000) // Last 5 seconds
+          }
         },
         order: [['created_at', 'DESC']]
       });
       
-      // If conversion was created in last 5 seconds with same link, might be duplicate
-      if (existing && (Date.now() - new Date(existing.created_at).getTime()) < 5000) {
+      if (recentConversion) {
         isDuplicate = true;
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Conversion Warning] Possible duplicate detected', {
-            existing_id: existing.id,
-            time_diff: Date.now() - new Date(existing.created_at).getTime()
-          });
-        }
+        console.log('[Conversion Warning] Possible duplicate detected (no order_id, but recent conversion exists)', {
+          existing_id: recentConversion.id,
+          time_diff: Date.now() - new Date(recentConversion.created_at).getTime()
+        });
+        
+        // Still create conversion but log warning (admin can review)
       }
     }
 
-    // Record conversion (even if duplicate - let admin handle it)
+    // Record conversion
     const conversion = await Conversion.create({
       link_id: link.id,
-      order_value: parsedOrderValue
+      order_value: parsedOrderValue,
+      order_id: order_id || null
     });
 
     // Log for debugging
@@ -259,10 +289,38 @@ router.get('/conversion-pixel', async (req, res, next) => {
       parsedOrderValue = parseFloat(cleaned) || 0;
     }
 
+    // Get order_id for duplicate prevention (accept both order_id and orderId from query)
+    const finalOrderId = order_id || orderId || null;
+
+    // Check for duplicate conversions (if order_id provided)
+    if (finalOrderId) {
+      const existingConversion = await Conversion.findOne({
+        where: {
+          link_id: link.id,
+          order_id: finalOrderId
+        }
+      });
+      
+      if (existingConversion) {
+        console.log('[Conversion Pixel Warning] Duplicate conversion detected - order_id already exists', {
+          existing_id: existingConversion.id,
+          order_id: finalOrderId,
+          link_id: link.id
+        });
+        
+        // Return pixel silently (don't break client site)
+        const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+        res.set('Content-Type', 'image/gif');
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.send(pixel);
+      }
+    }
+
     // Record conversion
     const conversion = await Conversion.create({
       link_id: link.id,
-      order_value: parsedOrderValue
+      order_value: parsedOrderValue,
+      order_id: finalOrderId
     });
 
     // Log for debugging
@@ -271,7 +329,7 @@ router.get('/conversion-pixel', async (req, res, next) => {
         link_id: link.id,
         unique_code: trackingCode,
         order_value: parsedOrderValue,
-        order_id: order_id || orderId || 'none',
+        order_id: finalOrderId || 'none',
         source: 'cookie-based-pixel'
       });
     }
@@ -331,10 +389,35 @@ router.get('/conversion', async (req, res, next) => {
       parsedOrderValue = parseFloat(cleaned) || 0;
     }
 
+    // Check for duplicate conversions (if order_id provided)
+    if (order_id) {
+      const existingConversion = await Conversion.findOne({
+        where: {
+          link_id: link.id,
+          order_id: order_id
+        }
+      });
+      
+      if (existingConversion) {
+        console.log('[Conversion GET Warning] Duplicate conversion detected - order_id already exists', {
+          existing_id: existingConversion.id,
+          order_id: order_id,
+          link_id: link.id
+        });
+        
+        // Return pixel silently (don't break client site)
+        const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+        res.set('Content-Type', 'image/gif');
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.send(pixel);
+      }
+    }
+
     // Record conversion
     const conversion = await Conversion.create({
       link_id: link.id,
-      order_value: parsedOrderValue
+      order_value: parsedOrderValue,
+      order_id: order_id || null
     });
 
     // Log for debugging

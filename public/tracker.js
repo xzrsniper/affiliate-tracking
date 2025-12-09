@@ -877,10 +877,14 @@
       return Promise.resolve({ ok: true, status: 200 });
     };
     
+    // Track if conversion was sent to prevent duplicate GET requests
+    let conversionSent = false;
+    
     // Try POST first, fallback to GET if POST fails
     sendConversionPOST().then(function(response) {
       if (response && (response.ok || response.status === 200)) {
-        // Success with POST
+        // Success with POST - mark as sent and DON'T send GET
+        conversionSent = true;
         markConversionAsSent(orderId);
         
         // Try to parse response for logging
@@ -901,30 +905,34 @@
           }
         });
       } else {
-        // POST failed, try GET fallback
-        if (window.TRACKER_CONFIG?.DEBUG) {
-          console.warn('[Affiliate Tracker] ⚠️ POST failed (status:', response?.status, '), trying GET fallback...');
-        }
-        sendConversionGET();
-        markConversionAsSent(orderId);
-        
-        if (window.TRACKER_CONFIG?.DEBUG) {
-          console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback):', {
-            refCode: refCode,
-            orderValue: orderValue
-          });
+        // POST failed, try GET fallback ONLY if not already sent
+        if (!conversionSent) {
+          if (window.TRACKER_CONFIG?.DEBUG) {
+            console.warn('[Affiliate Tracker] ⚠️ POST failed (status:', response?.status, '), trying GET fallback...');
+          }
+          markConversionAsSent(orderId); // Mark before sending to prevent duplicates
+          sendConversionGET();
+          
+          if (window.TRACKER_CONFIG?.DEBUG) {
+            console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback):', {
+              refCode: refCode,
+              orderValue: orderValue
+            });
+          }
         }
       }
     }).catch(function(error) {
-      // POST completely failed, use GET fallback
-      if (window.TRACKER_CONFIG?.DEBUG) {
-        console.warn('[Affiliate Tracker] ❌ POST error, using GET fallback:', error);
-      }
-      sendConversionGET();
-      markConversionAsSent(orderId);
-      
-      if (window.TRACKER_CONFIG?.DEBUG) {
-        console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback after error)');
+      // POST completely failed, use GET fallback ONLY if not already sent
+      if (!conversionSent) {
+        if (window.TRACKER_CONFIG?.DEBUG) {
+          console.warn('[Affiliate Tracker] ❌ POST error, using GET fallback:', error);
+        }
+        markConversionAsSent(orderId); // Mark before sending to prevent duplicates
+        sendConversionGET();
+        
+        if (window.TRACKER_CONFIG?.DEBUG) {
+          console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback after error)');
+        }
       }
     });
   }

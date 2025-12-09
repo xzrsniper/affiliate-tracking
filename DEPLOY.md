@@ -168,15 +168,15 @@ pm2 startup
 
 ```bash
 # Копіювання конфігурації
-sudo cp nginx.conf.example /etc/nginx/sites-available/your-domain.com
+sudo cp nginx.conf.example /etc/nginx/sites-available/lehko.space
 
 # Редагування конфігурації
-sudo nano /etc/nginx/sites-available/your-domain.com
+sudo nano /etc/nginx/sites-available/lehko.space
 
 # Замініть your-domain.com на ваш домен у всіх місцях
 
 # Створення симлінка
-sudo ln -s /etc/nginx/sites-available/your-domain.com /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/lehko.space /etc/nginx/sites-enabled/
 
 # Видалення дефолтної конфігурації (якщо потрібно)
 sudo rm /etc/nginx/sites-enabled/default
