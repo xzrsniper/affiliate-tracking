@@ -443,6 +443,10 @@
 
   // ========== STEP 4: TRACK CONVERSION ==========
 
+  // Global flag to track if automatic conversion tracking is in progress or completed
+  let automaticConversionInProgress = false;
+  let automaticConversionCompleted = false;
+
   /**
    * Step 4: Check if current page is a conversion page and track it
    * With duplicate prevention
@@ -454,6 +458,9 @@
       // No ref code, can't track conversion
       return;
     }
+    
+    // Mark that automatic conversion tracking is starting
+    automaticConversionInProgress = true;
 
     // Extract order ID for duplicate prevention
     const rawOrderId = extractOrderId();
@@ -631,6 +638,8 @@
       if (window.TRACKER_CONFIG?.DEBUG) {
         console.log('[Affiliate Tracker] Page not detected as conversion page');
       }
+      // Mark that automatic tracking is not in progress (page not detected as conversion)
+      automaticConversionInProgress = false;
       return;
     }
 
@@ -920,6 +929,8 @@
       if (response && (response.ok || response.status === 200)) {
         // Success with POST - mark as sent and DON'T send GET
         conversionSent = true;
+        automaticConversionCompleted = true;
+        automaticConversionInProgress = false;
         // Mark all variations as sent to prevent duplicates
         markConversionAsSent(orderId);
         if (rawOrderId && rawOrderId !== orderId) {
@@ -954,6 +965,8 @@
             markConversionAsSent(rawOrderId);
           }
           sendConversionGET();
+          automaticConversionCompleted = true;
+          automaticConversionInProgress = false;
           
           if (window.TRACKER_CONFIG?.DEBUG) {
             console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback):', {
@@ -974,10 +987,14 @@
           markConversionAsSent(rawOrderId);
         }
         sendConversionGET();
+        automaticConversionCompleted = true;
+        automaticConversionInProgress = false;
         
         if (window.TRACKER_CONFIG?.DEBUG) {
           console.log('[Affiliate Tracker] ✅ Conversion tracked (GET fallback after error)');
         }
+      } else {
+        automaticConversionInProgress = false;
       }
     });
   }
@@ -1020,6 +1037,47 @@
    * Can be called from client site: window.AffiliateTracker.trackConversionManually(orderValue, orderId)
    */
   function trackConversionManually(customOrderValue, customOrderId) {
+    const refCode = getStoredRefCode();
+    
+    if (!refCode) {
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.warn('[Affiliate Tracker] Cannot track conversion manually: no referral code found');
+      }
+      return false;
+    }
+    
+    // Check if automatic conversion tracking is completed (successfully tracked)
+    // Allow manual tracking if automatic didn't complete (e.g., page not detected as conversion page)
+    if (automaticConversionCompleted) {
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.log('[Affiliate Tracker] Automatic conversion tracking already completed, skipping manual call');
+      }
+      return false;
+    }
+    
+    // If automatic tracking is in progress, wait a bit and check again
+    if (automaticConversionInProgress) {
+      // Wait 200ms and check again
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          if (automaticConversionCompleted) {
+            if (window.TRACKER_CONFIG?.DEBUG) {
+              console.log('[Affiliate Tracker] Automatic conversion tracking completed during wait, skipping manual call');
+            }
+            resolve(false);
+          } else {
+            // Automatic didn't complete, proceed with manual tracking
+            resolve(trackConversionManuallyInternal(customOrderValue, customOrderId));
+          }
+        }, 200);
+      });
+    }
+    
+    // Automatic not in progress, proceed with manual tracking
+    return trackConversionManuallyInternal(customOrderValue, customOrderId);
+  }
+  
+  function trackConversionManuallyInternal(customOrderValue, customOrderId) {
     const refCode = getStoredRefCode();
     
     if (!refCode) {

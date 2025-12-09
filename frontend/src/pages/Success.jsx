@@ -33,10 +33,49 @@ export default function Success() {
     document.body.setAttribute('data-order-value', value);
 
     // Якщо tracker.js вже завантажений, викликаємо конверсію вручну
+    // Використовуємо більшу затримку (1500ms), щоб автоматичне відстеження встигло завершитися
+    // Автоматичне відстеження викликається через 500ms, тому 1500ms дає достатньо часу
     if (window.AffiliateTracker && storedRefCode) {
       setTimeout(() => {
-        window.AffiliateTracker.trackConversionManually(parseFloat(value) || 0, id);
-      }, 500);
+        // Додаткова перевірка - чи не вже відстежено автоматично
+        const normalizedId = id.replace(/^(ORDER[-_]?|INV[-_]?|INVOICE[-_]?|TRANS[-_]?|TXN[-_]?)/i, '').match(/\d+/)?.[0] || id;
+        const rawId = id;
+        
+        // Перевіряємо всі варіанти order_id
+        const checkIfAlreadyTracked = () => {
+          try {
+            const currentUrl = window.location.href.split('?')[0];
+            const urlHash = currentUrl.length.toString(36).substring(0, 8);
+            const keysToCheck = [
+              'conv_' + urlHash + '_' + normalizedId,
+              'conv_' + urlHash + '_' + rawId,
+              'conv_' + urlHash + '_generic'
+            ];
+            
+            for (const key of keysToCheck) {
+              if (sessionStorage.getItem(key) || document.cookie.includes(key + '=')) {
+                return true;
+              }
+            }
+          } catch (e) {
+            // Ignore errors
+          }
+          return false;
+        };
+        
+        // Якщо вже відстежено, не викликаємо ручне відстеження
+        if (!checkIfAlreadyTracked()) {
+          const result = window.AffiliateTracker.trackConversionManually(parseFloat(value) || 0, id);
+          // Handle both sync and async returns
+          if (result && typeof result.then === 'function') {
+            result.catch((err) => {
+              console.warn('[Success Page] Manual conversion tracking error:', err);
+            });
+          }
+        } else {
+          console.log('[Success Page] Conversion already tracked automatically, skipping manual call');
+        }
+      }, 1500); // Збільшена затримка для гарантії, що автоматичне відстеження завершилося
     }
   }, [searchParams]);
 
