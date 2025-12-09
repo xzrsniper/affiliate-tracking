@@ -152,32 +152,38 @@ router.post('/conversion', async (req, res, next) => {
     let existingConversion = null;
     
     if (order_id) {
-      // Check if conversion with same order_id already exists for this link
-      existingConversion = await Conversion.findOne({
-        where: {
-          link_id: link.id,
-          order_id: order_id
-        }
-      });
-      
-      if (existingConversion) {
-        isDuplicate = true;
-        console.log('[Conversion Warning] Duplicate conversion detected - order_id already exists', {
-          existing_id: existingConversion.id,
-          order_id: order_id,
-          link_id: link.id
+      try {
+        // Check if conversion with same order_id already exists for this link
+        existingConversion = await Conversion.findOne({
+          where: {
+            link_id: link.id,
+            order_id: order_id
+          }
         });
         
-        // Return existing conversion instead of creating a new one
-        return res.json({ 
-          success: true, 
-          message: 'Conversion already tracked (duplicate prevented)',
-          conversion_id: existingConversion.id,
-          order_value: existingConversion.order_value,
-          link_id: link.id,
-          unique_code: unique_code,
-          is_duplicate: true
-        });
+        if (existingConversion) {
+          isDuplicate = true;
+          console.log('[Conversion Warning] Duplicate conversion detected - order_id already exists', {
+            existing_id: existingConversion.id,
+            order_id: order_id,
+            link_id: link.id
+          });
+          
+          // Return existing conversion instead of creating a new one
+          return res.json({ 
+            success: true, 
+            message: 'Conversion already tracked (duplicate prevented)',
+            conversion_id: existingConversion.id,
+            order_value: existingConversion.order_value,
+            link_id: link.id,
+            unique_code: unique_code,
+            is_duplicate: true
+          });
+        }
+      } catch (checkError) {
+        // If order_id field doesn't exist or query fails, log but continue
+        console.warn('[Conversion Warning] Could not check for duplicates by order_id:', checkError.message);
+        // Continue without duplicate check
       }
     } else {
       // If no order_id, check for conversions in last 5 seconds (fallback duplicate prevention)
@@ -209,11 +215,24 @@ router.post('/conversion', async (req, res, next) => {
       order_value: parsedOrderValue
     };
     
+    // Try to add order_id if provided, but don't fail if field doesn't exist
     if (order_id) {
       conversionData.order_id = order_id;
     }
     
-    const conversion = await Conversion.create(conversionData);
+    let conversion;
+    try {
+      conversion = await Conversion.create(conversionData);
+    } catch (createError) {
+      // If order_id field doesn't exist, try without it
+      if (createError.message && createError.message.includes('order_id')) {
+        console.warn('[Conversion Warning] order_id field not available, creating without it:', createError.message);
+        delete conversionData.order_id;
+        conversion = await Conversion.create(conversionData);
+      } else {
+        throw createError;
+      }
+    }
 
     // Log for debugging
     console.log('[✅ Conversion Tracked Successfully]', {
@@ -300,25 +319,30 @@ router.get('/conversion-pixel', async (req, res, next) => {
 
     // Check for duplicate conversions (if order_id provided)
     if (finalOrderId) {
-      const existingConversion = await Conversion.findOne({
-        where: {
-          link_id: link.id,
-          order_id: finalOrderId
-        }
-      });
-      
-      if (existingConversion) {
-        console.log('[Conversion Pixel Warning] Duplicate conversion detected - order_id already exists', {
-          existing_id: existingConversion.id,
-          order_id: finalOrderId,
-          link_id: link.id
+      try {
+        const existingConversion = await Conversion.findOne({
+          where: {
+            link_id: link.id,
+            order_id: finalOrderId
+          }
         });
         
-        // Return pixel silently (don't break client site)
-        const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
-        res.set('Content-Type', 'image/gif');
-        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-        return res.send(pixel);
+        if (existingConversion) {
+          console.log('[Conversion Pixel Warning] Duplicate conversion detected - order_id already exists', {
+            existing_id: existingConversion.id,
+            order_id: finalOrderId,
+            link_id: link.id
+          });
+          
+          // Return pixel silently (don't break client site)
+          const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+          res.set('Content-Type', 'image/gif');
+          res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+          return res.send(pixel);
+        }
+      } catch (checkError) {
+        // If order_id field doesn't exist, skip duplicate check
+        console.warn('[Conversion Pixel Warning] Could not check for duplicates by order_id:', checkError.message);
       }
     }
 
@@ -333,7 +357,19 @@ router.get('/conversion-pixel', async (req, res, next) => {
       conversionData.order_id = finalOrderId;
     }
     
-    const conversion = await Conversion.create(conversionData);
+    let conversion;
+    try {
+      conversion = await Conversion.create(conversionData);
+    } catch (createError) {
+      // If order_id field doesn't exist, try without it
+      if (createError.message && createError.message.includes('order_id')) {
+        console.warn('[Conversion Pixel Warning] order_id field not available, creating without it:', createError.message);
+        delete conversionData.order_id;
+        conversion = await Conversion.create(conversionData);
+      } else {
+        throw createError;
+      }
+    }
 
     // Log for debugging
     if (process.env.NODE_ENV === 'development') {
@@ -403,25 +439,30 @@ router.get('/conversion', async (req, res, next) => {
 
     // Check for duplicate conversions (if order_id provided)
     if (order_id) {
-      const existingConversion = await Conversion.findOne({
-        where: {
-          link_id: link.id,
-          order_id: order_id
-        }
-      });
-      
-      if (existingConversion) {
-        console.log('[Conversion GET Warning] Duplicate conversion detected - order_id already exists', {
-          existing_id: existingConversion.id,
-          order_id: order_id,
-          link_id: link.id
+      try {
+        const existingConversion = await Conversion.findOne({
+          where: {
+            link_id: link.id,
+            order_id: order_id
+          }
         });
         
-        // Return pixel silently (don't break client site)
-        const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
-        res.set('Content-Type', 'image/gif');
-        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-        return res.send(pixel);
+        if (existingConversion) {
+          console.log('[Conversion GET Warning] Duplicate conversion detected - order_id already exists', {
+            existing_id: existingConversion.id,
+            order_id: order_id,
+            link_id: link.id
+          });
+          
+          // Return pixel silently (don't break client site)
+          const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+          res.set('Content-Type', 'image/gif');
+          res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+          return res.send(pixel);
+        }
+      } catch (checkError) {
+        // If order_id field doesn't exist, skip duplicate check
+        console.warn('[Conversion GET Warning] Could not check for duplicates by order_id:', checkError.message);
       }
     }
 
@@ -436,7 +477,19 @@ router.get('/conversion', async (req, res, next) => {
       conversionData.order_id = order_id;
     }
     
-    const conversion = await Conversion.create(conversionData);
+    let conversion;
+    try {
+      conversion = await Conversion.create(conversionData);
+    } catch (createError) {
+      // If order_id field doesn't exist, try without it
+      if (createError.message && createError.message.includes('order_id')) {
+        console.warn('[Conversion GET Warning] order_id field not available, creating without it:', createError.message);
+        delete conversionData.order_id;
+        conversion = await Conversion.create(conversionData);
+      } else {
+        throw createError;
+      }
+    }
 
     // Log for debugging
     if (process.env.NODE_ENV === 'development') {
