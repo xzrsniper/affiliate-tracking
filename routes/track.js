@@ -203,11 +203,17 @@ router.post('/conversion', async (req, res, next) => {
     }
 
     // Record conversion
-    const conversion = await Conversion.create({
+    // Only include order_id if it's provided (don't send null explicitly)
+    const conversionData = {
       link_id: link.id,
-      order_value: parsedOrderValue,
-      order_id: order_id || null
-    });
+      order_value: parsedOrderValue
+    };
+    
+    if (order_id) {
+      conversionData.order_id = order_id;
+    }
+    
+    const conversion = await Conversion.create(conversionData);
 
     // Log for debugging
     console.log('[✅ Conversion Tracked Successfully]', {
@@ -317,11 +323,17 @@ router.get('/conversion-pixel', async (req, res, next) => {
     }
 
     // Record conversion
-    const conversion = await Conversion.create({
+    // Only include order_id if it's provided (don't send null explicitly)
+    const conversionData = {
       link_id: link.id,
-      order_value: parsedOrderValue,
-      order_id: finalOrderId
-    });
+      order_value: parsedOrderValue
+    };
+    
+    if (finalOrderId) {
+      conversionData.order_id = finalOrderId;
+    }
+    
+    const conversion = await Conversion.create(conversionData);
 
     // Log for debugging
     if (process.env.NODE_ENV === 'development') {
@@ -414,11 +426,17 @@ router.get('/conversion', async (req, res, next) => {
     }
 
     // Record conversion
-    const conversion = await Conversion.create({
+    // Only include order_id if it's provided (don't send null explicitly)
+    const conversionData = {
       link_id: link.id,
-      order_value: parsedOrderValue,
-      order_id: order_id || null
-    });
+      order_value: parsedOrderValue
+    };
+    
+    if (order_id) {
+      conversionData.order_id = order_id;
+    }
+    
+    const conversion = await Conversion.create(conversionData);
 
     // Log for debugging
     if (process.env.NODE_ENV === 'development') {

@@ -46,11 +46,6 @@ const Conversion = sequelize.define('Conversion', {
     },
     {
       fields: ['order_id']
-    },
-    {
-      fields: ['link_id', 'order_id'],
-      unique: false,
-      name: 'link_order_unique'
     }
   ]
 });
