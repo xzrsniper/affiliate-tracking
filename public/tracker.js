@@ -254,6 +254,25 @@
   }
 
   /**
+   * Normalize order ID - remove prefixes like "ORDER-", "INV-", etc.
+   * This ensures consistent order_id format for duplicate prevention
+   */
+  function normalizeOrderId(orderId) {
+    if (!orderId) return null;
+    
+    // Convert to string
+    const str = String(orderId).trim();
+    
+    // Remove common prefixes
+    const normalized = str.replace(/^(ORDER[-_]?|INV[-_]?|INVOICE[-_]?|TRANS[-_]?|TXN[-_]?)/i, '');
+    
+    // Extract only digits (in case there are other characters)
+    const digitsOnly = normalized.match(/\d+/);
+    
+    return digitsOnly ? digitsOnly[0] : normalized;
+  }
+
+  /**
    * Extract order ID from URL or page (for duplicate prevention)
    * UNIVERSAL method - works on any e-commerce platform
    */
@@ -437,11 +456,27 @@
     }
 
     // Extract order ID for duplicate prevention
-    const orderId = extractOrderId();
+    const rawOrderId = extractOrderId();
+    const orderId = normalizeOrderId(rawOrderId);
 
     // STRICT duplicate prevention: Check if conversion was already sent for this URL + orderId
     // This prevents duplicates on page refresh
-    if (hasConversionBeenSent(orderId)) {
+    // Check with normalized orderId and also check all possible variations
+    const normalizedOrderId = orderId;
+    const variationsToCheck = [normalizedOrderId, rawOrderId];
+    if (rawOrderId && rawOrderId !== normalizedOrderId) {
+      variationsToCheck.push(rawOrderId);
+    }
+    
+    let alreadySent = false;
+    for (let i = 0; i < variationsToCheck.length; i++) {
+      if (hasConversionBeenSent(variationsToCheck[i])) {
+        alreadySent = true;
+        break;
+      }
+    }
+    
+    if (alreadySent) {
       if (window.TRACKER_CONFIG?.DEBUG) {
         console.log('[Affiliate Tracker] Conversion already tracked for this page/order:', orderId || 'generic');
       }
@@ -832,7 +867,7 @@
         visitorId: visitorId  // Alternative field name
       };
       
-      // Add order_id if available
+      // Add normalized order_id if available
       if (orderId) {
         requestBody.order_id = orderId;
         requestBody.orderId = orderId;
@@ -885,7 +920,11 @@
       if (response && (response.ok || response.status === 200)) {
         // Success with POST - mark as sent and DON'T send GET
         conversionSent = true;
+        // Mark all variations as sent to prevent duplicates
         markConversionAsSent(orderId);
+        if (rawOrderId && rawOrderId !== orderId) {
+          markConversionAsSent(rawOrderId);
+        }
         
         // Try to parse response for logging
         response.json().then(function(data) {
@@ -911,6 +950,9 @@
             console.warn('[Affiliate Tracker] ⚠️ POST failed (status:', response?.status, '), trying GET fallback...');
           }
           markConversionAsSent(orderId); // Mark before sending to prevent duplicates
+          if (rawOrderId && rawOrderId !== orderId) {
+            markConversionAsSent(rawOrderId);
+          }
           sendConversionGET();
           
           if (window.TRACKER_CONFIG?.DEBUG) {
@@ -928,6 +970,9 @@
           console.warn('[Affiliate Tracker] ❌ POST error, using GET fallback:', error);
         }
         markConversionAsSent(orderId); // Mark before sending to prevent duplicates
+        if (rawOrderId && rawOrderId !== orderId) {
+          markConversionAsSent(rawOrderId);
+        }
         sendConversionGET();
         
         if (window.TRACKER_CONFIG?.DEBUG) {
@@ -984,11 +1029,26 @@
       return false;
     }
     
-    const orderId = customOrderId || extractOrderId();
+    // Normalize order ID to ensure consistency
+    const rawOrderId = customOrderId || extractOrderId();
+    const orderId = normalizeOrderId(rawOrderId);
     const orderValue = customOrderValue !== undefined ? parseFloat(customOrderValue) : 0;
     
-    // Check if already sent
-    if (hasConversionBeenSent(orderId)) {
+    // Check if already sent - check all variations
+    const variationsToCheck = [orderId];
+    if (rawOrderId && rawOrderId !== orderId) {
+      variationsToCheck.push(rawOrderId);
+    }
+    
+    let alreadySent = false;
+    for (let i = 0; i < variationsToCheck.length; i++) {
+      if (hasConversionBeenSent(variationsToCheck[i])) {
+        alreadySent = true;
+        break;
+      }
+    }
+    
+    if (alreadySent) {
       if (window.TRACKER_CONFIG?.DEBUG) {
         console.log('[Affiliate Tracker] Conversion already tracked, skipping manual call');
       }
@@ -1014,12 +1074,17 @@
       })
     }).then(function(response) {
       if (response && (response.ok || response.status === 200)) {
+        // Mark all variations as sent
         markConversionAsSent(orderId);
+        if (rawOrderId && rawOrderId !== orderId) {
+          markConversionAsSent(rawOrderId);
+        }
         if (window.TRACKER_CONFIG?.DEBUG) {
           console.log('[Affiliate Tracker] ✅ Manual conversion tracked:', {
             refCode: refCode,
             orderValue: orderValue,
-            orderId: orderId || 'none'
+            orderId: orderId || 'none',
+            rawOrderId: rawOrderId || 'none'
           });
         }
       }
@@ -1036,7 +1101,11 @@
       img.src = BASE_URL.replace('/conversion', '') + '/conversion?' + params.toString();
       img.style.display = 'none';
       document.body.appendChild(img);
+      // Mark all variations as sent
       markConversionAsSent(orderId);
+      if (rawOrderId && rawOrderId !== orderId) {
+        markConversionAsSent(rawOrderId);
+      }
     });
     
     return true;

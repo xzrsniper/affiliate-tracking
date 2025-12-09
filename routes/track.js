@@ -6,6 +6,18 @@ import { Op } from 'sequelize';
 const router = express.Router();
 
 /**
+ * Normalize order ID - remove prefixes like "ORDER-", "INV-", etc.
+ * This ensures consistent order_id format for duplicate prevention
+ */
+const normalizeOrderId = (id) => {
+  if (!id) return null;
+  const str = String(id).trim();
+  const normalized = str.replace(/^(ORDER[-_]?|INV[-_]?|INVOICE[-_]?|TRANS[-_]?|TXN[-_]?)/i, '');
+  const digitsOnly = normalized.match(/\d+/);
+  return digitsOnly ? digitsOnly[0] : normalized;
+};
+
+/**
  * GET /api/track/view/:code
  * Track a page view/click
  * This is called by the JS pixel on client domains
@@ -147,27 +159,34 @@ router.post('/conversion', async (req, res, next) => {
       }
     }
 
+    const normalizedOrderId = normalizeOrderId(order_id);
+    
     // Check for duplicate conversions (if order_id provided)
     let isDuplicate = false;
     let existingConversion = null;
     
-    if (order_id) {
+    if (normalizedOrderId) {
       try {
-        // Check if conversion with same order_id already exists for this link
+        // Check if conversion with same normalized order_id already exists for this link
+        // Check both normalized and original format
         existingConversion = await Conversion.findOne({
           where: {
             link_id: link.id,
-            order_id: order_id
+            [Op.or]: [
+              { order_id: normalizedOrderId },
+              ...(order_id && order_id !== normalizedOrderId ? [{ order_id: order_id }] : [])
+            ]
           }
         });
         
         if (existingConversion) {
           isDuplicate = true;
-          console.log('[Conversion Warning] Duplicate conversion detected - order_id already exists', {
-            existing_id: existingConversion.id,
-            order_id: order_id,
-            link_id: link.id
-          });
+        console.log('[Conversion Warning] Duplicate conversion detected - order_id already exists', {
+          existing_id: existingConversion.id,
+          order_id: normalizedOrderId,
+          original_order_id: order_id,
+          link_id: link.id
+        });
           
           // Return existing conversion instead of creating a new one
           return res.json({ 
@@ -240,7 +259,7 @@ router.post('/conversion', async (req, res, next) => {
       link_id: link.id,
       unique_code: unique_code,
       order_value: parsedOrderValue,
-      order_id: order_id || 'none',
+      order_id: normalizedOrderId || order_id || 'none',
       visitor_id: visitorFingerprint,
       is_duplicate: isDuplicate,
       timestamp: new Date().toISOString()
@@ -316,21 +335,26 @@ router.get('/conversion-pixel', async (req, res, next) => {
 
     // Get order_id for duplicate prevention (accept both order_id and orderId from query)
     const finalOrderId = order_id || orderId || null;
+    const normalizedFinalOrderId = normalizeOrderId(finalOrderId);
 
     // Check for duplicate conversions (if order_id provided)
-    if (finalOrderId) {
+    if (normalizedFinalOrderId) {
       try {
         const existingConversion = await Conversion.findOne({
           where: {
             link_id: link.id,
-            order_id: finalOrderId
+            [Op.or]: [
+              { order_id: normalizedFinalOrderId },
+              ...(finalOrderId && finalOrderId !== normalizedFinalOrderId ? [{ order_id: finalOrderId }] : [])
+            ]
           }
         });
         
         if (existingConversion) {
           console.log('[Conversion Pixel Warning] Duplicate conversion detected - order_id already exists', {
             existing_id: existingConversion.id,
-            order_id: finalOrderId,
+            order_id: normalizedFinalOrderId,
+            original_order_id: finalOrderId,
             link_id: link.id
           });
           
@@ -353,8 +377,9 @@ router.get('/conversion-pixel', async (req, res, next) => {
       order_value: parsedOrderValue
     };
     
-    if (finalOrderId) {
-      conversionData.order_id = finalOrderId;
+    // Use normalized order_id for consistency
+    if (normalizedFinalOrderId) {
+      conversionData.order_id = normalizedFinalOrderId;
     }
     
     let conversion;
@@ -377,7 +402,7 @@ router.get('/conversion-pixel', async (req, res, next) => {
         link_id: link.id,
         unique_code: trackingCode,
         order_value: parsedOrderValue,
-        order_id: finalOrderId || 'none',
+        order_id: normalizedFinalOrderId || finalOrderId || 'none',
         source: 'cookie-based-pixel'
       });
     }
@@ -437,20 +462,27 @@ router.get('/conversion', async (req, res, next) => {
       parsedOrderValue = parseFloat(cleaned) || 0;
     }
 
+    // Normalize order_id
+    const normalizedOrderIdGet = normalizeOrderId(order_id);
+    
     // Check for duplicate conversions (if order_id provided)
-    if (order_id) {
+    if (normalizedOrderIdGet) {
       try {
         const existingConversion = await Conversion.findOne({
           where: {
             link_id: link.id,
-            order_id: order_id
+            [Op.or]: [
+              { order_id: normalizedOrderIdGet },
+              ...(order_id && order_id !== normalizedOrderIdGet ? [{ order_id: order_id }] : [])
+            ]
           }
         });
         
         if (existingConversion) {
           console.log('[Conversion GET Warning] Duplicate conversion detected - order_id already exists', {
             existing_id: existingConversion.id,
-            order_id: order_id,
+            order_id: normalizedOrderIdGet,
+            original_order_id: order_id,
             link_id: link.id
           });
           
@@ -497,7 +529,7 @@ router.get('/conversion', async (req, res, next) => {
         link_id: link.id,
         unique_code: code,
         order_value: parsedOrderValue,
-        order_id: order_id || 'none'
+        order_id: normalizedOrderIdGet || order_id || 'none'
       });
     }
 
