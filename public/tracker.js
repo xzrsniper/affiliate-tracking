@@ -446,6 +446,7 @@
   // Global flag to track if automatic conversion tracking is in progress or completed
   let automaticConversionInProgress = false;
   let automaticConversionCompleted = false;
+  let trackConversionCalled = false; // Prevent double call
   
   // Helper function to update the exposed flag
   function updateAutomaticConversionFlag() {
@@ -460,10 +461,21 @@
    * With duplicate prevention
    */
   function trackConversion() {
+    // Prevent double call
+    if (trackConversionCalled) {
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.log('[Affiliate Tracker] trackConversion already called, skipping');
+      }
+      return;
+    }
+    
+    trackConversionCalled = true;
+    
     const refCode = getStoredRefCode();
     
     if (!refCode) {
       // No ref code, can't track conversion
+      trackConversionCalled = false; // Reset if no ref code
       return;
     }
     
@@ -949,8 +961,11 @@
         automaticConversionInProgress = false;
         updateAutomaticConversionFlag();
         
-        // Try to parse response for logging
-        response.json().then(function(data) {
+        // Clone response before parsing (response can only be read once)
+        const responseClone = response.clone();
+        
+        // Try to parse response for logging (don't block on this)
+        responseClone.json().then(function(data) {
           if (window.TRACKER_CONFIG?.DEBUG) {
             console.log('[Affiliate Tracker] ✅ Conversion tracked (POST):', {
               refCode: refCode,
@@ -1008,10 +1023,23 @@
 
   // ========== INITIALIZATION ==========
 
+  // Flag to prevent double initialization
+  let trackerInitialized = false;
+
   /**
    * Initialize tracker when page loads
    */
   function init() {
+    // Prevent double initialization
+    if (trackerInitialized) {
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.log('[Affiliate Tracker] Tracker already initialized, skipping');
+      }
+      return;
+    }
+    
+    trackerInitialized = true;
+    
     // Step 1: Capture referral code from URL
     captureReferral();
 
