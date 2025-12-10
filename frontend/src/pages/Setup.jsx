@@ -67,9 +67,22 @@ export default function Setup() {
     }
   };
 
+  const isLocalhost = (domain) => {
+    if (!domain) return false;
+    return /^(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(domain.replace(/^https?:\/\//i, ''));
+  };
+
   const handleCheckWebsite = async (website) => {
     try {
       setCheckingId(website.id);
+      
+      // Для localhost не можна перевірити автоматично
+      if (isLocalhost(website.domain)) {
+        alert('Для localhost сайтів автоматична перевірка недоступна. Використайте кнопку "Встановити як підключено" для встановлення статусу вручну.');
+        setCheckingId(null);
+        return;
+      }
+      
       const res = await api.get(`/api/websites/${website.id}/check`);
       // Update local state with new status
       setWebsites((prev) =>
@@ -79,8 +92,20 @@ export default function Setup() {
       );
     } catch (err) {
       console.error('Failed to check website:', err);
+      alert('Не вдалося перевірити сайт. Переконайтеся, що сайт доступний з інтернету.');
     } finally {
       setCheckingId(null);
+    }
+  };
+
+  const handleSetConnected = async (website) => {
+    try {
+      await api.put(`/api/websites/${website.id}`, {
+        is_connected: true
+      });
+      fetchWebsites();
+    } catch (err) {
+      console.error('Failed to update website:', err);
     }
   };
 
@@ -289,14 +314,29 @@ export default function Setup() {
                           </span>
                         </td>
                         <td className="py-4 px-4">
-                          <button
-                            onClick={() => handleCheckWebsite(website)}
-                            disabled={checkingId === website.id}
-                            className="inline-flex items-center space-x-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-all disabled:opacity-50"
-                          >
-                            <RefreshCw className={`w-4 h-4 ${checkingId === website.id ? 'animate-spin' : ''}`} />
-                            <span>{checkingId === website.id ? 'Перевіряю...' : 'Перевірити'}</span>
-                          </button>
+                          {isLocalhost(website.domain) ? (
+                            <div className="flex flex-col space-y-2">
+                              <button
+                                onClick={() => handleSetConnected(website)}
+                                disabled={website.is_connected}
+                                className="inline-flex items-center space-x-2 px-3 py-2 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                title="Для localhost сайтів встановіть статус вручну"
+                              >
+                                <Check className="w-4 h-4" />
+                                <span>{website.is_connected ? 'Підключено' : 'Встановити як підключено'}</span>
+                              </button>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">Localhost - встановіть вручну</p>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleCheckWebsite(website)}
+                              disabled={checkingId === website.id}
+                              className="inline-flex items-center space-x-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-all disabled:opacity-50"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${checkingId === website.id ? 'animate-spin' : ''}`} />
+                              <span>{checkingId === website.id ? 'Перевіряю...' : 'Перевірити'}</span>
+                            </button>
+                          )}
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center justify-end space-x-2">
