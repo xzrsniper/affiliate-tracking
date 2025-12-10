@@ -28,6 +28,84 @@ router.get('/', async (req, res, next) => {
 });
 
 /**
+ * Helper function to check if tracker is installed on a domain
+ */
+const checkTrackerInstallation = async (domain) => {
+  if (!domain) return false;
+
+  const buildUrls = (domain) => {
+    const clean = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    return [`https://${clean}`, `http://${clean}`];
+  };
+
+  const urls = buildUrls(domain);
+  let isConnected = false;
+
+  for (const url of urls) {
+    let timeoutId = null;
+    try {
+      // Використовуємо AbortController для timeout
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds
+      
+      const response = await fetch(url, { 
+        method: 'GET', 
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if (timeoutId) clearTimeout(timeoutId);
+      
+      if (!response.ok) continue;
+      
+      const html = await response.text();
+      
+      // Розширений пошук трекера - шукаємо різні варіанти
+      const trackerIndicators = [
+        '/tracker.js',
+        'tracker.js',
+        'TRACKER_CONFIG',
+        'AffiliateTracker',
+        'affiliate-tracker',
+        'affiliate_tracker',
+        'window.TRACKER_CONFIG',
+        'BASE_URL',
+        'CONVERSION_KEYWORDS',
+        'api/track'
+      ];
+      
+      // Перевіряємо наявність будь-якого з індикаторів
+      const foundTracker = trackerIndicators.some(indicator => {
+        if (indicator.includes('.')) {
+          // Для шляхів шукаємо в src або href
+          return html.includes(`src="${indicator}`) || 
+                 html.includes(`src='${indicator}`) ||
+                 html.includes(`href="${indicator}`) ||
+                 html.includes(`href='${indicator}`) ||
+                 html.includes(indicator);
+        }
+        // Для текстових індикаторів
+        return html.includes(indicator);
+      });
+      
+      if (foundTracker) {
+        isConnected = true;
+        break;
+      }
+    } catch (err) {
+      // Ignore fetch errors (timeout, network errors, etc.) and try next protocol
+      if (timeoutId) clearTimeout(timeoutId);
+      continue;
+    }
+  }
+
+  return isConnected;
+};
+
+/**
  * POST /api/websites
  * Create a new website
  */
@@ -39,11 +117,17 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Website name is required' });
     }
 
+    // Автоматично перевіряємо підключення при створенні, якщо вказано domain
+    let is_connected = false;
+    if (domain) {
+      is_connected = await checkTrackerInstallation(domain);
+    }
+
     const website = await Website.create({
       user_id: req.user.id,
       name,
       domain: domain || null,
-      is_connected: false
+      is_connected
     });
 
     res.status(201).json({
@@ -80,8 +164,13 @@ router.put('/:id', async (req, res, next) => {
     }
     if (domain !== undefined) {
       website.domain = domain;
+      // Автоматично перевіряємо підключення при зміні домену
+      if (domain) {
+        website.is_connected = await checkTrackerInstallation(domain);
+      }
     }
-    if (is_connected !== undefined) {
+    if (is_connected !== undefined && domain === undefined) {
+      // Дозволяємо ручне встановлення статусу тільки якщо domain не змінюється
       website.is_connected = is_connected;
     }
 
@@ -118,39 +207,15 @@ router.get('/:id/check', async (req, res, next) => {
       return res.status(400).json({ error: 'Domain is required to check connection' });
     }
 
-    const buildUrls = (domain) => {
-      const clean = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-      return [`https://${clean}`, `http://${clean}`];
-    };
-
-    const urls = buildUrls(website.domain);
-    let isConnected = false;
-    let matchedUrl = null;
-
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, { method: 'GET', redirect: 'follow' });
-        if (!response.ok) continue;
-        const html = await response.text();
-        // Heuristic: check for tracker script or config snippet
-        if (html.includes('/tracker.js') || html.includes('TRACKER_CONFIG') || html.includes('AffiliateTracker')) {
-          isConnected = true;
-          matchedUrl = url;
-          break;
-        }
-      } catch (err) {
-        // Ignore fetch errors and try next protocol
-        continue;
-      }
-    }
-
+    const isConnected = await checkTrackerInstallation(website.domain);
+    
     website.is_connected = isConnected;
     await website.save();
 
     res.json({
       success: true,
       is_connected: isConnected,
-      checked_url: matchedUrl || null
+      domain: website.domain
     });
   } catch (error) {
     next(error);
