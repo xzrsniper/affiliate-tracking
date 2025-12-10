@@ -40,7 +40,7 @@ export default function Landing() {
                 Блог
               </a>
               <a
-                href="https://t.me/your_username"
+                href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
@@ -243,7 +243,7 @@ export default function Landing() {
                   </a>
                 </li>
                 <li>
-                  <a href="https://t.me/your_username" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Контакти
                   </a>
                 </li>
@@ -263,7 +263,7 @@ export default function Landing() {
               <h3 className="text-white font-semibold mb-4">Підтримка</h3>
               <ul className="space-y-2">
                 <li>
-                  <a href="https://t.me/your_username" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     Telegram підтримка
                   </a>
                 </li>
