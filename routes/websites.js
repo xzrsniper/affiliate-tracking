@@ -33,6 +33,14 @@ router.get('/', async (req, res, next) => {
 const checkTrackerInstallation = async (domain) => {
   if (!domain) return false;
 
+  // Перевірка на localhost/127.0.0.1 - не можна перевірити з сервера
+  const isLocalhost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(domain.replace(/^https?:\/\//i, ''));
+  if (isLocalhost) {
+    console.log(`[Website Check] Localhost detected: ${domain} - cannot check from server`);
+    // Для localhost завжди повертаємо false, бо сервер не може доступитися
+    return false;
+  }
+
   const buildUrls = (domain) => {
     const clean = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
     return [`https://${clean}`, `http://${clean}`];
@@ -40,10 +48,13 @@ const checkTrackerInstallation = async (domain) => {
 
   const urls = buildUrls(domain);
   let isConnected = false;
+  let lastError = null;
 
   for (const url of urls) {
     let timeoutId = null;
     try {
+      console.log(`[Website Check] Trying to fetch: ${url}`);
+      
       // Використовуємо AbortController для timeout
       const controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds
@@ -53,53 +64,85 @@ const checkTrackerInstallation = async (domain) => {
         redirect: 'follow',
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         }
       });
       
       if (timeoutId) clearTimeout(timeoutId);
       
-      if (!response.ok) continue;
+      if (!response.ok) {
+        console.log(`[Website Check] Response not OK: ${response.status} for ${url}`);
+        continue;
+      }
       
       const html = await response.text();
+      console.log(`[Website Check] Fetched ${html.length} bytes from ${url}`);
       
       // Розширений пошук трекера - шукаємо різні варіанти
       const trackerIndicators = [
-        '/tracker.js',
+        // Прямі посилання на tracker.js
         'tracker.js',
+        '/tracker.js',
+        'src="tracker.js',
+        "src='tracker.js",
+        'src="/tracker.js',
+        "src='/tracker.js",
+        'href="tracker.js',
+        "href='tracker.js",
+        // Конфігурація
         'TRACKER_CONFIG',
+        'window.TRACKER_CONFIG',
+        'TRACKER_CONFIG =',
+        'TRACKER_CONFIG=',
+        // Об'єкт трекера
         'AffiliateTracker',
+        'window.AffiliateTracker',
         'affiliate-tracker',
         'affiliate_tracker',
-        'window.TRACKER_CONFIG',
+        // API endpoints
+        'api/track',
+        '/api/track',
         'BASE_URL',
         'CONVERSION_KEYWORDS',
-        'api/track'
+        // Інші індикатори
+        'aff_ref_code',
+        'affiliate_visitor_id'
       ];
       
-      // Перевіряємо наявність будь-якого з індикаторів
+      // Перевіряємо наявність будь-якого з індикаторів (case-insensitive)
+      const htmlLower = html.toLowerCase();
       const foundTracker = trackerIndicators.some(indicator => {
-        if (indicator.includes('.')) {
-          // Для шляхів шукаємо в src або href
-          return html.includes(`src="${indicator}`) || 
-                 html.includes(`src='${indicator}`) ||
-                 html.includes(`href="${indicator}`) ||
-                 html.includes(`href='${indicator}`) ||
-                 html.includes(indicator);
+        const indicatorLower = indicator.toLowerCase();
+        const found = htmlLower.includes(indicatorLower);
+        if (found) {
+          console.log(`[Website Check] Found tracker indicator: ${indicator}`);
         }
-        // Для текстових індикаторів
-        return html.includes(indicator);
+        return found;
       });
       
       if (foundTracker) {
         isConnected = true;
+        console.log(`[Website Check] ✅ Tracker found on ${url}`);
         break;
+      } else {
+        console.log(`[Website Check] ❌ No tracker indicators found on ${url}`);
       }
     } catch (err) {
-      // Ignore fetch errors (timeout, network errors, etc.) and try next protocol
+      lastError = err.message;
       if (timeoutId) clearTimeout(timeoutId);
+      
+      if (err.name === 'AbortError') {
+        console.log(`[Website Check] Timeout for ${url}`);
+      } else {
+        console.log(`[Website Check] Error fetching ${url}: ${err.message}`);
+      }
       continue;
     }
+  }
+
+  if (!isConnected && lastError) {
+    console.log(`[Website Check] Final error: ${lastError}`);
   }
 
   return isConnected;
