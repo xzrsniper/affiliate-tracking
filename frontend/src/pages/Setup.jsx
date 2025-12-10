@@ -1,12 +1,88 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout.jsx';
-import { Code, Settings, Copy, Check, ExternalLink, FileCode, Tag } from 'lucide-react';
+import api from '../config/api.js';
+import { Code, Settings, Copy, Check, ExternalLink, FileCode, Tag, Plus, Edit, Trash2, Globe, X, RefreshCw } from 'lucide-react';
 
 export default function Setup() {
   const [copiedSection, setCopiedSection] = useState(null);
-  const [activeTab, setActiveTab] = useState('code'); // 'code' або 'gtm'
+  const [activeTab, setActiveTab] = useState('websites'); // 'websites', 'code' або 'gtm'
+  const [websites, setWebsites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newWebsite, setNewWebsite] = useState({ name: '', domain: '' });
+  const [editingWebsite, setEditingWebsite] = useState(null);
+  const [showCodeModal, setShowCodeModal] = useState(null);
+  const [checkingId, setCheckingId] = useState(null);
 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+  useEffect(() => {
+    if (activeTab === 'websites') {
+      fetchWebsites();
+    }
+  }, [activeTab]);
+
+  const fetchWebsites = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/websites');
+      setWebsites(response.data.websites || []);
+    } catch (err) {
+      console.error('Failed to load websites:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddWebsite = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/websites', newWebsite);
+      setNewWebsite({ name: '', domain: '' });
+      setShowAddForm(false);
+      fetchWebsites();
+    } catch (err) {
+      console.error('Failed to add website:', err);
+    }
+  };
+
+  const handleDeleteWebsite = async (id) => {
+    if (!confirm('Ви впевнені, що хочете видалити цей сайт?')) return;
+    try {
+      await api.delete(`/api/websites/${id}`);
+      fetchWebsites();
+    } catch (err) {
+      console.error('Failed to delete website:', err);
+    }
+  };
+
+  const toggleConnectionStatus = async (website) => {
+    try {
+      await api.put(`/api/websites/${website.id}`, {
+        is_connected: !website.is_connected
+      });
+      fetchWebsites();
+    } catch (err) {
+      console.error('Failed to update website:', err);
+    }
+  };
+
+  const handleCheckWebsite = async (website) => {
+    try {
+      setCheckingId(website.id);
+      const res = await api.get(`/api/websites/${website.id}/check`);
+      // Update local state with new status
+      setWebsites((prev) =>
+        prev.map((w) =>
+          w.id === website.id ? { ...w, is_connected: res.data.is_connected } : w
+        )
+      );
+    } catch (err) {
+      console.error('Failed to check website:', err);
+    } finally {
+      setCheckingId(null);
+    }
+  };
 
   const trackerConfigCode = `<script>
   window.TRACKER_CONFIG = {
@@ -64,6 +140,17 @@ export default function Setup() {
           <div className="border-b border-slate-200 dark:border-slate-700">
             <nav className="flex space-x-8">
               <button
+                onClick={() => setActiveTab('websites')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'websites'
+                    ? 'border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
+              >
+                <Globe className="w-5 h-5 inline mr-2" />
+                Мої сайти
+              </button>
+              <button
                 onClick={() => setActiveTab('code')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'code'
@@ -88,6 +175,214 @@ export default function Setup() {
             </nav>
           </div>
         </div>
+
+        {/* Websites Tab */}
+        {activeTab === 'websites' && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Мої сайти</h2>
+                <p className="text-slate-600 dark:text-slate-400">Управління сайтами та tracking кодом</p>
+              </div>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all flex items-center space-x-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Додати сайт</span>
+              </button>
+            </div>
+
+            {/* Add Website Form */}
+            {showAddForm && (
+              <div className="mb-6 bg-slate-50 dark:bg-slate-700 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Додати новий сайт</h3>
+                <form onSubmit={handleAddWebsite} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Назва сайту <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newWebsite.name}
+                      onChange={(e) => setNewWebsite({ ...newWebsite, name: e.target.value })}
+                      placeholder="Наприклад: Мій інтернет-магазин"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-600 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Домен сайту <span className="text-slate-400 dark:text-slate-500">(необов'язково)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newWebsite.domain}
+                      onChange={(e) => setNewWebsite({ ...newWebsite, domain: e.target.value })}
+                      placeholder="example.com"
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-600 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddForm(false);
+                        setNewWebsite({ name: '', domain: '' });
+                      }}
+                      className="px-6 py-3 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-all"
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
+                    >
+                      Додати
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Websites Table */}
+            {loading ? (
+              <div className="text-center py-12">
+                <p className="text-slate-500 dark:text-slate-400">Завантаження...</p>
+              </div>
+            ) : websites.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600">
+                <p className="text-slate-500 dark:text-slate-400">Поки що немає доданих сайтів. Додайте перший сайт!</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Сайт</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Статус підключення</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Перевірка</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Дії</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {websites.map((website) => (
+                      <tr key={website.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                        <td className="py-4 px-4">
+                          <div>
+                            <p className="font-semibold text-slate-800 dark:text-white">{website.name}</p>
+                            {website.domain && (
+                              <p className="text-sm text-slate-500 dark:text-slate-400">{website.domain}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span
+                            className={`inline-flex items-center space-x-2 px-3 py-1 rounded-lg font-medium text-sm ${
+                              website.is_connected
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full ${website.is_connected ? 'bg-green-600' : 'bg-red-600'}`}></span>
+                            <span>{website.is_connected ? 'Підключено' : 'Не підключено'}</span>
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <button
+                            onClick={() => handleCheckWebsite(website)}
+                            disabled={checkingId === website.id}
+                            className="inline-flex items-center space-x-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-all disabled:opacity-50"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${checkingId === website.id ? 'animate-spin' : ''}`} />
+                            <span>{checkingId === website.id ? 'Перевіряю...' : 'Перевірити'}</span>
+                          </button>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => setShowCodeModal(website)}
+                              className="p-2 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/30 rounded-lg transition-colors"
+                              title="Показати код"
+                            >
+                              <Edit className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWebsite(website.id)}
+                              className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                              title="Видалити"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Code Modal */}
+        {showCodeModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white">
+                  Tracking код для: {showCodeModal.name}
+                </h3>
+                <button
+                  onClick={() => setShowCodeModal(null)}
+                  className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Готовий код для вставки:
+                </label>
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600 relative">
+                  <button
+                    onClick={() => {
+                      copyToClipboard(trackerConfigCode, 'modal-code');
+                    }}
+                    className="absolute top-4 right-4 p-2 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition-colors"
+                    title="Копіювати код"
+                  >
+                    {copiedSection === 'modal-code' ? (
+                      <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <Copy className="w-5 h-5" />
+                    )}
+                  </button>
+                  <pre className="text-sm text-slate-800 dark:text-slate-200 overflow-x-auto">
+                    <code>{trackerConfigCode}</code>
+                  </pre>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  <strong>💡 Інструкція:</strong> Скопіюйте код вище та вставте його в секцію <code className="bg-white dark:bg-slate-700 px-2 py-1 rounded">&lt;head&gt;</code> вашого HTML, 
+                  перед закриваючим тегом <code className="bg-white dark:bg-slate-700 px-2 py-1 rounded">&lt;/head&gt;</code>
+                </p>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowCodeModal(null)}
+                  className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
+                >
+                  Зрозуміло
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Method 1: Direct Code Installation */}
         {activeTab === 'code' && (

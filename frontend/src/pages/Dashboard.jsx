@@ -41,13 +41,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchLinks();
-    
-    // Auto-refresh stats every 30 seconds
-    const interval = setInterval(() => {
-      fetchLinks();
-    }, 30000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   const fetchLinks = async () => {
@@ -78,9 +71,8 @@ export default function Dashboard() {
       setLinks([newLinkData, ...links]);
       setNewLink({ original_url: '', name: '', source_type: '' });
       setShowCreateForm(false);
-      setSuccessMessage('Посилання успішно створено!');
-      setTimeout(() => setSuccessMessage(''), 5000);
-      await fetchLinks(); // Refresh to get updated stats
+      // Show popup instead of success message
+      // createdLink state will show the popup
     } catch (err) {
       setError(err.response?.data?.error || 'Не вдалося створити посилання');
     } finally {
@@ -121,7 +113,6 @@ export default function Dashboard() {
       setEditForm({ original_url: '', name: '', source_type: '' });
       setSuccessMessage('Посилання успішно оновлено!');
       setTimeout(() => setSuccessMessage(''), 5000);
-      await fetchLinks(); // Refresh to get updated stats
     } catch (err) {
       setError(err.response?.data?.error || 'Не вдалося оновити посилання');
     } finally {
@@ -336,9 +327,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Success Message - Show Created Link */}
+      {/* Success Popup - Show Created Link */}
       {createdLink && (
-        <div className="mb-6 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 border-violet-200 dark:border-violet-800 p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 border-violet-200 dark:border-violet-800 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
@@ -428,6 +420,19 @@ export default function Dashboard() {
               Всі кліки та конверсії будуть автоматично відслідковуватися!
             </p>
           </div>
+          
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => {
+                setCreatedLink(null);
+                fetchLinks(); // Refresh to get updated stats
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
+            >
+              Зрозуміло
+            </button>
+          </div>
+        </div>
         </div>
       )}
 

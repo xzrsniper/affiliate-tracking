@@ -1,0 +1,56 @@
+import { DataTypes } from 'sequelize';
+import sequelize from '../config/database.js';
+
+const Website = sequelize.define('Website', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  user_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    onDelete: 'CASCADE'
+  },
+  name: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+    comment: 'Назва сайту'
+  },
+  domain: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    comment: 'Домен сайту (для перевірки статусу)'
+  },
+  is_connected: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'Чи підключено tracking код'
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  }
+}, {
+  tableName: 'websites',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  indexes: [
+    {
+      fields: ['user_id']
+    },
+    {
+      fields: ['domain']
+    }
+  ]
+});
+
+export default Website;
+

@@ -2,6 +2,7 @@ import User from './User.js';
 import Link from './Link.js';
 import Click from './Click.js';
 import Conversion from './Conversion.js';
+import Website from './Website.js';
 
 // Define Associations
 
@@ -38,17 +39,30 @@ Conversion.belongsTo(Link, {
   as: 'link'
 });
 
+// User -> Websites (One-to-Many)
+User.hasMany(Website, {
+  foreignKey: 'user_id',
+  as: 'websites',
+  onDelete: 'CASCADE'
+});
+Website.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
 // Export all models
 export {
   User,
   Link,
   Click,
-  Conversion
+  Conversion,
+  Website
 };
 
 export default {
   User,
   Link,
   Click,
-  Conversion
+  Conversion,
+  Website
 };

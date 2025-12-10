@@ -11,6 +11,7 @@ import trackRoutes from './routes/track.js';
 import linkRoutes from './routes/links.js';
 import adminRoutes from './routes/admin.js';
 import redirectRoutes from './routes/redirect.js';
+import websiteRoutes from './routes/websites.js';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/track', trackRoutes);
 app.use('/api/links', linkRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/websites', websiteRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

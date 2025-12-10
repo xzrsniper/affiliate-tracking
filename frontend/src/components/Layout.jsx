@@ -9,7 +9,8 @@ import {
   Settings,
   Code,
   Sun,
-  Moon
+  Moon,
+  MessageCircle
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -130,7 +131,19 @@ export default function Layout({ children }) {
 
       {/* Main Content */}
       <main className="flex-1 ml-64">
-        <div className="p-8">{children}</div>
+        <div className="p-8 relative">
+          {/* Contacts Button - Top Right */}
+          <a
+            href="https://t.me/your_username"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute top-8 right-8 flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 z-10"
+          >
+            <MessageCircle className="w-5 h-5" />
+            <span>Контакти</span>
+          </a>
+          {children}
+        </div>
       </main>
     </div>
   );

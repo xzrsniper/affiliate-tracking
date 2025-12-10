@@ -27,6 +27,26 @@ export default function Landing() {
               <span className="text-xl font-bold text-slate-800">Affiliate Tracker</span>
             </div>
             <div className="flex items-center space-x-4">
+              <a
+                href="#about"
+                className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
+              >
+                Про нас
+              </a>
+              <a
+                href="#blog"
+                className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
+              >
+                Блог
+              </a>
+              <a
+                href="https://t.me/your_username"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
+              >
+                Контакти
+              </a>
               <Link
                 to="/login"
                 className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
@@ -213,6 +233,21 @@ export default function Landing() {
               <h3 className="text-white font-semibold mb-4">Навігація</h3>
               <ul className="space-y-2">
                 <li>
+                  <a href="#about" className="hover:text-white transition-colors">
+                    Про нас
+                  </a>
+                </li>
+                <li>
+                  <a href="#blog" className="hover:text-white transition-colors">
+                    Блог
+                  </a>
+                </li>
+                <li>
+                  <a href="https://t.me/your_username" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                    Контакти
+                  </a>
+                </li>
+                <li>
                   <Link to="/login" className="hover:text-white transition-colors">
                     Увійти
                   </Link>
@@ -227,6 +262,11 @@ export default function Landing() {
             <div>
               <h3 className="text-white font-semibold mb-4">Підтримка</h3>
               <ul className="space-y-2">
+                <li>
+                  <a href="https://t.me/your_username" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                    Telegram підтримка
+                  </a>
+                </li>
                 <li>
                   <a href="mailto:support@example.com" className="hover:text-white transition-colors">
                     Email підтримки
