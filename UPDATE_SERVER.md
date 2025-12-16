@@ -222,15 +222,27 @@ cd /var/www/affiliate-tracking
 ls -la frontend/public/logo.png
 ls -la frontend/public/apple-touch-icon.png
 
+# Переконайтеся, що файли скопійовані в dist після build
+ls -la frontend/dist/logo.png
+ls -la frontend/dist/apple-touch-icon.png
+
+# Якщо файлів немає в dist, скопіюйте їх вручну:
+cp frontend/public/logo.png frontend/dist/
+cp frontend/public/apple-touch-icon.png frontend/dist/
+
 # Перебудуйте frontend (ВАЖЛИВО!)
 cd frontend
 npm run build
 cd ..
 
+# Перевірте, що файли є в dist після build
+ls -la frontend/dist/logo.png
+
 # Перезапустіть сервер
 pm2 restart affiliate-tracking-api
 
 # Очистіть кеш браузера (Ctrl+Shift+R або Cmd+Shift+R)
+# АБО відкрийте в режимі інкогніто для перевірки
 ```
 
 ### Проблема: "Failed to load links" на Dashboard
@@ -381,10 +393,35 @@ pm2 restart affiliate-tracking-api
 ```bash
 # Додайте колонку order_id в таблицю conversions
 cd /var/www/affiliate-tracking
-mysql -u your_user -p your_database << EOF
+
+# Дізнайтеся дані з .env файлу:
+DB_USER=$(grep "^DB_USER=" .env | cut -d '=' -f2 | tr -d ' ' || echo "root")
+DB_NAME=$(grep "^DB_NAME=" .env | cut -d '=' -f2 | tr -d ' ' || echo "affiliate_tracking")
+DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d '=' -f2 | tr -d ' ' || echo "")
+
+# Виконайте команду:
+if [ -n "$DB_PASS" ]; then
+  mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" << EOF
 ALTER TABLE conversions ADD COLUMN order_id VARCHAR(255) NULL AFTER order_value;
 CREATE INDEX idx_conversions_order_id ON conversions(order_id);
 EOF
+else
+  echo "Введіть пароль MySQL:"
+  mysql -u "$DB_USER" -p "$DB_NAME" << EOF
+ALTER TABLE conversions ADD COLUMN order_id VARCHAR(255) NULL AFTER order_value;
+CREATE INDEX idx_conversions_order_id ON conversions(order_id);
+EOF
+fi
+
+# АБО вручну (якщо автоматично не працює):
+# mysql -u root -p affiliate_tracking
+# Потім в MySQL виконайте:
+# ALTER TABLE conversions ADD COLUMN order_id VARCHAR(255) NULL AFTER order_value;
+# CREATE INDEX idx_conversions_order_id ON conversions(order_id);
+# exit;
+
+# Якщо колонка вже існує, ви побачите помилку "Duplicate column name"
+# Це нормально - просто ігноруйте помилку
 
 # АБО використайте скрипт (якщо є)
 node scripts/add-order-id-field.js
@@ -426,14 +463,14 @@ DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d '=' -f2 | tr -d ' ' || echo "")
 
 if [ -n "$DB_PASS" ]; then
   mysql -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" << EOF
-ALTER TABLE conversions ADD COLUMN IF NOT EXISTS order_id VARCHAR(255) NULL AFTER order_value;
-CREATE INDEX IF NOT EXISTS idx_conversions_order_id ON conversions(order_id);
+ALTER TABLE conversions ADD COLUMN order_id VARCHAR(255) NULL AFTER order_value;
+CREATE INDEX idx_conversions_order_id ON conversions(order_id);
 EOF
 else
   echo "Введіть пароль MySQL вручну:"
   mysql -u "$DB_USER" -p "$DB_NAME" << EOF
-ALTER TABLE conversions ADD COLUMN IF NOT EXISTS order_id VARCHAR(255) NULL AFTER order_value;
-CREATE INDEX IF NOT EXISTS idx_conversions_order_id ON conversions(order_id);
+ALTER TABLE conversions ADD COLUMN order_id VARCHAR(255) NULL AFTER order_value;
+CREATE INDEX idx_conversions_order_id ON conversions(order_id);
 EOF
 fi
 
