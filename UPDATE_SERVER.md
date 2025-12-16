@@ -45,18 +45,6 @@ npm install  # Якщо додалися нові залежності
 npm run build  # Перебудуйте frontend
 cd ..
 
-# Переконайтеся що logo.png завантажений на сервер
-# Перевірте чи файл існує:
-ls -la frontend/public/logo.png
-
-# Якщо файлу немає, завантажте його з локального комп'ютера:
-# scp /Users/ivanivanuk/Documents/DashCurs/frontend/public/logo.png root@your-server-ip:/var/www/affiliate-tracking/frontend/public/
-
-# Пересберіть frontend (якщо використовується build)
-cd frontend
-npm install
-npm run build
-cd ..
 
 # Перезапустіть PM2
 pm2 restart affiliate-tracking-api

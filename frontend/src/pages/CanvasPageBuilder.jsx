@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
+import { useTheme } from '../context/ThemeContext.jsx';
 import {
   Save,
   Upload,
@@ -24,7 +25,9 @@ import {
   LogIn,
   UserPlus,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, KeyboardSensor } from '@dnd-kit/core';
@@ -37,11 +40,13 @@ const ELEMENT_TYPES = [
   { id: 'login_button', name: 'Кнопка входу', icon: LogIn, defaultData: { text: 'Увійти', fontSize: 16, color: '#ffffff', bgColor: '#7c3aed', x: 100, y: 200, width: 150, height: 50, borderRadius: 8, link: '/login', isActionButton: true } },
   { id: 'register_button', name: 'Кнопка реєстрації', icon: UserPlus, defaultData: { text: 'Реєстрація', fontSize: 16, color: '#ffffff', bgColor: '#7c3aed', x: 100, y: 260, width: 150, height: 50, borderRadius: 8, link: '/login?register=true', isActionButton: true } },
   { id: 'try_free_button', name: 'Спробувати безкоштовно', icon: Sparkles, defaultData: { text: 'Спробувати безкоштовно', fontSize: 16, color: '#ffffff', bgColor: '#7c3aed', x: 100, y: 320, width: 220, height: 50, borderRadius: 8, link: '/login', isActionButton: true } },
+  { id: 'theme_toggle', name: 'Перемикач теми', icon: Sun, defaultData: { fontSize: 16, color: '#6b7280', bgColor: 'transparent', x: 100, y: 380, width: 50, height: 50, borderRadius: 8, isThemeToggle: true } },
   { id: 'image', name: 'Зображення', icon: ImageIcon, defaultData: { src: null, x: 100, y: 300, width: 300, height: 200, alt: 'Image' } },
   { id: 'box', name: 'Блок', icon: Square, defaultData: { bgColor: '#f0f0f0', x: 100, y: 400, width: 400, height: 200, borderRadius: 0 } }
 ];
 
 export default function CanvasPageBuilder() {
+  const { theme, toggleTheme } = useTheme();
   const [elements, setElements] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -497,6 +502,17 @@ export default function CanvasPageBuilder() {
           </div>
           <div className="flex items-center space-x-3">
             <button
+              onClick={toggleTheme}
+              className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              title={theme === 'dark' ? 'Світла тема' : 'Темна тема'}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </button>
+            <button
               onClick={resetToDefault}
               disabled={saving}
               className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center space-x-2"
@@ -697,6 +713,7 @@ export default function CanvasPageBuilder() {
 
 // Canvas Element Component
 export function CanvasElement({ element, isSelected, onMouseDown, onClick, onUpdate }) {
+  const { theme, toggleTheme } = useTheme();
   const style = {
     width: '100%',
     height: '100%',
@@ -877,6 +894,41 @@ export function CanvasElement({ element, isSelected, onMouseDown, onClick, onUpd
           {element.text || 'Спробувати безкоштовно'}
         </Link>
       );
+    case 'theme_toggle':
+      return (
+        <button
+          onClick={(e) => {
+            if (isSelected) {
+              e.preventDefault();
+              onClick(e);
+            } else {
+              e.stopPropagation();
+              toggleTheme();
+            }
+          }}
+          style={{
+            ...style,
+            backgroundColor: element.bgColor || 'transparent',
+            color: element.color || (theme === 'dark' ? '#fbbf24' : '#6b7280'),
+            fontSize: `${element.fontSize || 16}px`,
+            borderRadius: `${element.borderRadius || 8}px`,
+            border: element.bgColor === 'transparent' ? '1px solid currentColor' : 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px'
+          }}
+          onMouseDown={onMouseDown}
+          title={theme === 'dark' ? 'Світла тема' : 'Темна тема'}
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-full h-full" style={{ maxWidth: '24px', maxHeight: '24px' }} />
+          ) : (
+            <Moon className="w-full h-full" style={{ maxWidth: '24px', maxHeight: '24px' }} />
+          )}
+        </button>
+      );
     case 'image':
       return (
         <div
@@ -1027,6 +1079,18 @@ function ElementPropertiesEditor({ element, onUpdate, onImageUpload, showColorPi
         <>
           <ColorField label="Колір фону" value={element.bgColor || '#f0f0f0'} onChange={(v) => onUpdate({ bgColor: v })} onColorPickerChange={() => onColorPickerChange('bgColor')} showPicker={showColorPicker === 'bgColor'} />
           <NumberField label="Радіус" value={element.borderRadius || 0} onChange={(v) => onUpdate({ borderRadius: v })} />
+        </>
+      )}
+
+      {element.type === 'theme_toggle' && (
+        <>
+          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-blue-700 dark:text-blue-300 mb-2">
+            ✅ Кнопка автоматично перемикає тему (світла/темна)
+          </div>
+          <ColorField label="Колір іконки" value={element.color || '#6b7280'} onChange={(v) => onUpdate({ color: v })} onColorPickerChange={() => onColorPickerChange('color')} showPicker={showColorPicker === 'color'} />
+          <ColorField label="Колір фону" value={element.bgColor || 'transparent'} onChange={(v) => onUpdate({ bgColor: v })} onColorPickerChange={() => onColorPickerChange('bgColor')} showPicker={showColorPicker === 'bgColor'} />
+          <NumberField label="Розмір іконки" value={element.fontSize || 16} onChange={(v) => onUpdate({ fontSize: v })} />
+          <NumberField label="Радіус" value={element.borderRadius || 8} onChange={(v) => onUpdate({ borderRadius: v })} />
         </>
       )}
     </div>

@@ -71,20 +71,30 @@ export default function HomeNew({ structure: propStructure }) {
     );
   }
 
-  // Якщо структура має canvas (новий формат), показуємо повідомлення
-  if (structure && structure.canvas) {
+  // Якщо структура має canvas (новий формат), відображаємо canvas-елементи
+  if (structure && structure.canvas && structure.canvas.elements) {
+    const { elements, width = 1200, height = 2000 } = structure.canvas;
+    
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">
-            Canvas редактор активний
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
-            Головна сторінка налаштована через Canvas редактор.
-          </p>
-          <p className="text-sm text-slate-500 dark:text-slate-500">
-            Для перегляду відкрийте головну сторінку після налаштування в редакторі.
-          </p>
+      <div className="min-h-screen bg-white">
+        <div className="w-full flex justify-center" style={{ minHeight: '100vh', padding: '20px' }}>
+          <div style={{ width: `${width}px`, height: `${height}px`, position: 'relative', maxWidth: '100%' }}>
+            {elements.map((element) => (
+              <div 
+                key={element.id} 
+                style={{ 
+                  position: 'absolute', 
+                  left: `${element.x}px`, 
+                  top: `${element.y}px`, 
+                  width: `${element.width}px`, 
+                  height: `${element.height}px`, 
+                  zIndex: element.zIndex || 0 
+                }}
+              >
+                <CanvasElementView element={element} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -107,6 +117,206 @@ export default function HomeNew({ structure: propStructure }) {
   }
 
   const visibleSections = structure.sections.filter(s => s.visible);
+
+// Canvas Element View Component (for displaying canvas elements on home page)
+function CanvasElementView({ element }) {
+  const { theme, toggleTheme } = useTheme();
+  switch (element.type) {
+    case 'text':
+      return (
+        <div
+          style={{
+            fontSize: `${element.fontSize || 24}px`,
+            color: element.color || '#000000',
+            fontWeight: element.fontWeight || 'normal',
+            fontFamily: element.fontFamily || 'inherit',
+            minHeight: '20px',
+            wordWrap: 'break-word',
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {element.content || 'Текст'}
+        </div>
+      );
+    case 'heading':
+      return (
+        <h1
+          style={{
+            fontSize: `${element.fontSize || 48}px`,
+            color: element.color || '#000000',
+            fontWeight: element.fontWeight || 'bold',
+            fontFamily: element.fontFamily || 'inherit',
+            margin: 0,
+            minHeight: '30px',
+            wordWrap: 'break-word',
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {element.content || 'Заголовок'}
+        </h1>
+      );
+    case 'button':
+      return (
+        <button
+          style={{
+            backgroundColor: element.bgColor || '#7c3aed',
+            color: element.color || '#ffffff',
+            fontSize: `${element.fontSize || 16}px`,
+            borderRadius: `${element.borderRadius || 8}px`,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {element.text || 'Кнопка'}
+        </button>
+      );
+    case 'login_button':
+      return (
+        <Link
+          to={element.link || '/login'}
+          style={{
+            backgroundColor: element.bgColor || '#7c3aed',
+            color: element.color || '#ffffff',
+            fontSize: `${element.fontSize || 16}px`,
+            borderRadius: `${element.borderRadius || 8}px`,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textDecoration: 'none',
+            fontWeight: 'semibold',
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {element.text || 'Увійти'}
+        </Link>
+      );
+    case 'register_button':
+      return (
+        <Link
+          to={element.link || '/login?register=true'}
+          style={{
+            backgroundColor: element.bgColor || '#7c3aed',
+            color: element.color || '#ffffff',
+            fontSize: `${element.fontSize || 16}px`,
+            borderRadius: `${element.borderRadius || 8}px`,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textDecoration: 'none',
+            fontWeight: 'semibold',
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {element.text || 'Реєстрація'}
+        </Link>
+      );
+    case 'try_free_button':
+      return (
+        <Link
+          to={element.link || '/login'}
+          style={{
+            background: element.bgColor || 'linear-gradient(to right, #7c3aed, #4f46e5)',
+            backgroundColor: element.bgColor || '#7c3aed',
+            color: element.color || '#ffffff',
+            fontSize: `${element.fontSize || 16}px`,
+            borderRadius: `${element.borderRadius || 8}px`,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textDecoration: 'none',
+            fontWeight: 'semibold',
+            boxShadow: '0 4px 6px -1px rgba(124, 58, 237, 0.25)',
+            width: '100%',
+            height: '100%'
+          }}
+        >
+          {element.text || 'Спробувати безкоштовно'}
+        </Link>
+      );
+    case 'theme_toggle':
+      return (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleTheme();
+          }}
+          style={{
+            backgroundColor: element.bgColor || 'transparent',
+            color: element.color || (theme === 'dark' ? '#fbbf24' : '#6b7280'),
+            fontSize: `${element.fontSize || 16}px`,
+            borderRadius: `${element.borderRadius || 8}px`,
+            border: element.bgColor === 'transparent' ? '1px solid currentColor' : 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px',
+            width: '100%',
+            height: '100%'
+          }}
+          title={theme === 'dark' ? 'Світла тема' : 'Темна тема'}
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-full h-full" style={{ maxWidth: '24px', maxHeight: '24px' }} />
+          ) : (
+            <Moon className="w-full h-full" style={{ maxWidth: '24px', maxHeight: '24px' }} />
+          )}
+        </button>
+      );
+    case 'image':
+      return (
+        <div style={{ width: '100%', height: '100%' }}>
+          {element.src ? (
+            <img
+              src={element.src}
+              alt={element.alt || 'Image'}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <div style={{
+              width: '100%',
+              height: '100%',
+              border: '2px dashed #ccc',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#999'
+            }}>
+              Зображення
+            </div>
+          )}
+        </div>
+      );
+    case 'box':
+      return (
+        <div
+          style={{
+            backgroundColor: element.bgColor || '#f0f0f0',
+            borderRadius: `${element.borderRadius || 0}px`,
+            width: '100%',
+            height: '100%'
+          }}
+        />
+      );
+    default:
+      return null;
+  }
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
