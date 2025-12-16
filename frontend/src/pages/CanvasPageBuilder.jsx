@@ -23,7 +23,8 @@ import {
   ChevronDown,
   LogIn,
   UserPlus,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, KeyboardSensor } from '@dnd-kit/core';
@@ -104,10 +105,153 @@ export default function CanvasPageBuilder() {
       if (response.data.success) {
         setSuccess('Збережено!');
         setTimeout(() => setSuccess(''), 3000);
+        // НЕ робимо редирект, залишаємося на сторінці редактора
       }
     } catch (err) {
       console.error('Failed to save:', err);
       setError(err.response?.data?.error || 'Не вдалося зберегти');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToDefault = async () => {
+    if (!confirm('Ви впевнені, що хочете скинути сторінку до дефолтного варіанту? Всі зміни будуть втрачені.')) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError('');
+      setSuccess('');
+
+      // Завантажуємо дефолтну структуру з сервера
+      const defaultStructure = {
+        sections: [
+          {
+            id: 'hero',
+            type: 'hero',
+            order: 1,
+            visible: true,
+            data: {
+              title: 'Відстежуйте',
+              titleHighlight: 'партнерські програми',
+              subtitle: 'з точністю до кліку',
+              description: 'Професійна система відстеження affiliate трафіку з автоматичним підрахунком конверсій та доходів. Встановлення за 2 хвилини, працює на будь-якому сайті.',
+              ctaText: 'Створити акаунт',
+              ctaLink: '/login',
+              image: null
+            }
+          },
+          {
+            id: 'stats',
+            type: 'stats',
+            order: 2,
+            visible: true,
+            data: {
+              items: [
+                { value: '100%', label: 'Точність відстеження' },
+                { value: '<2 хв', label: 'Встановлення' },
+                { value: '24/7', label: 'Моніторинг' }
+              ]
+            }
+          },
+          {
+            id: 'features',
+            type: 'features',
+            order: 3,
+            visible: true,
+            data: {
+              title: 'Всі можливості для успішного tracking',
+              subtitle: 'Все, що потрібно для ефективного управління партнерськими програмами',
+              items: [
+                {
+                  icon: 'MousePointerClick',
+                  title: 'Відстеження кліків',
+                  description: 'Точна статистика по кожному tracking посиланню з розбивкою на унікальні та загальні кліки'
+                },
+                {
+                  icon: 'TrendingUp',
+                  title: 'Конверсії та доходи',
+                  description: 'Автоматичне відстеження конверсій та розрахунок доходів від ваших партнерських програм'
+                },
+                {
+                  icon: 'Shield',
+                  title: 'Надійність',
+                  description: 'Захищена система з підтримкою visitor fingerprint для точного відстеження'
+                },
+                {
+                  icon: 'Zap',
+                  title: 'Просте встановлення',
+                  description: 'Один рядок коду або інтеграція через Google Tag Manager - працює на будь-якому сайті'
+                },
+                {
+                  icon: 'BarChart3',
+                  title: 'Детальна аналітика',
+                  description: 'Повна статистика по джерелам трафіку, конверсіям та ефективності кампаній'
+                },
+                {
+                  icon: 'Globe',
+                  title: 'Універсальність',
+                  description: 'Працює з будь-якими e-commerce платформами та системами управління контентом'
+                }
+              ]
+            }
+          },
+          {
+            id: 'benefits',
+            type: 'benefits',
+            order: 4,
+            visible: true,
+            data: {
+              title: 'Чому обирають нас?',
+              description: 'Професійне рішення для відстеження affiliate трафіку з усіма необхідними інструментами',
+              items: [
+                'Автоматичне відстеження кліків та конверсій',
+                'Підтримка visitor fingerprint для унікальних відвідувачів',
+                'Гнучкі налаштування для різних джерел трафіку',
+                'API для інтеграції з вашими системами',
+                'Детальна статистика та звіти',
+                'Безкоштовний старт з можливістю масштабування'
+              ],
+              stats: [
+                { value: '1000+', label: 'Активних користувачів' },
+                { value: '1M+', label: 'Відстежених кліків' },
+                { value: '$10M+', label: 'Відстежених доходів' }
+              ]
+            }
+          },
+          {
+            id: 'cta',
+            type: 'cta',
+            order: 5,
+            visible: true,
+            data: {
+              title: 'Готові почати?',
+              description: 'Створіть безкоштовний акаунт за хвилину та почніть відстежувати ваш affiliate трафік вже сьогодні',
+              buttonText: 'Створити акаунт безкоштовно',
+              buttonLink: '/login'
+            }
+          }
+        ]
+      };
+
+      const response = await api.post('/api/page-structure/home', {
+        structure: defaultStructure
+      });
+
+      if (response.data.success) {
+        setSuccess('Скинуто до дефолтного варіанту!');
+        setElements([]); // Очищаємо canvas
+        setTimeout(() => {
+          setSuccess('');
+          // Перезавантажуємо структуру
+          fetchStructure();
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Failed to reset:', err);
+      setError(err.response?.data?.error || 'Не вдалося скинути до дефолту');
     } finally {
       setSaving(false);
     }
@@ -352,6 +496,15 @@ export default function CanvasPageBuilder() {
             )}
           </div>
           <div className="flex items-center space-x-3">
+            <button
+              onClick={resetToDefault}
+              disabled={saving}
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center space-x-2"
+              title="Скинути до дефолтного варіанту"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Скинути до дефолту</span>
+            </button>
             <button
               onClick={() => setPreviewMode(true)}
               className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 flex items-center space-x-2"

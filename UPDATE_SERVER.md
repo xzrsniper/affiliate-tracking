@@ -387,6 +387,23 @@ npm install
 pm2 restart affiliate-tracking-api
 ```
 
+### Проблема: "Table 'page_structures' doesn't exist"
+
+**Рішення:**
+```bash
+# Створіть таблиці для візуального редактора
+cd /var/www/affiliate-tracking
+
+# Створіть таблицю page_structures
+node scripts/create-page-structure-table.js
+
+# Створіть таблицю page_contents (якщо потрібно)
+node scripts/create-page-content-table.js
+
+# Перезапустіть сервер
+pm2 restart affiliate-tracking-api
+```
+
 ### Проблема: "Unknown column 'order_id' in 'field list'"
 
 **Рішення:**
@@ -455,7 +472,11 @@ cd /var/www/affiliate-tracking
 # 1. Встановіть залежності
 npm install
 
-# 2. Додайте order_id в таблицю (якщо потрібно)
+# 2. Створіть таблиці для візуального редактора (якщо їх немає)
+node scripts/create-page-structure-table.js
+node scripts/create-page-content-table.js
+
+# 3. Додайте order_id в таблицю conversions (якщо потрібно)
 # Варіант А: Автоматично (читає з .env)
 DB_USER=$(grep "^DB_USER=" .env | cut -d '=' -f2 | tr -d ' ' || echo "root")
 DB_NAME=$(grep "^DB_NAME=" .env | cut -d '=' -f2 | tr -d ' ' || echo "affiliate_tracking")

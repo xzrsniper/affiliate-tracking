@@ -71,9 +71,39 @@ export default function HomeNew({ structure: propStructure }) {
     );
   }
 
+  // Якщо структура має canvas (новий формат), показуємо повідомлення
+  if (structure && structure.canvas) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">
+            Canvas редактор активний
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            Головна сторінка налаштована через Canvas редактор.
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-500">
+            Для перегляду відкрийте головну сторінку після налаштування в редакторі.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!structure || !structure.sections) {
-    // Fallback на старий контент
-    return <div>Сторінка не знайдена</div>;
+    // Fallback на дефолтну структуру
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-4">
+            Сторінка не налаштована
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400">
+            Будь ласка, налаштуйте сторінку через адмін панель.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const visibleSections = structure.sections.filter(s => s.visible);
