@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Link as LinkIcon } from 'lucide-react';
+import Logo from '../components/Logo.jsx';
 
 // Google OAuth Client ID - замініть на ваш Client ID з Google Cloud Console
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
@@ -11,6 +11,7 @@ export default function Login() {
   console.log('🔐 Login component rendering...');
   
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -19,7 +20,7 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(searchParams.get('register') === 'true');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
 
@@ -266,12 +267,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl mb-4">
-            <LinkIcon className="w-8 h-8 text-white" />
+          <div className="flex justify-center mb-4">
+            <Logo size="xl" showText={true} linkTo={null} />
           </div>
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">
-            Affiliate Tracker
-          </h1>
           <p className="text-slate-500 dark:text-slate-400">
             {isRegister ? 'Create your account' : 'Sign in to continue'}
           </p>

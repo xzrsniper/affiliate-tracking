@@ -3,6 +3,8 @@ import Link from './Link.js';
 import Click from './Click.js';
 import Conversion from './Conversion.js';
 import Website from './Website.js';
+import PageContent from './PageContent.js';
+import PageStructure from './PageStructure.js';
 
 // Define Associations
 
@@ -56,7 +58,9 @@ export {
   Link,
   Click,
   Conversion,
-  Website
+  Website,
+  PageContent,
+  PageStructure
 };
 
 export default {
@@ -64,5 +68,7 @@ export default {
   Link,
   Click,
   Conversion,
-  Website
+  Website,
+  PageContent,
+  PageStructure
 };

@@ -9,6 +9,11 @@ import Admin from './pages/Admin.jsx';
 import Settings from './pages/Settings.jsx';
 import Success from './pages/Success.jsx';
 import Setup from './pages/Setup.jsx';
+import HomeEditor from './pages/HomeEditor.jsx';
+import PageBuilder from './pages/PageBuilder.jsx';
+import VisualPageBuilder from './pages/VisualPageBuilder.jsx';
+import CanvasPageBuilder from './pages/CanvasPageBuilder.jsx';
+import HomeNew from './pages/HomeNew.jsx';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -26,6 +31,10 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/"
+        element={<HomeNew />}
+      />
+      <Route
+        path="/home-old"
         element={<Home />}
       />
       <Route
@@ -45,6 +54,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute requireAdmin={true}>
             <Admin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/home-editor"
+        element={
+          <ProtectedRoute requireAdmin={true}>
+            <HomeEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/page-builder"
+        element={
+          <ProtectedRoute requireAdmin={true}>
+            <CanvasPageBuilder />
           </ProtectedRoute>
         }
       />

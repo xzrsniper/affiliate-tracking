@@ -12,6 +12,7 @@ import {
   Users,
   Settings
 } from 'lucide-react';
+import Logo from '../components/Logo.jsx';
 
 export default function Landing() {
   return (
@@ -20,12 +21,7 @@ export default function Landing() {
       <nav className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <LinkIcon className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-slate-800">Affiliate Tracker</span>
-            </div>
+            <Logo size="md" showText={true} />
             <div className="flex items-center space-x-4">
               <a
                 href="#about"
@@ -219,11 +215,17 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                  <LinkIcon className="w-6 h-6 text-white" />
+              <div className="mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <img 
+                      src="/logo.png" 
+                      alt="LehkoTrack Logo" 
+                      className="w-full h-full object-contain p-1.5"
+                    />
+                  </div>
+                  <span className="text-xl font-bold text-white">LehkoTrack</span>
                 </div>
-                <span className="text-xl font-bold text-white">Affiliate Tracker</span>
               </div>
               <p className="text-slate-400">
                 Потужна система відстеження affiliate трафіку з детальною статистикою
@@ -276,7 +278,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-slate-800 text-center text-slate-400">
-            <p>&copy; 2024 Affiliate Tracker. Всі права захищені.</p>
+            <p>&copy; 2024 LehkoTrack. Всі права захищені.</p>
           </div>
         </div>
       </footer>

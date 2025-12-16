@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   MousePointerClick,
@@ -14,9 +15,14 @@ import {
   Moon
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext.jsx';
+import Logo from '../components/Logo.jsx';
+import api from '../config/api.js';
 
 export default function Home() {
   console.log('🏠 Home component rendering...');
+  
+  const [pageContent, setPageContent] = useState({});
+  const [loading, setLoading] = useState(true);
   
   let theme = 'light';
   let toggleTheme = () => {};
@@ -29,6 +35,38 @@ export default function Home() {
   } catch (error) {
     console.error('❌ Error loading theme:', error);
   }
+
+  useEffect(() => {
+    fetchContent();
+  }, []);
+
+  const fetchContent = async () => {
+    try {
+      // Спочатку намагаємося завантажити нову структуру
+      const structureResponse = await api.get('/api/page-structure/home');
+      if (structureResponse.data.success && structureResponse.data.structure) {
+        // Якщо є нова структура, перенаправляємо на HomeNew
+        window.location.href = '/home-new';
+        return;
+      }
+      
+      // Fallback на стару систему
+      const response = await api.get('/api/page-content/home');
+      if (response.data.success) {
+        setPageContent(response.data.content || {});
+      }
+    } catch (error) {
+      console.error('Failed to load page content:', error);
+      // Використовуємо дефолтний контент при помилці
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Функції для отримання контенту з fallback на дефолтні значення
+  const getContent = (section, key, defaultValue = '') => {
+    return pageContent[section]?.[key]?.content || defaultValue;
+  };
   const features = [
     {
       icon: MousePointerClick,
@@ -90,12 +128,7 @@ export default function Home() {
       <nav className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <MousePointerClick className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-slate-800 dark:text-white">Affiliate Tracker</span>
-            </div>
+            <Logo size="md" showText={true} />
             <div className="flex items-center space-x-4">
               <button
                 onClick={toggleTheme}
@@ -128,24 +161,32 @@ export default function Home() {
       {/* Hero Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
         <div className="text-center">
+          {getContent('hero', 'hero_image') && (
+            <div className="mb-8">
+              <img 
+                src={getContent('hero', 'hero_image')} 
+                alt="Hero" 
+                className="max-w-4xl mx-auto rounded-2xl shadow-2xl"
+              />
+            </div>
+          )}
           <h1 className="text-5xl md:text-6xl font-bold text-slate-900 dark:text-white mb-6">
-            Відстежуйте{' '}
+            {getContent('hero', 'title', 'Відстежуйте')}{' '}
             <span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-              партнерські програми
+              {getContent('hero', 'title_highlight', 'партнерські програми')}
             </span>
             <br />
             з точністю до кліку
           </h1>
           <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 max-w-3xl mx-auto">
-            Професійна система відстеження affiliate трафіку з автоматичним підрахунком конверсій та доходів. 
-            Встановлення за 2 хвилини, працює на будь-якому сайті.
+            {getContent('hero', 'description', 'Професійна система відстеження affiliate трафіку з автоматичним підрахунком конверсій та доходів. Встановлення за 2 хвилини, працює на будь-якому сайті.')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               to="/login"
               className="px-8 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 flex items-center space-x-2 text-lg"
             >
-              <span>Створити акаунт</span>
+              <span>{getContent('hero', 'cta_text', 'Створити акаунт')}</span>
               <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
@@ -156,16 +197,28 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="text-center">
-            <div className="text-4xl font-bold text-violet-600 dark:text-violet-400 mb-2">100%</div>
-            <div className="text-slate-600 dark:text-slate-400">Точність відстеження</div>
+            <div className="text-4xl font-bold text-violet-600 dark:text-violet-400 mb-2">
+              {getContent('stats', 'stat1_value', '100%')}
+            </div>
+            <div className="text-slate-600 dark:text-slate-400">
+              {getContent('stats', 'stat1_label', 'Точність відстеження')}
+            </div>
           </div>
           <div className="text-center">
-            <div className="text-4xl font-bold text-violet-600 dark:text-violet-400 mb-2">&lt;2 хв</div>
-            <div className="text-slate-600 dark:text-slate-400">Встановлення</div>
+            <div className="text-4xl font-bold text-violet-600 dark:text-violet-400 mb-2">
+              {getContent('stats', 'stat2_value', '<2 хв')}
+            </div>
+            <div className="text-slate-600 dark:text-slate-400">
+              {getContent('stats', 'stat2_label', 'Встановлення')}
+            </div>
           </div>
           <div className="text-center">
-            <div className="text-4xl font-bold text-violet-600 dark:text-violet-400 mb-2">24/7</div>
-            <div className="text-slate-600 dark:text-slate-400">Моніторинг</div>
+            <div className="text-4xl font-bold text-violet-600 dark:text-violet-400 mb-2">
+              {getContent('stats', 'stat3_value', '24/7')}
+            </div>
+            <div className="text-slate-600 dark:text-slate-400">
+              {getContent('stats', 'stat3_label', 'Моніторинг')}
+            </div>
           </div>
         </div>
       </section>
@@ -174,10 +227,10 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-slate-900 dark:text-white mb-4">
-            Всі можливості для успішного tracking
+            {getContent('features', 'title', 'Всі можливості для успішного tracking')}
           </h2>
           <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            Все, що потрібно для ефективного управління партнерськими програмами
+            {getContent('features', 'subtitle', 'Все, що потрібно для ефективного управління партнерськими програмами')}
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -205,10 +258,10 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-4xl font-bold text-white mb-6">
-                Чому обирають нас?
+                {getContent('benefits', 'title', 'Чому обирають нас?')}
               </h2>
               <p className="text-xl text-violet-100 mb-8">
-                Професійне рішення для відстеження affiliate трафіку з усіма необхідними інструментами
+                {getContent('benefits', 'description', 'Професійне рішення для відстеження affiliate трафіку з усіма необхідними інструментами')}
               </p>
               <ul className="space-y-4">
                 {benefits.map((benefit, index) => (
@@ -260,16 +313,16 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-3xl p-12 text-center shadow-2xl">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Готові почати?
+            {getContent('cta', 'title', 'Готові почати?')}
           </h2>
           <p className="text-xl text-violet-100 mb-8 max-w-2xl mx-auto">
-            Створіть безкоштовний акаунт за хвилину та почніть відстежувати ваш affiliate трафік вже сьогодні
+            {getContent('cta', 'description', 'Створіть безкоштовний акаунт за хвилину та почніть відстежувати ваш affiliate трафік вже сьогодні')}
           </p>
           <Link
             to="/login"
             className="inline-flex items-center space-x-2 px-8 py-4 bg-white text-violet-600 font-semibold rounded-xl hover:bg-violet-50 transition-all shadow-lg text-lg"
           >
-            <span>Створити акаунт безкоштовно</span>
+            <span>{getContent('cta', 'button_text', 'Створити акаунт безкоштовно')}</span>
             <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
@@ -281,11 +334,17 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                  <MousePointerClick className="w-6 h-6 text-white" />
+              <div className="mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <img 
+                      src="/logo.png" 
+                      alt="LehkoTrack Logo" 
+                      className="w-full h-full object-contain p-1.5"
+                    />
+                  </div>
+                  <span className="text-xl font-bold text-white">LehkoTrack</span>
                 </div>
-                <span className="text-xl font-bold text-white">Affiliate Tracker</span>
               </div>
               <p className="text-slate-400">
                 Професійна система відстеження affiliate трафіку
@@ -317,7 +376,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-slate-800 mt-8 pt-8 text-center text-slate-400">
-            <p>&copy; 2024 Affiliate Tracker. Всі права захищені.</p>
+            <p>&copy; 2024 LehkoTrack. Всі права захищені.</p>
           </div>
         </div>
       </footer>

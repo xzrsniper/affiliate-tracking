@@ -544,7 +544,7 @@ export default function Setup() {
                 <li>Відкрийте Google Tag Manager</li>
                 <li>Перейдіть в <strong>Tags</strong> → <strong>New</strong></li>
                 <li>Оберіть тип тега: <strong>Custom HTML</strong></li>
-                <li>Назвіть тег: <code className="bg-white dark:bg-slate-600 px-2 py-1 rounded">Affiliate Tracker</code></li>
+                <li>Назвіть тег: <code className="bg-white dark:bg-slate-600 px-2 py-1 rounded">LehkoTrack</code></li>
               </ol>
             </div>
           </div>
