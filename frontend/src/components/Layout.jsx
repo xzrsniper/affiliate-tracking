@@ -10,8 +10,7 @@ import {
   Code,
   Sun,
   Moon,
-  MessageCircle,
-  Edit
+  MessageCircle
 } from 'lucide-react';
 import Logo from './Logo.jsx';
 
@@ -49,11 +48,6 @@ export default function Layout({ children }) {
             path: '/admin',
             icon: Users,
             label: 'Admin'
-          },
-          {
-            path: '/admin/page-builder',
-            icon: Edit,
-            label: 'Конструктор сторінки'
           }
         ]
       : []),
@@ -134,18 +128,16 @@ export default function Layout({ children }) {
       {/* Main Content */}
       <main className="flex-1 ml-64">
         <div className="p-8 relative">
-          {/* Contacts Button - Top Right (приховано на сторінках редагування) */}
-          {!location.pathname.includes('/page-builder') && !location.pathname.includes('/home-editor') && (
-            <a
-              href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="absolute top-8 right-8 flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 z-10"
-            >
-              <MessageCircle className="w-5 h-5" />
-              <span>Контакти</span>
-            </a>
-          )}
+          {/* Contacts Button - Top Right */}
+          <a
+            href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute top-8 right-8 flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 z-10"
+          >
+            <MessageCircle className="w-5 h-5" />
+            <span>Контакти</span>
+          </a>
           {children}
         </div>
       </main>

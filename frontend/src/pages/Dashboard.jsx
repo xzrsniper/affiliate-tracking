@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -15,7 +16,8 @@ import {
   Check,
   X,
   Edit,
-  Save
+  Save,
+  ArrowRight
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -471,9 +473,13 @@ export default function Dashboard() {
               >
                 <div className="space-y-4">
                   {/* Tracking URL - Always Visible at Top */}
-                  <div className="bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-violet-200 dark:border-violet-800">
+                  <div className={`rounded-xl p-4 border-2 ${
+                    link.code_connected
+                      ? 'bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 border-violet-200 dark:border-violet-800'
+                      : 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-200 dark:border-red-800'
+                  }`}>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
-                    📎 Tracking URL (готовий до використання)
+                    📎 Tracking URL {link.code_connected ? '(готовий до використання)' : '(потрібно підключити код)'}
                   </label>
                   <div className="flex items-center space-x-2">
                     <code className="flex-1 px-4 py-3 bg-white dark:bg-slate-700 rounded-lg text-sm font-mono text-slate-800 dark:text-slate-200 break-all border border-slate-200 dark:border-slate-600">
@@ -505,6 +511,28 @@ export default function Dashboard() {
                       )}
                     </button>
                   </div>
+                  </div>
+
+                  {/* Code Connection Status Indicator */}
+                  <div className={`flex items-center space-x-2 px-4 py-3 rounded-lg ${
+                    link.code_connected 
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                  }`}>
+                    <div className={`w-3 h-3 rounded-full ${link.code_connected ? 'bg-green-600' : 'bg-red-600'}`}></div>
+                    {link.code_connected ? (
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                        Код підключено до сайту
+                      </span>
+                    ) : (
+                      <Link
+                        to="/setup"
+                        className="text-sm font-medium text-red-700 dark:text-red-300 hover:underline flex items-center space-x-1"
+                      >
+                        <span>Код не вставлено на сайт</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    )}
                   </div>
 
                   {/* Edit Form or Link Details */}

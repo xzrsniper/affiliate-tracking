@@ -1,10 +1,40 @@
 import express from 'express';
-import { Link, Click, Conversion, User } from '../models/index.js';
+import { Link, Click, Conversion, User, Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
 import { Op } from 'sequelize';
 
 const router = express.Router();
+
+// Helper function to extract domain from URL
+function extractDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.replace(/^www\./, '').toLowerCase(); // Remove www. prefix and normalize
+  } catch (e) {
+    return null;
+  }
+}
+
+// Helper function to check if code is connected for a domain
+async function checkCodeConnection(userId, domain) {
+  if (!domain) return false;
+  
+  // Check for exact match or match with/without www.
+  const website = await Website.findOne({
+    where: {
+      user_id: userId,
+      is_connected: true,
+      [Op.or]: [
+        { domain: domain },
+        { domain: `www.${domain}` },
+        { domain: domain.replace(/^www\./, '') }
+      ]
+    }
+  });
+  
+  return !!website;
+}
 
 // All routes require authentication
 router.use(authenticate);
@@ -109,8 +139,8 @@ router.get('/my-links', async (req, res, next) => {
       order: [['created_at', 'DESC']]
     });
 
-    // Calculate stats for each link
-    const linksWithStats = links.map(link => {
+    // Calculate stats for each link and check code connection status
+    const linksWithStats = await Promise.all(links.map(async (link) => {
       const clicks = link.clicks || [];
       const conversions = link.conversions || [];
 
@@ -127,6 +157,10 @@ router.get('/my-links', async (req, res, next) => {
         sum + parseFloat(conv.order_value || 0), 0
       );
 
+      // Check if tracking code is connected for this link's domain
+      const domain = extractDomain(link.original_url);
+      const isCodeConnected = await checkCodeConnection(req.user.id, domain);
+
       return {
         id: link.id,
         name: link.name,
@@ -135,6 +169,8 @@ router.get('/my-links', async (req, res, next) => {
         unique_code: link.unique_code,
         tracking_url: `${req.protocol}://${req.get('host')}/track/${link.unique_code}`,
         created_at: link.created_at,
+        code_connected: isCodeConnected,
+        domain: domain,
         stats: {
           unique_clicks: uniqueClicks,
           total_clicks: totalClicks,
@@ -142,7 +178,7 @@ router.get('/my-links', async (req, res, next) => {
           total_revenue: parseFloat(totalRevenue.toFixed(2))
         }
       };
-    });
+    }));
 
     res.json({
       success: true,

@@ -339,6 +339,26 @@ function CanvasElementView({ element }) {
             <div className="flex justify-between items-center h-16">
               <Logo size="md" showText={true} />
               <div className="flex items-center space-x-4">
+                <a
+                  href="#about"
+                  className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition-colors"
+                >
+                  Про нас
+                </a>
+                <a
+                  href="#blog"
+                  className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition-colors"
+                >
+                  Блог
+                </a>
+                <a
+                  href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition-colors"
+                >
+                  Контакти
+                </a>
                 <button
                   onClick={toggleTheme}
                   className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
