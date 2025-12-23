@@ -46,12 +46,12 @@ export default function Dashboard() {
   useEffect(() => {
     fetchLinks();
     
-    // Auto-refresh stats every 5 seconds for real-time updates
-    const interval = setInterval(() => {
-      fetchLinks();
-    }, 5000);
+    // Auto-refresh disabled - user can manually refresh using the button
+    // const interval = setInterval(() => {
+    //   fetchLinks();
+    // }, 5000);
     
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, []);
 
   const fetchLinks = async (showLoading = true) => {
