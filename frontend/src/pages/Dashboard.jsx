@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
@@ -42,16 +42,16 @@ export default function Dashboard() {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null); // Track which link is being deleted
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [lastUpdated, setLastUpdated] = useState(null); // Track last update time
+  const hasFetchedRef = useRef(false); // Prevent double fetch in React Strict Mode
 
   useEffect(() => {
-    fetchLinks();
+    // Only fetch once on mount (prevent double fetch in React Strict Mode)
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchLinks();
+    }
     
-    // Auto-refresh disabled - user can manually refresh using the button
-    // const interval = setInterval(() => {
-    //   fetchLinks();
-    // }, 5000);
-    
-    // return () => clearInterval(interval);
+    // Auto-refresh completely disabled - user can manually refresh using the button
   }, []);
 
   const fetchLinks = async (showLoading = true) => {
@@ -87,10 +87,7 @@ export default function Dashboard() {
       setLinks([newLinkData, ...links]);
       setNewLink({ original_url: '', name: '', source_type: '' });
       setShowCreateForm(false);
-      // Refresh stats immediately after creating link
-      setTimeout(() => {
-        fetchLinks(false); // Refresh without showing loading
-      }, 500);
+      // Auto-refresh disabled - user can manually refresh if needed
       // Show popup instead of success message
       // createdLink state will show the popup
     } catch (err) {
