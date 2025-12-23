@@ -22,34 +22,41 @@ router.get('/:unique_code', async (req, res, next) => {
     const ipAddress = getClientIP(req);
 
     try {
-      // Check if this exact click was already recorded (prevent duplicates)
-      // Check for same visitor + link combination within last 10 seconds
-      const recentClick = await Click.findOne({
+      // Track every click - allow multiple clicks from same user
+      // Only prevent true duplicates (same visitor + link within 1 second)
+      // This prevents:
+      // - Browser refresh (happens almost instantly, < 500ms)
+      // - Accidental double-click (usually within 500ms)
+      // But allows legitimate multiple clicks (user clicking link multiple times)
+      const veryRecentClick = await Click.findOne({
         where: {
           link_id: link.id,
           visitor_fingerprint: visitorFingerprint,
           created_at: {
-            [Op.gte]: new Date(Date.now() - 10000) // Within last 10 seconds
+            [Op.gte]: new Date(Date.now() - 1000) // Within last 1 second only
           }
         },
         order: [['created_at', 'DESC']]
       });
 
-      // Only create if not a duplicate (same visitor + link within 10 seconds)
-      // This prevents double-counting from:
-      // - Rapid multiple clicks
-      // - Browser refresh
-      // - Both redirect.js and track.js trying to record (though track.js no longer creates)
-      if (!recentClick) {
-        await Click.create({
+      // Only prevent if click happened within last 1 second (true duplicate)
+      // Otherwise, allow the click (legitimate multiple clicks)
+      if (!veryRecentClick) {
+        const newClick = await Click.create({
           link_id: link.id,
           visitor_fingerprint: visitorFingerprint,
           ip_address: ipAddress
         });
+        
+        // Log successful click tracking (for debugging)
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[Tracking] ✅ Click tracked: link ${link.id}, visitor ${visitorFingerprint.substring(0, 20)}..., click_id: ${newClick.id}`);
+        }
       } else {
         // Log duplicate attempt (for debugging)
         if (process.env.NODE_ENV === 'development') {
-          console.log(`[Tracking] Duplicate click prevented for link ${link.id}, visitor ${visitorFingerprint.substring(0, 20)}...`);
+          const timeDiff = Date.now() - new Date(veryRecentClick.created_at).getTime();
+          console.log(`[Tracking] ⚠️ Duplicate click prevented for link ${link.id}, visitor ${visitorFingerprint.substring(0, 20)}... (within ${timeDiff}ms - likely refresh/double-click)`);
         }
       }
     } catch (trackError) {
