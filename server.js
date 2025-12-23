@@ -25,9 +25,15 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({
   origin: '*', // Allow all origins for tracking pixel
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Visitor-ID', 'ngrok-skip-browser-warning'],
-  credentials: false
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Visitor-ID', 'X-Tracker-Version', 'ngrok-skip-browser-warning'],
+  exposedHeaders: ['X-Tracker-Version'],
+  credentials: false,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Explicitly handle OPTIONS requests for CORS preflight
+app.options('*', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

@@ -1168,7 +1168,21 @@
       const domain = window.location.hostname;
       const version = '1.0.0'; // Tracker version
       
-      const verifyUrl = BASE_URL.replace('/conversion', '').replace('/view', '') + '/verify?' + 
+      // Build verify URL correctly - BASE_URL should be like 'https://lehko.space/api/track'
+      // So we just append '/verify' to it
+      let verifyBase = BASE_URL;
+      // Remove any trailing paths that might be there
+      if (verifyBase.endsWith('/conversion') || verifyBase.endsWith('/view')) {
+        verifyBase = verifyBase.replace(/\/conversion$|\/view$/, '');
+      }
+      // Ensure it ends with /api/track
+      if (!verifyBase.endsWith('/api/track')) {
+        // Extract base URL and add /api/track
+        const urlObj = new URL(verifyBase);
+        verifyBase = urlObj.origin + '/api/track';
+      }
+      
+      const verifyUrl = verifyBase + '/verify?' + 
         new URLSearchParams({
           code: refCode || '',
           domain: domain,
@@ -1177,11 +1191,10 @@
         }).toString();
       
       // Send verification ping (fire and forget)
+      // Don't send custom headers to avoid CORS issues
       safeFetch(verifyUrl, {
-        method: 'GET',
-        headers: {
-          'X-Tracker-Version': version
-        }
+        method: 'GET'
+        // Removed X-Tracker-Version header to avoid CORS preflight issues
       }).then(function(response) {
         if (window.TRACKER_CONFIG?.DEBUG && response) {
           console.log('[Affiliate Tracker] ✅ Verification ping sent');
