@@ -17,7 +17,8 @@ import {
   X,
   Edit,
   Save,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -40,20 +41,33 @@ export default function Dashboard() {
   const [updating, setUpdating] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null); // Track which link is being deleted
   const [successMessage, setSuccessMessage] = useState(''); // Success message
+  const [lastUpdated, setLastUpdated] = useState(null); // Track last update time
 
   useEffect(() => {
     fetchLinks();
+    
+    // Auto-refresh stats every 5 seconds for real-time updates
+    const interval = setInterval(() => {
+      fetchLinks();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchLinks = async () => {
+  const fetchLinks = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const response = await api.get('/api/links/my-links');
       setLinks(response.data.links || []);
+      setLastUpdated(new Date());
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load links');
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -73,6 +87,10 @@ export default function Dashboard() {
       setLinks([newLinkData, ...links]);
       setNewLink({ original_url: '', name: '', source_type: '' });
       setShowCreateForm(false);
+      // Refresh stats immediately after creating link
+      setTimeout(() => {
+        fetchLinks(false); // Refresh without showing loading
+      }, 500);
       // Show popup instead of success message
       // createdLink state will show the popup
     } catch (err) {
@@ -235,15 +253,25 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        <button
-          onClick={fetchLinks}
-          disabled={loading}
-          className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl transition-colors flex items-center space-x-2 text-sm font-medium disabled:opacity-50"
-          title="Оновити статистику"
-        >
-          <span>🔄</span>
-          <span>{loading ? 'Оновлення...' : 'Оновити'}</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {lastUpdated && (
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`}></div>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Оновлено: {lastUpdated.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={() => fetchLinks(true)}
+            disabled={loading}
+            className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl transition-colors flex items-center space-x-2 text-sm font-medium disabled:opacity-50"
+            title="Оновити статистику"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>{loading ? 'Оновлення...' : 'Оновити'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Create Link Form */}
@@ -427,7 +455,7 @@ export default function Dashboard() {
             <button
               onClick={() => {
                 setCreatedLink(null);
-                fetchLinks(); // Refresh to get updated stats
+                fetchLinks(true); // Refresh to get updated stats
               }}
               className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
             >

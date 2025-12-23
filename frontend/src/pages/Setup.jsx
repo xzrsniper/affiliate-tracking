@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
-import { Code, Settings, Copy, Check, ExternalLink, FileCode, Tag, Plus, Edit, Trash2, Globe, X, RefreshCw } from 'lucide-react';
+import { Code, Settings, Copy, Check, ExternalLink, FileCode, Tag, Plus, Edit, Trash2, Globe, X, RefreshCw, BookOpen, AlertCircle, HelpCircle } from 'lucide-react';
 
 export default function Setup() {
   const [copiedSection, setCopiedSection] = useState(null);
-  const [activeTab, setActiveTab] = useState('websites'); // 'websites', 'code' або 'gtm'
+  const [activeTab, setActiveTab] = useState('websites'); // 'websites', 'code', 'gtm' або 'guide'
   const [websites, setWebsites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -56,16 +56,6 @@ export default function Setup() {
     }
   };
 
-  const toggleConnectionStatus = async (website) => {
-    try {
-      await api.put(`/api/websites/${website.id}`, {
-        is_connected: !website.is_connected
-      });
-      fetchWebsites();
-    } catch (err) {
-      console.error('Failed to update website:', err);
-    }
-  };
 
   const isLocalhost = (domain) => {
     if (!domain) return false;
@@ -78,7 +68,7 @@ export default function Setup() {
       
       // Для localhost не можна перевірити автоматично
       if (isLocalhost(website.domain)) {
-        alert('Для localhost сайтів автоматична перевірка недоступна. Використайте кнопку "Встановити як підключено" для встановлення статусу вручну.');
+        alert('Для localhost сайтів автоматична перевірка недоступна. Переконайтеся, що tracking код встановлено на сайті, і використайте публічний домен для перевірки.');
         setCheckingId(null);
         return;
       }
@@ -95,17 +85,6 @@ export default function Setup() {
       alert('Не вдалося перевірити сайт. Переконайтеся, що сайт доступний з інтернету.');
     } finally {
       setCheckingId(null);
-    }
-  };
-
-  const handleSetConnected = async (website) => {
-    try {
-      await api.put(`/api/websites/${website.id}`, {
-        is_connected: true
-      });
-      fetchWebsites();
-    } catch (err) {
-      console.error('Failed to update website:', err);
     }
   };
 
@@ -196,6 +175,17 @@ export default function Setup() {
               >
                 <Tag className="w-5 h-5 inline mr-2" />
                 Google Tag Manager
+              </button>
+              <button
+                onClick={() => setActiveTab('guide')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'guide'
+                    ? 'border-emerald-600 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
+              >
+                <BookOpen className="w-5 h-5 inline mr-2" />
+                Детальна інструкція
               </button>
             </nav>
           </div>
@@ -315,17 +305,13 @@ export default function Setup() {
                         </td>
                         <td className="py-4 px-4">
                           {isLocalhost(website.domain) ? (
-                            <div className="flex flex-col space-y-2">
-                              <button
-                                onClick={() => handleSetConnected(website)}
-                                disabled={website.is_connected}
-                                className="inline-flex items-center space-x-2 px-3 py-2 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-400 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                                title="Для localhost сайтів встановіть статус вручну"
-                              >
-                                <Check className="w-4 h-4" />
-                                <span>{website.is_connected ? 'Підключено' : 'Встановити як підключено'}</span>
-                              </button>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">Localhost - встановіть вручну</p>
+                            <div className="flex flex-col space-y-1">
+                              <span className="text-sm text-slate-500 dark:text-slate-400 italic">
+                                Localhost - перевірка недоступна
+                              </span>
+                              <span className="text-xs text-slate-400 dark:text-slate-500">
+                                Використайте публічний домен для перевірки
+                              </span>
                             </div>
                           ) : (
                             <button
@@ -584,13 +570,19 @@ export default function Setup() {
               <span className="w-8 h-8 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">3</span>
               Налаштуйте тригери
             </h3>
-            <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+            <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600 mb-3">
               <p className="text-slate-700 dark:text-slate-300 mb-3">Встановіть тригер для запуску тега:</p>
               <ul className="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300">
                 <li>Оберіть <strong>All Pages</strong> для відстеження на всіх сторінках</li>
-                <li>Або створіть власний тригер для конкретних сторінок</li>
                 <li>Рекомендується: <strong>Page View</strong> → <strong>All Pages</strong></li>
+                <li><strong>Важливо:</strong> Встановіть тільки ОДИН тригер, щоб уникнути дублювання</li>
               </ul>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+              <p className="text-sm text-amber-800 dark:text-amber-300 flex items-start">
+                <AlertCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+                <span><strong>Запобігання дублюванню:</strong> Переконайтеся, що тег налаштований на спрацювання <strong>тільки один раз</strong> на сторінку. Не додавайте кілька тригерів для одного тега. Якщо використовуєте GTM, НЕ вставляйте код також безпосередньо в HTML.</span>
+              </p>
             </div>
           </div>
 
@@ -617,6 +609,371 @@ export default function Setup() {
             </p>
           </div>
         </div>
+        )}
+
+        {/* Detailed Guide Tab */}
+        {activeTab === 'guide' && (
+          <div className="space-y-6">
+            {/* Introduction */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+              <div className="flex items-start space-x-4 mb-6">
+                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                  <BookOpen className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+                    Детальна інструкція з встановлення
+                  </h2>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Покрокова інструкція для правильного встановлення tracking коду LehkoTrack на ваш сайт
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Preparation */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                <HelpCircle className="w-6 h-6 mr-2 text-violet-600 dark:text-violet-400" />
+                Підготовка
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-2">Що вам знадобиться:</h4>
+                  <ul className="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li><strong>Tracking код</strong> - отримайте його в панелі LehkoTrack (вкладка "Встановлення кодом")</li>
+                    <li><strong>Доступ до коду вашого сайту</strong> - HTML шаблони або Google Tag Manager</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Method 1: Direct Installation */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                <FileCode className="w-6 h-6 mr-2 text-violet-600 dark:text-violet-400" />
+                Спосіб 1: Пряме встановлення (рекомендовано)
+              </h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 1: Отримайте код</h4>
+                  <p className="text-slate-700 dark:text-slate-300 mb-3">
+                    У панелі LehkoTrack перейдіть на вкладку <strong>"Встановлення кодом"</strong> та скопіюйте готовий код.
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 2: Вставте код на ваш сайт</h4>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4">
+                    <p className="text-sm text-amber-800 dark:text-amber-300 flex items-start">
+                      <AlertCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+                      <span><strong>Важливо:</strong> Код повинен бути вставлений на <strong>ВСІ сторінки</strong> вашого сайту, включаючи головну, товари, кошик та сторінку підтвердження замовлення.</span>
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h5 className="font-medium text-slate-800 dark:text-white mb-2">Для статичних HTML сайтів:</h5>
+                      <p className="text-slate-700 dark:text-slate-300 text-sm mb-2">
+                        Вставте код безпосередньо перед закриваючим тегом <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">&lt;/head&gt;</code>:
+                      </p>
+                      <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
+                        <pre className="text-xs text-slate-800 dark:text-slate-200 overflow-x-auto">
+                          <code>{`<!DOCTYPE html>
+<html>
+<head>
+  <title>Мій сайт</title>
+  <!-- Інші теги head -->
+  
+  <!-- LehkoTrack Tracking Code -->
+  <script>
+    window.TRACKER_CONFIG = {
+      BASE_URL: '${API_BASE}/api/track',
+      CONVERSION_KEYWORDS: ['success', 'order', 'thank-you', 'thankyou', 'complete', 'purchase', 'confirmation'],
+      DEBUG: false
+    };
+  </script>
+  <script src="${API_BASE}/tracker.js"></script>
+  <!-- End LehkoTrack -->
+</head>
+<body>
+  <!-- Вміст сайту -->
+</body>
+</html>`}</code>
+                        </pre>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="font-medium text-slate-800 dark:text-white mb-2">Для WordPress:</h5>
+                      <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                        <li>Встановіть плагін для вставки коду (наприклад, "Insert Headers and Footers")</li>
+                        <li>Вставте код в розділ "Scripts in Header"</li>
+                        <li>Або відредагуйте файл <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">header.php</code> вашої теми</li>
+                      </ol>
+                    </div>
+
+                    <div>
+                      <h5 className="font-medium text-slate-800 dark:text-white mb-2">Для інших CMS (Shopify, WooCommerce, тощо):</h5>
+                      <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                        <li>Знайдіть налаштування "Custom Code" або "Tracking Scripts"</li>
+                        <li>Вставте код в розділ для коду в <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">&lt;head&gt;</code></li>
+                        <li>Збережіть зміни</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Method 2: GTM */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                <Tag className="w-6 h-6 mr-2 text-indigo-600 dark:text-indigo-400" />
+                Спосіб 2: Через Google Tag Manager
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 1: Створіть новий тег в GTM</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li>Увійдіть в Google Tag Manager</li>
+                    <li>Виберіть ваш контейнер</li>
+                    <li>Натисніть <strong>"Теги"</strong> → <strong>"Новий"</strong></li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 2: Налаштуйте тег</h4>
+                  <ul className="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li><strong>Назва тегу:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">LehkoTrack - Tracking Code</code></li>
+                    <li><strong>Тип тегу:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">Пользовательский HTML</code></li>
+                    <li><strong>HTML код:</strong> Вставте код з панелі LehkoTrack</li>
+                    <li><strong>Триггер:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">All Pages</code> (всі сторінки)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 3: Налаштуйте тригер (важливо!)</h4>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-3">
+                    <p className="text-sm text-amber-800 dark:text-amber-300 flex items-start">
+                      <AlertCircle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+                      <span><strong>Увага:</strong> Щоб уникнути дублювання тегів, встановіть тригер на <strong>"All Pages"</strong> (Всі сторінки) і переконайтеся, що тег налаштований на спрацювання <strong>тільки один раз</strong> на сторінку.</span>
+                    </p>
+                  </div>
+                  <ul className="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li><strong>Тригер:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">All Pages</code> (всі сторінки)</li>
+                    <li><strong>Тип запуску:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">Once per page</code> (один раз на сторінку) - якщо доступно</li>
+                    <li><strong>Умова:</strong> Не додавайте додаткові умови, які можуть призвести до подвійного спрацювання</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 4: Опублікуйте зміни</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li>Натисніть <strong>"Опублікувати"</strong></li>
+                    <li>Введіть назву версії (наприклад: "Додано LehkoTrack")</li>
+                    <li>Натисніть <strong>"Опублікувати"</strong></li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            {/* Verification */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                <Check className="w-6 h-6 mr-2 text-green-600 dark:text-green-400" />
+                Перевірка встановлення
+              </h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Метод 1: Автоматична перевірка (рекомендовано)</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li>У панелі LehkoTrack перейдіть на сторінку <strong>"Налаштування"</strong></li>
+                    <li>Знайдіть ваш сайт в списку</li>
+                    <li>Натисніть кнопку <strong>"Перевірити"</strong> біля вашого сайту</li>
+                    <li>Система автоматично перевірить наявність коду на вашому сайті</li>
+                  </ol>
+                  <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm text-green-800 dark:text-green-300">
+                      <strong>✅ Зелений індикатор</strong> - трекер встановлено та працює<br/>
+                      <strong>❌ Червоний індикатор</strong> - трекер не знайдено, перевірте встановлення
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Метод 2: Ручна перевірка через браузер</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li>Відкрийте ваш сайт в браузері</li>
+                    <li>Натисніть <strong>F12</strong> (або ПКМ → "Перевірити елемент")</li>
+                    <li>Перейдіть на вкладку <strong>"Console"</strong></li>
+                    <li>Введіть: <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">window.AffiliateTracker</code></li>
+                    <li>Якщо бачите об'єкт - трекер встановлено ✅</li>
+                    <li>Якщо <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">undefined</code> - трекер не встановлено ❌</li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Метод 3: Перевірка коду сторінки</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li>Відкрийте ваш сайт в браузері</li>
+                    <li>Натисніть <strong>ПКМ</strong> → <strong>"Переглянути код сторінки"</strong> (або Ctrl+U)</li>
+                    <li>Натисніть <strong>Ctrl+F</strong> для пошуку</li>
+                    <li>Шукайте: <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">tracker.js</code> або <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">TRACKER_CONFIG</code></li>
+                    <li>Якщо знайдено - трекер встановлено ✅</li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Метод 4: Перевірка через Network (мережа)</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li>Відкрийте ваш сайт в браузері</li>
+                    <li>Натисніть <strong>F12</strong> → вкладка <strong>"Network"</strong></li>
+                    <li>Оновіть сторінку (F5)</li>
+                    <li>Шукайте запити до <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/api/track/verify</code> або <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/tracker.js</code></li>
+                    <li>Якщо запити є - трекер працює ✅</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            {/* Troubleshooting */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                <AlertCircle className="w-6 h-6 mr-2 text-red-600 dark:text-red-400" />
+                Усунення проблем
+              </h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Проблема 1: Трекер не знайдено після встановлення</h4>
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-3">
+                    <p className="text-sm text-red-800 dark:text-red-300 mb-2"><strong>Можливі причини:</strong></p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-red-700 dark:text-red-400 ml-4">
+                      <li>Код вставлено не на всі сторінки</li>
+                      <li>Код вставлено в неправильне місце</li>
+                      <li>Кеш браузера (очистіть кеш: Ctrl+Shift+Delete)</li>
+                      <li>CDN або кеш сервера (очистіть кеш CDN)</li>
+                    </ul>
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm"><strong>Рішення:</strong></p>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-700 dark:text-slate-300 ml-4 text-sm">
+                    <li>Перевірте, чи код є на сторінці (Ctrl+U → Ctrl+F → "tracker.js")</li>
+                    <li>Переконайтеся, що код в <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">&lt;head&gt;</code>, а не в <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">&lt;body&gt;</code></li>
+                    <li>Очистіть кеш браузера та CDN</li>
+                    <li>Спробуйте в режимі інкогніто</li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Проблема 2: Трекер не відстежує конверсії</h4>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm mb-2"><strong>Рішення:</strong></p>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4 text-sm">
+                    <li>Увімкніть режим DEBUG:
+                      <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 mt-2 border border-slate-200 dark:border-slate-600">
+                        <pre className="text-xs text-slate-800 dark:text-slate-200">
+                          <code>{`window.TRACKER_CONFIG = {
+  BASE_URL: '${API_BASE}/api/track',
+  DEBUG: true  // Змініть на true
+};`}</code>
+                        </pre>
+                      </div>
+                    </li>
+                    <li>Перевірте консоль браузера на сторінці підтвердження</li>
+                    <li>Переконайтеся, що URL сторінки містить ключові слова: <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">thank-you</code>, <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">order-confirmation</code>, <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">success</code></li>
+                    <li>Або використайте ручний виклик:
+                      <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 mt-2 border border-slate-200 dark:border-slate-600">
+                        <pre className="text-xs text-slate-800 dark:text-slate-200">
+                          <code>{`window.AffiliateTracker.trackConversionManually(99.99, 'ORDER-12345');`}</code>
+                        </pre>
+                      </div>
+                    </li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Проблема 3: Тег спрацьовує двічі в GTM</h4>
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-3">
+                    <p className="text-sm text-red-800 dark:text-red-300 mb-2"><strong>Можливі причини:</strong></p>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-red-700 dark:text-red-400 ml-4">
+                      <li>Тег налаштований на кілька тригерів одночасно</li>
+                      <li>Тег спрацьовує на одній події кілька разів</li>
+                      <li>Код вставлено і в GTM, і безпосередньо на сайт</li>
+                      <li>GTM контейнер підключений двічі</li>
+                    </ul>
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300 text-sm mb-2"><strong>Рішення:</strong></p>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4 text-sm">
+                    <li>Перевірте, що тег має тільки один тригер: <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">All Pages</code></li>
+                    <li>Увімкніть режим Preview в GTM і перевірте, скільки разів спрацьовує тег</li>
+                    <li>Переконайтеся, що код НЕ вставлено безпосередньо в HTML, якщо використовуєте GTM</li>
+                    <li>Перевірте, що GTM контейнер підключений тільки один раз на сторінці</li>
+                    <li>Якщо проблема залишається, використайте прямий спосіб встановлення замість GTM</li>
+                  </ol>
+                  <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm text-green-800 dark:text-green-300">
+                      <strong>✅ Захист від дублювання:</strong> Трекер автоматично запобігає дублюванню навіть якщо спрацює кілька разів, але краще налаштувати GTM правильно.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Проблема 4: Помилки в консолі браузера</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-slate-700 dark:text-slate-300 text-sm mb-1"><strong>"Failed to fetch" або CORS error:</strong></p>
+                      <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 ml-4 text-sm">
+                        <li>Перевірте, чи правильний BASE_URL</li>
+                        <li>Перевірте налаштування CORS на сервері</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-slate-700 dark:text-slate-300 text-sm mb-1"><strong>"tracker.js not found" (404):</strong></p>
+                      <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 ml-4 text-sm">
+                        <li>Перевірте правильність URL до tracker.js</li>
+                        <li>Переконайтеся, що файл доступний</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-slate-700 dark:text-slate-300 text-sm mb-1"><strong>"TRACKER_CONFIG is not defined":</strong></p>
+                      <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 ml-4 text-sm">
+                        <li>Переконайтеся, що конфігурація вставлена ПЕРЕД tracker.js</li>
+                        <li>Перевірте правильність синтаксису JavaScript</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Checklist */}
+            <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 p-8">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center">
+                <Check className="w-6 h-6 mr-2 text-emerald-600 dark:text-emerald-400" />
+                Чек-лист встановлення
+              </h3>
+              <div className="space-y-2">
+                {[
+                  'Отримав tracking код з панелі',
+                  'Вставив код на всі сторінки сайту (або через GTM)',
+                  'Перевірив наявність коду в коді сторінки',
+                  'Перевірив через автоматичну перевірку в панелі',
+                  'Перевірив консоль браузера на помилки',
+                  'Протестував відстеження кліків',
+                  'Протестував відстеження конверсій',
+                  'Статус показує "Підключено" ✅'
+                ].map((item, index) => (
+                  <label key={index} className="flex items-center space-x-3 p-3 bg-white dark:bg-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors cursor-pointer">
+                    <input type="checkbox" className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500" />
+                    <span className="text-slate-700 dark:text-slate-300">{item}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Additional Info */}

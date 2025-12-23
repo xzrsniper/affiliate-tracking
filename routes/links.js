@@ -2,7 +2,8 @@ import express from 'express';
 import { Link, Click, Conversion, User, Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
+import sequelize from '../config/database.js';
 
 const router = express.Router();
 
@@ -17,10 +18,11 @@ function extractDomain(url) {
 }
 
 // Helper function to check if code is connected for a domain
+// Only checks the actual website status in database (set by user or automatic check)
 async function checkCodeConnection(userId, domain) {
   if (!domain) return false;
   
-  // Check for exact match or match with/without www.
+  // Check website status in database (must be explicitly set to true)
   const website = await Website.findOne({
     where: {
       user_id: userId,
@@ -122,40 +124,43 @@ router.post('/create', async (req, res, next) => {
  */
 router.get('/my-links', async (req, res, next) => {
   try {
+    // Use raw queries for better performance - aggregate stats directly in SQL
     const links = await Link.findAll({
       where: { user_id: req.user.id },
-      include: [
-        {
-          model: Click,
-          as: 'clicks',
-          attributes: ['id', 'visitor_fingerprint', 'created_at']
-        },
-        {
-          model: Conversion,
-          as: 'conversions',
-          attributes: ['id', 'order_value', 'created_at']
-        }
-      ],
+      attributes: ['id', 'name', 'original_url', 'source_type', 'unique_code', 'created_at', 'user_id'],
       order: [['created_at', 'DESC']]
     });
 
-    // Calculate stats for each link and check code connection status
+    // Calculate stats for each link using optimized SQL aggregation
+    // This is much faster than loading all clicks/conversions into memory
     const linksWithStats = await Promise.all(links.map(async (link) => {
-      const clicks = link.clicks || [];
-      const conversions = link.conversions || [];
+      // Use SQL aggregation for better performance
+      const [clickStats] = await sequelize.query(`
+        SELECT 
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT visitor_fingerprint) as unique_clicks
+        FROM clicks
+        WHERE link_id = ?
+      `, {
+        replacements: [link.id],
+        type: QueryTypes.SELECT
+      });
 
-      // Unique clicks: count distinct visitor fingerprints
-      const uniqueFingerprints = new Set(clicks.map(c => c.visitor_fingerprint));
-      const uniqueClicks = uniqueFingerprints.size;
+      const [conversionStats] = await sequelize.query(`
+        SELECT 
+          COUNT(*) as conversions,
+          COALESCE(SUM(order_value), 0) as total_revenue
+        FROM conversions
+        WHERE link_id = ?
+      `, {
+        replacements: [link.id],
+        type: QueryTypes.SELECT
+      });
 
-      // Total clicks
-      const totalClicks = clicks.length;
-
-      // Conversions count and revenue
-      const totalConversions = conversions.length;
-      const totalRevenue = conversions.reduce((sum, conv) => 
-        sum + parseFloat(conv.order_value || 0), 0
-      );
+      const totalClicks = parseInt(clickStats?.total_clicks || 0);
+      const uniqueClicks = parseInt(clickStats?.unique_clicks || 0);
+      const totalConversions = parseInt(conversionStats?.conversions || 0);
+      const totalRevenue = parseFloat(conversionStats?.total_revenue || 0);
 
       // Check if tracking code is connected for this link's domain
       const domain = extractDomain(link.original_url);

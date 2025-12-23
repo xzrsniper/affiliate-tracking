@@ -6,6 +6,15 @@
 
 (function() {
   'use strict';
+  
+  // CRITICAL: Early exit if tracker is already initialized
+  // This prevents duplicate execution even if script is loaded multiple times (e.g., in GTM)
+  if (typeof window !== 'undefined' && window._affiliateTrackerInitialized) {
+    if (window.TRACKER_CONFIG?.DEBUG) {
+      console.log('[Affiliate Tracker] Script already executed, skipping duplicate initialization');
+    }
+    return; // Exit immediately without executing any code
+  }
 
   // ========== CONFIGURATION ==========
   const BASE_URL = window.TRACKER_CONFIG?.BASE_URL || 'http://localhost:3000/api/track';
@@ -417,15 +426,53 @@
 
   // ========== STEP 3: TRACK PAGE VIEW ==========
 
+  // Flag to prevent double page view tracking
+  let pageViewTracked = false;
+  let pageViewInProgress = false;
+
   /**
    * Step 3: Track page view via GET request
+   * With duplicate prevention
    */
   function trackPageView() {
+    // Prevent double call
+    if (pageViewTracked || pageViewInProgress) {
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.log('[Affiliate Tracker] Page view already tracked or in progress, skipping');
+      }
+      return;
+    }
+    
+    pageViewInProgress = true;
+    
     const refCode = getStoredRefCode();
     
     if (!refCode) {
       // No ref code found, skip tracking
+      pageViewInProgress = false;
       return;
+    }
+
+    // Check if already tracked for this URL
+    const currentUrl = window.location.href.split('?')[0];
+    const urlHash = currentUrl.length.toString(36).substring(0, 8);
+    const pageViewKey = 'pv_' + urlHash;
+    
+    try {
+      const alreadyTracked = sessionStorage.getItem(pageViewKey);
+      if (alreadyTracked) {
+        const timestamp = parseInt(alreadyTracked);
+        // Allow re-tracking if more than 5 minutes passed (for SPA navigation)
+        if (timestamp && (Date.now() - timestamp) < 300000) { // 5 minutes
+          if (window.TRACKER_CONFIG?.DEBUG) {
+            console.log('[Affiliate Tracker] Page view already tracked for this URL');
+          }
+          pageViewInProgress = false;
+          return;
+        }
+      }
+    } catch (e) {
+      // sessionStorage might be disabled
     }
 
     const visitorId = getVisitorId();
@@ -437,6 +484,26 @@
       method: 'GET',
       headers: {
         'X-Visitor-ID': visitorId
+      }
+    }).then(function(response) {
+      // Mark as tracked
+      pageViewTracked = true;
+      pageViewInProgress = false;
+      
+      // Store in sessionStorage
+      try {
+        sessionStorage.setItem(pageViewKey, Date.now().toString());
+      } catch (e) {
+        // Ignore
+      }
+      
+      if (window.TRACKER_CONFIG?.DEBUG && response) {
+        console.log('[Affiliate Tracker] ✅ Page view tracked');
+      }
+    }).catch(function(error) {
+      pageViewInProgress = false;
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.warn('[Affiliate Tracker] ⚠️ Page view tracking failed:', error);
       }
     });
   }
@@ -511,33 +578,58 @@
       return; // Already sent for this page/order combination, skip
     }
 
-    // UNIVERSAL conversion page detection - works on ANY website
-    // Checks: URL, DOM elements, meta tags, page content
+    // ULTRA-STRICT conversion page detection - only track on actual conversion pages
+    // Requires either:
+    // 1. Order ID present (strongest indicator)
+    // 2. URL contains very specific conversion keywords (thank-you, order-confirmation, etc.)
+    // 3. Multiple strong indicators together (URL + DOM + content)
     const currentUrl = window.location.href.toLowerCase();
     const currentPath = window.location.pathname.toLowerCase();
     let isConversionPage = false;
     let matchedKeyword = null;
+    let confidenceLevel = 0; // Track confidence: 0 = low, 1 = medium, 2 = high
 
-    // Method 1: Check URL for conversion keywords
-    if (CONVERSION_KEYWORD && currentUrl.indexOf(CONVERSION_KEYWORD.toLowerCase()) !== -1) {
-      isConversionPage = true;
-      matchedKeyword = CONVERSION_KEYWORD;
-    }
-
-    if (!isConversionPage) {
-      for (let i = 0; i < CONVERSION_KEYWORDS.length; i++) {
-        if (currentUrl.indexOf(CONVERSION_KEYWORDS[i].toLowerCase()) !== -1) {
-          isConversionPage = true;
-          matchedKeyword = CONVERSION_KEYWORDS[i];
-          break;
-        }
+    // CRITICAL: If order_id is found, it's a strong indicator (but not enough alone)
+    const hasOrderId = !!orderId;
+    if (hasOrderId) {
+      confidenceLevel += 1;
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.log('[Affiliate Tracker] Order ID found, increasing confidence:', orderId);
       }
     }
 
-    // Method 2: Check DOM elements (classes, IDs) - common e-commerce patterns
+    // Method 1: Check URL for VERY STRICT conversion keywords
+    // Only the most specific keywords that clearly indicate conversion pages
+    const ultraStrictKeywords = ['thank-you', 'thankyou', 'order-confirmation', 'order-success', 
+                                 'purchase-complete', 'checkout-success', 'receipt', 'order-complete'];
+    
+    // Remove ambiguous keywords like 'success', 'complete', 'confirmation' - they appear on product pages too
+    let urlMatch = false;
+    for (let i = 0; i < ultraStrictKeywords.length; i++) {
+      const keyword = ultraStrictKeywords[i].toLowerCase();
+      // Must be in path, not just anywhere
+      if (currentPath.indexOf(keyword) !== -1 || 
+          currentUrl.indexOf('/' + keyword + '/') !== -1 ||
+          currentUrl.indexOf('/' + keyword) === currentUrl.length - keyword.length - 1) {
+        urlMatch = true;
+        matchedKeyword = keyword;
+        confidenceLevel += 2; // URL match is strong indicator
+        if (window.TRACKER_CONFIG?.DEBUG) {
+          console.log('[Affiliate Tracker] URL match found:', keyword);
+        }
+        break;
+      }
+    }
+    
+    if (urlMatch) {
+      isConversionPage = true;
+    }
+
+    // Method 2: Check DOM elements (classes, IDs) - STRICT patterns only
+    // Only check for elements that are clearly conversion-related
     if (!isConversionPage) {
       try {
-        const conversionSelectors = [
+        const strictConversionSelectors = [
           '[class*="order-confirmation"]',
           '[class*="order-success"]',
           '[class*="thank-you"]',
@@ -560,12 +652,12 @@
           '#thankyou'
         ];
         
-        for (let i = 0; i < conversionSelectors.length; i++) {
-          if (document.querySelector(conversionSelectors[i])) {
+        for (let i = 0; i < strictConversionSelectors.length; i++) {
+          if (document.querySelector(strictConversionSelectors[i])) {
             isConversionPage = true;
             matchedKeyword = 'dom-element';
             if (window.TRACKER_CONFIG?.DEBUG) {
-              console.log('[Affiliate Tracker] Conversion page detected by DOM selector:', conversionSelectors[i]);
+              console.log('[Affiliate Tracker] Conversion page detected by DOM selector:', strictConversionSelectors[i]);
             }
             break;
           }
@@ -575,34 +667,54 @@
       }
     }
 
-    // Method 3: Check page content for conversion indicators
+    // Method 3: Check page content for STRICT conversion phrases
+    // Only phrases that clearly indicate a completed purchase
+    // Requires MULTIPLE phrases to match (very strict)
     if (!isConversionPage) {
       try {
         const pageText = (document.body?.innerText || document.body?.textContent || '').toLowerCase();
-        const conversionPhrases = [
+        const strictConversionPhrases = [
           'thank you for your order',
           'order confirmed',
           'order successful',
           'purchase complete',
-          'your order has been',
+          'your order has been placed',
+          'your order has been received',
           'замовлення прийнято',
           'замовлення підтверджено',
           'дякуємо за замовлення',
-          'замовлення успішно',
+          'замовлення успішно оформлено',
           'order number',
           'order #',
-          'order id',
-          'confirmation number'
+          'confirmation number',
+          'order confirmation'
         ];
         
-        for (let i = 0; i < conversionPhrases.length; i++) {
-          if (pageText.indexOf(conversionPhrases[i]) !== -1) {
-            isConversionPage = true;
-            matchedKeyword = 'page-content';
-            if (window.TRACKER_CONFIG?.DEBUG) {
-              console.log('[Affiliate Tracker] Conversion page detected by content:', conversionPhrases[i]);
-            }
-            break;
+        // Require at least 2 phrases to match (very strict)
+        let phraseMatches = 0;
+        const matchedPhrases = [];
+        for (let i = 0; i < strictConversionPhrases.length; i++) {
+          if (pageText.indexOf(strictConversionPhrases[i]) !== -1) {
+            phraseMatches++;
+            matchedPhrases.push(strictConversionPhrases[i]);
+          }
+        }
+        
+        // Need at least 2 phrases AND order_id for content-based detection
+        if (phraseMatches >= 2 && hasOrderId) {
+          isConversionPage = true;
+          matchedKeyword = 'page-content';
+          confidenceLevel += 1;
+          if (window.TRACKER_CONFIG?.DEBUG) {
+            console.log('[Affiliate Tracker] Conversion page detected by content (2+ phrases + order_id):', matchedPhrases);
+          }
+        } else if (phraseMatches >= 3) {
+          // Or 3+ phrases without order_id (very strict)
+          isConversionPage = true;
+          matchedKeyword = 'page-content';
+          confidenceLevel += 1;
+          if (window.TRACKER_CONFIG?.DEBUG) {
+            console.log('[Affiliate Tracker] Conversion page detected by content (3+ phrases):', matchedPhrases);
           }
         }
       } catch (e) {
@@ -610,15 +722,17 @@
       }
     }
 
-    // Method 4: Check meta tags and structured data
+    // Method 4: Check meta tags and structured data - STRICT only
+    // Only check for order/purchase completion indicators
     if (!isConversionPage) {
       try {
-        // Check meta tags
+        // Check meta tags - only for order status
         const metaTags = document.querySelectorAll('meta[property], meta[name]');
         for (let i = 0; i < metaTags.length; i++) {
-          const property = metaTags[i].getAttribute('property') || metaTags[i].getAttribute('name') || '';
-          if (property.toLowerCase().indexOf('order') !== -1 || 
-              property.toLowerCase().indexOf('purchase') !== -1) {
+          const property = (metaTags[i].getAttribute('property') || metaTags[i].getAttribute('name') || '').toLowerCase();
+          // Only match if it's clearly about order completion
+          if ((property.indexOf('order') !== -1 && (property.indexOf('status') !== -1 || property.indexOf('complete') !== -1)) ||
+              (property.indexOf('purchase') !== -1 && property.indexOf('complete') !== -1)) {
             isConversionPage = true;
             matchedKeyword = 'meta-tag';
             if (window.TRACKER_CONFIG?.DEBUG) {
@@ -628,16 +742,16 @@
           }
         }
         
-        // Check JSON-LD structured data
+        // Check JSON-LD structured data - only for completed orders
         if (!isConversionPage) {
           const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
           for (let i = 0; i < jsonLdScripts.length; i++) {
             try {
               const data = JSON.parse(jsonLdScripts[i].textContent);
               const dataStr = JSON.stringify(data).toLowerCase();
-              if (dataStr.indexOf('order') !== -1 || 
-                  dataStr.indexOf('purchase') !== -1 ||
-                  dataStr.indexOf('invoice') !== -1) {
+              // Only match if it's clearly about order completion
+              if ((dataStr.indexOf('order') !== -1 && (dataStr.indexOf('status') !== -1 || dataStr.indexOf('complete') !== -1)) ||
+                  (dataStr.indexOf('purchase') !== -1 && dataStr.indexOf('complete') !== -1)) {
                 isConversionPage = true;
                 matchedKeyword = 'json-ld';
                 if (window.TRACKER_CONFIG?.DEBUG) {
@@ -655,14 +769,33 @@
       }
     }
 
-    if (!isConversionPage) {
+    // FINAL CHECK: Require minimum confidence level
+    // Confidence levels:
+    // - 0-1: Not enough evidence, skip
+    // - 2: Medium confidence (URL match OR order_id + content)
+    // - 3+: High confidence (multiple indicators)
+    
+    if (!isConversionPage || confidenceLevel < 2) {
       if (window.TRACKER_CONFIG?.DEBUG) {
-        console.log('[Affiliate Tracker] Page not detected as conversion page');
+        console.log('[Affiliate Tracker] Page not detected as conversion page', {
+          isConversionPage: isConversionPage,
+          confidenceLevel: confidenceLevel,
+          hasOrderId: hasOrderId,
+          matchedKeyword: matchedKeyword
+        });
       }
       // Mark that automatic tracking is not in progress (page not detected as conversion)
       automaticConversionInProgress = false;
       updateAutomaticConversionFlag();
       return;
+    }
+    
+    if (window.TRACKER_CONFIG?.DEBUG) {
+      console.log('[Affiliate Tracker] ✅ Conversion page confirmed', {
+        confidenceLevel: confidenceLevel,
+        matchedKeyword: matchedKeyword,
+        hasOrderId: hasOrderId
+      });
     }
 
     // Send conversion tracking
@@ -708,34 +841,29 @@
       }
       
       // Method 4: UNIVERSAL extraction from DOM elements (works on any e-commerce site)
+      // ONLY on confirmed conversion pages (we already verified isConversionPage)
       if (orderValue === 0) {
         // Priority list of selectors (most common e-commerce patterns)
+        // Only very specific selectors that appear on confirmation pages
         const totalSelectors = [
           '#order-total',
           '#orderTotal',
           '#order_total',
-          '#total',
-          '#amount',
           '#total-amount',
           '#totalAmount',
           '#grand-total',
           '#grandTotal',
           '[data-order-total]',
-          '[data-order-total]',
           '[data-total]',
-          '[data-amount]',
           '.order-total',
           '.orderTotal',
-          '.total',
-          '.amount',
           '.total-amount',
           '.grand-total',
           '[class*="order-total"]',
-          '[class*="total"]',
-          '[class*="amount"]',
-          '[id*="total"]',
-          '[id*="amount"]'
+          '[class*="grand-total"]'
         ];
+        
+        // AVOID generic selectors like '#total', '.total', '.amount' - they appear on product pages too
         
         for (let i = 0; i < totalSelectors.length; i++) {
           try {
@@ -771,36 +899,31 @@
       }
       
       // Method 5: Extract from page text (comprehensive patterns)
+      // ONLY use very specific patterns that indicate order total (not product prices)
       if (orderValue === 0) {
         try {
           const pageText = document.body ? (document.body.innerText || document.body.textContent) : '';
           
-          // Comprehensive price patterns (multiple languages and formats)
-          const pricePatterns = [
-            // English
-            /(?:total|amount|order[_\s]?total|grand[_\s]?total)[:\s]*\$?\s*([\d,]+\.?\d*)/i,
-            /\$?\s*([\d,]+\.?\d*)\s*(?:total|amount)/i,
-            // Ukrainian
-            /(?:сума|сума замовлення|загальна сума)[:\s]*\$?\s*([\d,]+\.?\d*)/i,
-            /(?:сума|сума замовлення|загальна сума)[:\s]*([\d,]+\.?\d*)\s*грн/i,
-            // Russian
-            /(?:сумма|сумма заказа|итого)[:\s]*\$?\s*([\d,]+\.?\d*)/i,
-            // Generic currency patterns
-            /(?:€|£|¥|₽|₴)\s*([\d,]+\.?\d*)/,
-            /\$([\d,]+\.?\d*)/g
+          // STRICT price patterns - only patterns that clearly indicate order total
+          // Avoid generic patterns that match product prices
+          const strictPricePatterns = [
+            // English - must include "order" or "total" context
+            /(?:order[_\s]?total|grand[_\s]?total|total[_\s]?amount)[:\s]*\$?\s*([\d,]+\.?\d*)/i,
+            /(?:total|amount)[:\s]*\$?\s*([\d,]+\.?\d*)\s*(?:for[_\s]?your[_\s]?order|order)/i,
+            // Ukrainian - must include "замовлення" context
+            /(?:сума[_\s]?замовлення|загальна[_\s]?сума|підсумок[_\s]?замовлення)[:\s]*\$?\s*([\d,]+\.?\d*)/i,
+            /(?:сума[_\s]?замовлення|загальна[_\s]?сума)[:\s]*([\d,]+\.?\d*)\s*грн/i,
+            // Russian - must include "заказ" context
+            /(?:сумма[_\s]?заказа|итого[_\s]?по[_\s]?заказу)[:\s]*\$?\s*([\d,]+\.?\d*)/i
           ];
           
           const foundValues = [];
-          for (let i = 0; i < pricePatterns.length; i++) {
-            const matches = pageText.match(pricePatterns[i]);
+          for (let i = 0; i < strictPricePatterns.length; i++) {
+            const matches = pageText.match(strictPricePatterns[i]);
             if (matches) {
-              // Handle global regex (g flag)
-              const matchArray = Array.isArray(matches) ? matches : [matches];
-              for (let j = 0; j < matchArray.length; j++) {
-                const value = parseFloat((matchArray[j][1] || matchArray[j][0] || '').replace(/[^0-9.]/g, ''));
-                if (!isNaN(value) && value > 0 && value < 1000000) {
-                  foundValues.push(value);
-                }
+              const value = parseFloat((matches[1] || '').replace(/[^0-9.]/g, ''));
+              if (!isNaN(value) && value > 0 && value < 1000000) {
+                foundValues.push(value);
               }
             }
           }
@@ -809,7 +932,7 @@
             // Use the largest reasonable value (likely the total)
             orderValue = Math.max(...foundValues);
             if (window.TRACKER_CONFIG?.DEBUG) {
-              console.log('[Affiliate Tracker] Order value from page text:', orderValue);
+              console.log('[Affiliate Tracker] Order value from page text (strict patterns):', orderValue);
             }
           }
         } catch (e) {
@@ -1023,46 +1146,191 @@
 
   // ========== INITIALIZATION ==========
 
-  // Flag to prevent double initialization
+  // Global flags on window object to prevent double initialization across multiple script executions
+  // This is critical for GTM where the script might be executed multiple times
+  if (typeof window !== 'undefined') {
+    window._affiliateTrackerInitialized = window._affiliateTrackerInitialized || false;
+    window._affiliateTrackerInitInProgress = window._affiliateTrackerInitInProgress || false;
+    window._affiliateTrackerInstanceId = window._affiliateTrackerInstanceId || Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+  }
+  
+  // Local flags (for this execution context)
   let trackerInitialized = false;
+  let initInProgress = false;
+
+  /**
+   * Send verification ping to confirm tracker is installed
+   * This helps the system detect if tracker is active on the website
+   */
+  function sendVerificationPing() {
+    try {
+      const refCode = getStoredRefCode();
+      const domain = window.location.hostname;
+      const version = '1.0.0'; // Tracker version
+      
+      const verifyUrl = BASE_URL.replace('/conversion', '').replace('/view', '') + '/verify?' + 
+        new URLSearchParams({
+          code: refCode || '',
+          domain: domain,
+          version: version,
+          timestamp: Date.now()
+        }).toString();
+      
+      // Send verification ping (fire and forget)
+      safeFetch(verifyUrl, {
+        method: 'GET',
+        headers: {
+          'X-Tracker-Version': version
+        }
+      }).then(function(response) {
+        if (window.TRACKER_CONFIG?.DEBUG && response) {
+          console.log('[Affiliate Tracker] ✅ Verification ping sent');
+        }
+      }).catch(function(error) {
+        // Silent fail - don't break client site
+      });
+    } catch (e) {
+      // Silent fail
+    }
+  }
 
   /**
    * Initialize tracker when page loads
    */
   function init() {
-    // Prevent double initialization
-    if (trackerInitialized) {
+    // CRITICAL: Check global flags first (prevents double initialization even if script runs twice)
+    if (typeof window !== 'undefined') {
+      // If already initialized globally, skip completely
+      if (window._affiliateTrackerInitialized) {
+        if (window.TRACKER_CONFIG?.DEBUG) {
+          console.log('[Affiliate Tracker] Tracker already initialized globally, skipping duplicate initialization');
+        }
+        return;
+      }
+      
+      // If initialization is in progress, wait a bit and check again
+      if (window._affiliateTrackerInitInProgress) {
+        if (window.TRACKER_CONFIG?.DEBUG) {
+          console.log('[Affiliate Tracker] Tracker initialization in progress, waiting...');
+        }
+        // Wait 100ms and try again (only once to prevent infinite loop)
+        setTimeout(function() {
+          if (!window._affiliateTrackerInitialized) {
+            init();
+          }
+        }, 100);
+        return;
+      }
+      
+      // Mark as in progress globally
+      window._affiliateTrackerInitInProgress = true;
+    }
+    
+    // Also check local flags
+    if (trackerInitialized || initInProgress) {
       if (window.TRACKER_CONFIG?.DEBUG) {
-        console.log('[Affiliate Tracker] Tracker already initialized, skipping');
+        console.log('[Affiliate Tracker] Tracker already initialized locally, skipping');
+      }
+      if (typeof window !== 'undefined') {
+        window._affiliateTrackerInitInProgress = false;
       }
       return;
     }
     
-    trackerInitialized = true;
+    initInProgress = true;
     
-    // Step 1: Capture referral code from URL
-    captureReferral();
+    try {
+      // Step 0: Send verification ping to confirm tracker is installed
+      sendVerificationPing();
+      
+      // Step 1: Capture referral code from URL
+      captureReferral();
 
-    // Step 2: Identify/get visitor ID
-    identifyVisitor();
+      // Step 2: Identify/get visitor ID
+      identifyVisitor();
 
-    // Step 3: Track page view
-    trackPageView();
+      // Step 3: Track page view
+      trackPageView();
 
-    // Step 4: Check for conversion (with slight delay to ensure page is loaded)
-    setTimeout(function() {
-      trackConversion();
-    }, 500);
+      // Step 4: Check for conversion (with slight delay to ensure page is loaded)
+      setTimeout(function() {
+        trackConversion();
+      }, 500);
+      
+      // Mark as initialized (both locally and globally)
+      trackerInitialized = true;
+      if (typeof window !== 'undefined') {
+        window._affiliateTrackerInitialized = true;
+        window._affiliateTrackerInitInProgress = false;
+      }
+      
+      // Send periodic verification pings (every 5 minutes) to keep tracker status active
+      // Only set up interval once (check if already exists)
+      if (typeof window !== 'undefined' && !window._affiliateTrackerPingInterval) {
+        window._affiliateTrackerPingInterval = setInterval(function() {
+          sendVerificationPing();
+        }, 5 * 60 * 1000); // 5 minutes
+      }
+      
+    } catch (error) {
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.error('[Affiliate Tracker] Error during initialization:', error);
+      }
+      // Reset flags on error
+      if (typeof window !== 'undefined') {
+        window._affiliateTrackerInitInProgress = false;
+      }
+    } finally {
+      initInProgress = false;
+    }
   }
 
   // ========== AUTO-EXECUTE ==========
 
+  // CRITICAL: Check if tracker is already initialized globally before setting up listeners
+  // This prevents duplicate initialization even if script is loaded multiple times
+  if (typeof window !== 'undefined' && window._affiliateTrackerInitialized) {
+    if (window.TRACKER_CONFIG?.DEBUG) {
+      console.log('[Affiliate Tracker] Tracker already initialized, skipping auto-execute');
+    }
+    return; // Exit immediately if already initialized
+  }
+
+  // Prevent multiple event listeners using global flag
+  if (typeof window !== 'undefined') {
+    window._affiliateTrackerDomReadyListenerAdded = window._affiliateTrackerDomReadyListenerAdded || false;
+  }
+
   // Run initialization when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    if (typeof window === 'undefined' || !window._affiliateTrackerDomReadyListenerAdded) {
+      if (typeof window !== 'undefined') {
+        window._affiliateTrackerDomReadyListenerAdded = true;
+      }
+      document.addEventListener('DOMContentLoaded', function() {
+        // Double-check before initializing
+        if (typeof window === 'undefined' || !window._affiliateTrackerInitialized) {
+          init();
+        }
+      }, { once: true }); // Use once option to ensure listener is only called once
+    }
   } else {
-    // DOM already loaded
-    init();
+    // DOM already loaded - check again before initializing
+    if (typeof window === 'undefined' || !window._affiliateTrackerInitialized) {
+      init();
+    }
+  }
+  
+  // Also prevent multiple window load listeners
+  if (typeof window !== 'undefined' && !window._affiliateTrackerLoadListenerAdded) {
+    window._affiliateTrackerLoadListenerAdded = true;
+    window.addEventListener('load', function() {
+      // Only init if not already initialized (check both local and global flags)
+      if ((typeof window === 'undefined' || !window._affiliateTrackerInitialized) && 
+          !trackerInitialized && !initInProgress) {
+        init();
+      }
+    }, { once: true }); // Use once option
   }
 
   // ========== OPTIONAL: EXPOSE MANUAL API ==========
@@ -1205,17 +1473,21 @@
   }
 
   // Expose manual tracking functions for advanced usage
+  // CRITICAL: Only create if it doesn't already exist (prevents overwriting existing instance)
   if (typeof window !== 'undefined') {
-    window.AffiliateTracker = {
-      trackView: trackPageView,
-      trackConversion: trackConversion,
-      trackConversionManually: trackConversionManually, // NEW: Manual conversion tracking
-      getVisitorId: getVisitorId,
-      getRefCode: getStoredRefCode,
-      captureReferral: captureReferral,
-      _automaticConversionCompleted: false,
-      _automaticConversionInProgress: false,
-      setConfig: function(config) {
+    // If AffiliateTracker already exists, merge new functions but keep existing state
+    if (window.AffiliateTracker) {
+      if (window.TRACKER_CONFIG?.DEBUG) {
+        console.log('[Affiliate Tracker] AffiliateTracker already exists, merging functions');
+      }
+      // Merge functions but preserve existing state
+      window.AffiliateTracker.trackView = trackPageView;
+      window.AffiliateTracker.trackConversion = trackConversion;
+      window.AffiliateTracker.trackConversionManually = trackConversionManually;
+      window.AffiliateTracker.getVisitorId = getVisitorId;
+      window.AffiliateTracker.getRefCode = getStoredRefCode;
+      window.AffiliateTracker.captureReferral = captureReferral;
+      window.AffiliateTracker.setConfig = function(config) {
         // Allow runtime configuration updates
         if (config.BASE_URL) {
           window.TRACKER_CONFIG = window.TRACKER_CONFIG || {};
@@ -1229,9 +1501,39 @@
           window.TRACKER_CONFIG = window.TRACKER_CONFIG || {};
           window.TRACKER_CONFIG.ORDER_VALUE = config.ORDER_VALUE;
         }
-      }
-    };
-    // Initialize flags
-    updateAutomaticConversionFlag();
+      };
+      // Update flags
+      updateAutomaticConversionFlag();
+    } else {
+      // Create new instance
+      window.AffiliateTracker = {
+        trackView: trackPageView,
+        trackConversion: trackConversion,
+        trackConversionManually: trackConversionManually,
+        getVisitorId: getVisitorId,
+        getRefCode: getStoredRefCode,
+        captureReferral: captureReferral,
+        sendVerificationPing: sendVerificationPing,
+        _automaticConversionCompleted: false,
+        _automaticConversionInProgress: false,
+        setConfig: function(config) {
+          // Allow runtime configuration updates
+          if (config.BASE_URL) {
+            window.TRACKER_CONFIG = window.TRACKER_CONFIG || {};
+            window.TRACKER_CONFIG.BASE_URL = config.BASE_URL;
+          }
+          if (config.CONVERSION_KEYWORD) {
+            window.TRACKER_CONFIG = window.TRACKER_CONFIG || {};
+            window.TRACKER_CONFIG.CONVERSION_KEYWORD = config.CONVERSION_KEYWORD;
+          }
+          if (config.ORDER_VALUE !== undefined) {
+            window.TRACKER_CONFIG = window.TRACKER_CONFIG || {};
+            window.TRACKER_CONFIG.ORDER_VALUE = config.ORDER_VALUE;
+          }
+        }
+      };
+      // Initialize flags
+      updateAutomaticConversionFlag();
+    }
   }
 })();

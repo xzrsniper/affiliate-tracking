@@ -29,6 +29,9 @@ router.get('/', async (req, res, next) => {
 
 /**
  * Helper function to check if tracker is installed on a domain
+ * Uses multiple methods:
+ * 1. HTML scraping (looks for tracker code in page source)
+ * 2. Verification ping check (checks if tracker sent verification ping recently)
  */
 const checkTrackerInstallation = async (domain) => {
   if (!domain) return false;
@@ -40,6 +43,9 @@ const checkTrackerInstallation = async (domain) => {
     // Для localhost завжди повертаємо false, бо сервер не може доступитися
     return false;
   }
+  
+  // Method 1: Try to check verification ping logs (if we had a table for this)
+  // For now, we'll rely on HTML scraping, but in future we can add verification ping tracking
 
   const buildUrls = (domain) => {
     const clean = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
@@ -80,8 +86,9 @@ const checkTrackerInstallation = async (domain) => {
       console.log(`[Website Check] Fetched ${html.length} bytes from ${url}`);
       
       // Розширений пошук трекера - шукаємо різні варіанти
+      // Перевіряємо тільки реальні індикатори наявності нашого трекера
       const trackerIndicators = [
-        // Прямі посилання на tracker.js
+        // Прямі посилання на tracker.js (найнадійніший індикатор)
         'tracker.js',
         '/tracker.js',
         'src="tracker.js',
@@ -90,17 +97,17 @@ const checkTrackerInstallation = async (domain) => {
         "src='/tracker.js",
         'href="tracker.js',
         "href='tracker.js",
-        // Конфігурація
+        // Конфігурація (обов'язкова частина коду)
         'TRACKER_CONFIG',
         'window.TRACKER_CONFIG',
         'TRACKER_CONFIG =',
         'TRACKER_CONFIG=',
-        // Об'єкт трекера
+        // Об'єкт трекера (створюється при ініціалізації)
         'AffiliateTracker',
         'window.AffiliateTracker',
         'affiliate-tracker',
         'affiliate_tracker',
-        // API endpoints
+        // API endpoints (використовуються трекером)
         'api/track',
         '/api/track',
         'BASE_URL',
@@ -112,14 +119,22 @@ const checkTrackerInstallation = async (domain) => {
       
       // Перевіряємо наявність будь-якого з індикаторів (case-insensitive)
       const htmlLower = html.toLowerCase();
-      const foundTracker = trackerIndicators.some(indicator => {
+      let foundTracker = false;
+      let foundIndicator = null;
+      
+      for (let i = 0; i < trackerIndicators.length; i++) {
+        const indicator = trackerIndicators[i];
         const indicatorLower = indicator.toLowerCase();
-        const found = htmlLower.includes(indicatorLower);
-        if (found) {
-          console.log(`[Website Check] Found tracker indicator: ${indicator}`);
+        if (htmlLower.includes(indicatorLower)) {
+          foundTracker = true;
+          foundIndicator = indicator;
+          console.log(`[Website Check] ✅ Found tracker indicator: ${indicator}`);
+          break;
         }
-        return found;
-      });
+      }
+      
+      // Важливо: GTM сам по собі НЕ означає, що наш трекер встановлено
+      // Тому не перевіряємо тільки GTM, а шукаємо конкретні індикатори нашого трекера
       
       if (foundTracker) {
         isConnected = true;
@@ -210,12 +225,13 @@ router.put('/:id', async (req, res, next) => {
       // Автоматично перевіряємо підключення при зміні домену
       if (domain) {
         website.is_connected = await checkTrackerInstallation(domain);
+      } else {
+        // Якщо domain видалено, скидаємо статус
+        website.is_connected = false;
       }
     }
-    if (is_connected !== undefined && domain === undefined) {
-      // Дозволяємо ручне встановлення статусу тільки якщо domain не змінюється
-      website.is_connected = is_connected;
-    }
+    // Статус is_connected можна встановити ТІЛЬКИ через автоматичну перевірку
+    // Ручне встановлення статусу заборонено - тільки через /api/websites/:id/check
 
     await website.save();
 

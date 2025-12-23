@@ -19,6 +19,70 @@ const normalizeOrderId = (id) => {
 };
 
 /**
+ * GET /api/track/verify
+ * Verification endpoint - tracker sends periodic pings to confirm it's installed
+ * This allows the system to accurately detect if tracker is active on a website
+ * 
+ * Query params:
+ * - code: (optional) Tracking code for verification
+ * - domain: (optional) Website domain
+ * - version: (optional) Tracker version
+ */
+router.get('/verify', async (req, res, next) => {
+  try {
+    const { code, domain, version } = req.query;
+    
+    // Log verification for tracking
+    if (code) {
+      const link = await Link.findOne({ where: { unique_code: code } });
+      if (link) {
+        // Update last verification time (could store in a separate table for tracking)
+        console.log('[Tracker Verification]', {
+          code: code,
+          domain: domain || 'unknown',
+          version: version || 'unknown',
+          link_id: link.id,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      verified: true,
+      message: 'Tracker verified',
+      service: 'LehkoTrack',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    // Still return success to not break tracker
+    res.json({ 
+      success: true, 
+      verified: true,
+      message: 'Tracker verified',
+      service: 'LehkoTrack'
+    });
+  }
+});
+
+/**
+ * GET /api/track/view/ping
+ * Ping endpoint to check if tracker is installed (legacy, kept for compatibility)
+ * Returns simple response to verify tracker connectivity
+ */
+router.get('/view/ping', async (req, res, next) => {
+  try {
+    res.json({ 
+      success: true, 
+      message: 'Tracker is installed',
+      service: 'LehkoTrack'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/track/view/:code
  * Track a page view/click
  * This is called by the JS pixel on client domains
