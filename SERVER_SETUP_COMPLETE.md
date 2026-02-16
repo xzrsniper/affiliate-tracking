@@ -141,7 +141,7 @@ cd affiliate-tracking
 nano .env
 ```
 
-**Вміст .env (замініть значення на свої):**
+**Вміст .env (замініть значення на свої, якщо потрібно):**
 
 ```env
 # Database Configuration
@@ -159,7 +159,7 @@ PORT=3000
 NODE_ENV=production
 
 # Admin Configuration
-ADMIN_EMAIL=admin@yourdomain.com
+ADMIN_EMAIL=admin@lehko.space
 
 # Google OAuth (опціонально)
 GOOGLE_CLIENT_ID=your_google_client_id
@@ -175,11 +175,11 @@ cd frontend
 nano .env
 ```
 
-**Вміст frontend/.env (замініть yourdomain.com на ваш домен):**
+**Вміст frontend/.env (замініть lehko.space на ваш домен):**
 
 ```env
 # API URL (замініть на ваш домен)
-VITE_API_URL=https://yourdomain.com
+VITE_API_URL=https://lehko.space
 
 # Google OAuth
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
@@ -224,7 +224,7 @@ cd ..
 node scripts/init-db.js
 
 # Створіть адміністратора (замініть email та password)
-node scripts/create-admin.js admin@yourdomain.com your_admin_password
+node scripts/create-admin.js admin@lehko.space your_admin_password
 ```
 
 ---
@@ -237,12 +237,12 @@ node scripts/create-admin.js admin@yourdomain.com your_admin_password
 sudo nano /etc/nginx/sites-available/affiliate-tracking
 ```
 
-**Вміст (замініть yourdomain.com на ваш домен та /home/ergoa на ваш шлях):**
+**Вміст (замініть /home/ergoa на ваш шлях, якщо потрібно):**
 
 ```nginx
 server {
     listen 80;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name lehko.space www.lehko.space;
 
     # Frontend (статичні файли)
     root /home/ergoa/affiliate-tracking/frontend/dist;
@@ -344,7 +344,7 @@ pm2 logs affiliate-tracking-api
 sudo apt install -y certbot python3-certbot-nginx
 
 # Отримайте SSL сертифікат
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+sudo certbot --nginx -d lehko.space -d www.lehko.space
 
 # Відповідайте на питання:
 # - Email: введіть ваш email
@@ -374,9 +374,9 @@ sudo systemctl status mysql
 
 ### Перевірте доступність
 
-1. Відкрийте в браузері: `https://yourdomain.com`
-2. Перевірте API: `https://yourdomain.com/api/health`
-3. Спробуйте увійти: `https://yourdomain.com/login`
+1. Відкрийте в браузері: `https://lehko.space`
+2. Перевірте API: `https://lehko.space/api/health`
+3. Спробуйте увійти: `https://lehko.space/login`
 
 ---
 
@@ -485,10 +485,10 @@ tar -czf affiliate-tracking-backup-$(date +%Y%m%d).tar.gz affiliate-tracking
 
 ## Готово! 🎉
 
-Ваш сайт має працювати на `https://yourdomain.com`
+Ваш сайт має працювати на `https://lehko.space`
 
 **Дані для входу:**
-- Email: `admin@yourdomain.com` (той, що ви вказали при створенні адміна)
+- Email: `admin@lehko.space` (той, що ви вказали при створенні адміна)
 - Password: пароль, який ви вказали при створенні адміна
 
 **Наступні кроки:**

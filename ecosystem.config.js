@@ -1,4 +1,4 @@
-export default {
+module.exports = {
   apps: [{
     name: 'affiliate-tracking-api',
     script: './server.js',
