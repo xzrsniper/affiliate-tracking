@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Favicon - використовуємо логотип -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/logo.png" />
+    <link rel="shortcut icon" href="/logo.png" />
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Content Security Policy - дозволяємо Google Sign-In та Vite dev server -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:5173 https://accounts.google.com https://apis.google.com https://www.gstatic.com https://*.googleapis.com ws://localhost:5173; connect-src 'self' http://localhost:5173 ws://localhost:5173 wss://localhost:5173 https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://*.googleapis.com http://localhost:3000 https://localhost:3000; frame-src 'self' https://accounts.google.com https://*.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; worker-src 'self' blob:;">
+    <title>LehkoTrack</title>
+    <!-- Google Sign-In Script -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Tracker Configuration - тимчасово вимкнено для діагностики -->
+    <!--
+    <script>
+      // Визначаємо BASE_URL для tracker.js
+      const API_BASE = window.location.hostname === 'localhost' 
+        ? 'http://localhost:3000' 
+        : window.location.origin.replace(/:\d+$/, ':3000');
+      
+      window.TRACKER_CONFIG = {
+        BASE_URL: API_BASE + '/api/track',
+        CONVERSION_KEYWORDS: ['success', 'order', 'thank-you', 'thankyou', 'complete', 'purchase', 'confirmation'],
+        DEBUG: false
+      };
+    </script>
+    <script src="http://localhost:3000/tracker.js" async defer onerror="console.warn('Tracker script failed to load')"></script>
+    -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
