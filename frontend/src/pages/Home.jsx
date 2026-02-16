@@ -363,11 +363,7 @@ export default function Home() {
               <ul className="space-y-2">
                 <li><a href="#" className="hover:text-white transition-colors">Про нас</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Блог</a></li>
-<<<<<<< HEAD
                 <li><a href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'hodunkooo'}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Контакти</a></li>
-=======
-                <li><a href="#" className="hover:text-white transition-colors">Контакти</a></li>
->>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
               </ul>
             </div>
             <div>
