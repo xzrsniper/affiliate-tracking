@@ -102,9 +102,6 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
       page: req.params.page,
       structure: null
     });
-=======
-    next(error);
->>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
   }
 });
 

@@ -85,7 +85,6 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
       content: grouped
     });
   } catch (error) {
-<<<<<<< HEAD
     // Якщо помилка пов'язана з базою даних, повертаємо успішну відповідь з порожнім контентом
     if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeDatabaseError' || error.message?.includes('database')) {
       console.warn('⚠️  Database not available, returning empty content:', error.message);
@@ -95,8 +94,6 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
         content: {}
       });
     }
-=======
->>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
     next(error);
   }
 });

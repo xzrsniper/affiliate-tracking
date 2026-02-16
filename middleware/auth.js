@@ -77,7 +77,6 @@ export const optionalAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
-<<<<<<< HEAD
       try {
         const token = authHeader.substring(7);
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -103,25 +102,11 @@ export const optionalAuth = async (req, res, next) => {
       } catch (tokenError) {
         // Continue without authentication if token is invalid
         // This is expected for optional auth
-=======
-      const token = authHeader.substring(7);
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findByPk(decoded.userId, {
-        attributes: { exclude: ['password_hash'] }
-      });
-
-      if (user && !user.is_banned) {
-        req.user = user;
->>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
       }
     }
     next();
   } catch (error) {
-<<<<<<< HEAD
     // Continue without authentication on any error
-=======
-    // Continue without authentication if token is invalid
->>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
     next();
   }
 };
