@@ -11,6 +11,12 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 3306,
     dialect: 'mysql',
+    dialectOptions: {
+      // Дозволити SSL (якщо потрібно)
+      ssl: false,
+      // Підтримка різних auth plugin
+      connectTimeout: 60000
+    },
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
       max: 5,
