@@ -82,19 +82,14 @@ const startServer = async () => {
     // Test database connection
     const connected = await testConnection();
     if (!connected) {
-<<<<<<< HEAD
       console.warn('⚠️  Warning: Failed to connect to database. Server will start but database features may not work.');
       console.warn('⚠️  Please ensure MySQL is running and database is configured.');
-=======
-      console.error('❌ Failed to connect to database. Exiting...');
-      process.exit(1);
->>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
+      // Do not exit, allow server to start for frontend development
     }
 
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-<<<<<<< HEAD
       if (!connected) {
         console.warn('⚠️  Database connection failed - some features may not work');
       }
@@ -106,12 +101,6 @@ const startServer = async () => {
       console.log(`🚀 Server is running on http://localhost:${PORT} (without database)`);
       console.warn('⚠️  Database connection failed - some features may not work');
     });
-=======
-    });
-  } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
->>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
   }
 };
 
