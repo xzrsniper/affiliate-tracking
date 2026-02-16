@@ -27,11 +27,19 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/"
+<<<<<<< HEAD
         element={<Home />}
       />
       <Route
         path="/home-new"
         element={<HomeNew />}
+=======
+        element={<HomeNew />}
+      />
+      <Route
+        path="/home-old"
+        element={<Home />}
+>>>>>>> aab06bff0fb9ea60069218971278a7b761ccd9c6
       />
       <Route
         path="/login"
