@@ -1,0 +1,38 @@
+<!-- ========================================== -->
+<!-- Lehko Track v2.0 - Google Tag Manager Setup -->
+<!-- ========================================== -->
+
+<!-- 
+    ІНСТРУКЦІЯ ПО ВСТАНОВЛЕННЮ В GTM:
+    
+    1. Відкрийте Google Tag Manager
+    2. Створіть новий тег типу "Custom HTML"
+    3. Скопіюйте код нижче в поле "HTML"
+    4. Налаштуйте тригер: "All Pages"
+    5. Встановіть пріоритет: "High" (щоб завантажувався рано)
+    6. Збережіть та опублікуйте контейнер
+    
+    НАЛАШТУВАННЯ (опціонально):
+    - Змініть BASE_URL на ваш production backend URL
+    - Додайте CONVERSION_URLS для автоматичного виявлення конверсій
+    - Додайте CONVERSION_SELECTORS для виявлення по CSS селекторах
+    - Налаштуйте MIN_CONFIDENCE_SCORE (3-7, за замовчуванням 5)
+-->
+
+<script>
+  // Конфігурація трекера
+  window.TRACKER_CONFIG = {
+    BASE_URL: 'https://lehko.space/api/track',
+    DEBUG: false,  // Встановіть true для діагностики
+    
+    // Налаштування автоматичного виявлення конверсій (опціонально)
+    // MIN_CONFIDENCE_SCORE: 5,  // Поріг впевненості (3-7)
+    // CONVERSION_URLS: ['/your-success-page'],  // Ваші URL для виявлення
+    // CONVERSION_SELECTORS: ['#order-success']   // Ваші CSS селектори
+  };
+</script>
+<script src="https://lehko.space/tracker-v2.js" async></script>
+
+<!-- ========================================== -->
+<!-- END OF GTM TRACKER CODE v2.0 -->
+<!-- ========================================== -->

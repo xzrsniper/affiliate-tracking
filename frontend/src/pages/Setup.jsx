@@ -6,6 +6,7 @@ import { Code, Settings, Copy, Check, ExternalLink, FileCode, Tag, Plus, Edit, T
 export default function Setup() {
   const [copiedSection, setCopiedSection] = useState(null);
   const [activeTab, setActiveTab] = useState('websites'); // 'websites', 'code', 'gtm' або 'guide'
+  const [trackerVersion, setTrackerVersion] = useState('v2'); // 'v1' або 'v2'
   const [websites, setWebsites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -37,12 +38,26 @@ export default function Setup() {
   const handleAddWebsite = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/api/websites', newWebsite);
+      const response = await api.post('/api/websites', newWebsite);
+      const addedWebsite = response.data.website;
       setNewWebsite({ name: '', domain: '' });
       setShowAddForm(false);
-      fetchWebsites();
+      await fetchWebsites();
+      
+      // Auto-check if domain is provided and not localhost
+      if (addedWebsite?.domain && !isLocalhost(addedWebsite.domain)) {
+        // Wait a bit for the website to be saved, then check
+        setTimeout(async () => {
+          try {
+            await handleCheckWebsite(addedWebsite);
+          } catch (err) {
+            // Ignore errors in auto-check
+          }
+        }, 1000);
+      }
     } catch (err) {
       console.error('Failed to add website:', err);
+      alert(err.response?.data?.error || 'Не вдалося додати сайт. Спробуйте ще раз.');
     }
   };
 
@@ -80,15 +95,39 @@ export default function Setup() {
           w.id === website.id ? { ...w, is_connected: res.data.is_connected } : w
         )
       );
+      
+      // Show success message
+      if (res.data.is_connected) {
+        // Status updated successfully
+      } else {
+        // Show helpful message if not connected
+        console.log('Трекер не знайдено. Переконайтеся, що код встановлено правильно.');
+      }
     } catch (err) {
       console.error('Failed to check website:', err);
-      alert('Не вдалося перевірити сайт. Переконайтеся, що сайт доступний з інтернету.');
+      const errorMessage = err.response?.data?.error || 'Не вдалося перевірити сайт. Переконайтеся, що сайт доступний з інтернету.';
+      alert(errorMessage);
     } finally {
       setCheckingId(null);
     }
   };
 
-  const trackerConfigCode = `<script>
+  // Tracker v2 code (recommended)
+  const trackerV2Code = `<script>
+  window.TRACKER_CONFIG = {
+    BASE_URL: '${API_BASE}/api/track',
+    DEBUG: false,  // Встановіть true для діагностики
+    
+    // Налаштування автоматичного виявлення конверсій (опціонально)
+    // MIN_CONFIDENCE_SCORE: 5,  // Поріг впевненості (3-7, за замовчуванням 5)
+    // CONVERSION_URLS: ['/your-success-page'],  // Ваші URL для виявлення
+    // CONVERSION_SELECTORS: ['#order-success']   // Ваші CSS селектори
+  };
+</script>
+<script src="${API_BASE}/tracker-v2.js" async></script>`;
+
+  // Tracker v1 code (legacy)
+  const trackerV1Code = `<script>
   window.TRACKER_CONFIG = {
     BASE_URL: '${API_BASE}/api/track',
     CONVERSION_KEYWORDS: ['success', 'order', 'thank-you', 'thankyou', 'complete', 'purchase', 'confirmation'],
@@ -97,7 +136,25 @@ export default function Setup() {
 </script>
 <script src="${API_BASE}/tracker.js"></script>`;
 
-  const gtmCode = `<script>
+  const trackerConfigCode = trackerVersion === 'v2' ? trackerV2Code : trackerV1Code;
+
+  // GTM v2 code (recommended)
+  const gtmV2Code = `<script>
+  // Конфігурація трекера
+  window.TRACKER_CONFIG = {
+    BASE_URL: '${API_BASE}/api/track',
+    DEBUG: false,  // Встановіть true для діагностики
+    
+    // Налаштування автоматичного виявлення конверсій (опціонально)
+    // MIN_CONFIDENCE_SCORE: 5,  // Поріг впевненості (3-7)
+    // CONVERSION_URLS: ['/your-success-page'],  // Ваші URL для виявлення
+    // CONVERSION_SELECTORS: ['#order-success']   // Ваші CSS селектори
+  };
+</script>
+<script src="${API_BASE}/tracker-v2.js" async></script>`;
+
+  // GTM v1 code (legacy)
+  const gtmV1Code = `<script>
 (function() {
   'use strict';
   
@@ -272,6 +329,8 @@ export default function Setup() {
 })();
 </script>`;
 
+  const gtmCode = trackerVersion === 'v2' ? gtmV2Code : gtmV1Code;
+
   const copyToClipboard = (text, sectionId) => {
     navigator.clipboard.writeText(text);
     setCopiedSection(sectionId);
@@ -351,19 +410,48 @@ export default function Setup() {
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Мої сайти</h2>
                 <p className="text-slate-600 dark:text-slate-400">Управління сайтами та tracking кодом</p>
               </div>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all flex items-center space-x-2"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Додати сайт</span>
-              </button>
+              <div className="flex items-center space-x-3">
+                {websites.length > 0 && websites.some(w => w.domain && !isLocalhost(w.domain)) && (
+                  <button
+                    onClick={async () => {
+                      const sitesToCheck = websites.filter(w => w.domain && !isLocalhost(w.domain));
+                      for (const site of sitesToCheck) {
+                        try {
+                          await handleCheckWebsite(site);
+                          // Small delay between checks to avoid overwhelming the server
+                          await new Promise(resolve => setTimeout(resolve, 500));
+                        } catch (err) {
+                          // Continue with next site
+                        }
+                      }
+                    }}
+                    disabled={checkingId !== null}
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-xl transition-all flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${checkingId !== null ? 'animate-spin' : ''}`} />
+                    <span>Перевірити всі</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all flex items-center space-x-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Додати сайт</span>
+                </button>
+              </div>
             </div>
 
             {/* Add Website Form */}
             {showAddForm && (
               <div className="mb-6 bg-slate-50 dark:bg-slate-700 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Додати новий сайт</h3>
+                <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-xs text-blue-800 dark:text-blue-300">
+                    💡 <strong>Порада:</strong> Якщо ви вкажете домен сайту, система автоматично перевірить чи встановлено трекер. 
+                    Це допоможе вам швидко зрозуміти чи все працює правильно.
+                  </p>
+                </div>
                 <form onSubmit={handleAddWebsite} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -380,7 +468,7 @@ export default function Setup() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                      Домен сайту <span className="text-slate-400 dark:text-slate-500">(необов'язково)</span>
+                      Домен сайту <span className="text-slate-400 dark:text-slate-500">(необов'язково, але рекомендується)</span>
                     </label>
                     <input
                       type="text"
@@ -389,6 +477,9 @@ export default function Setup() {
                       placeholder="example.com"
                       className="w-full px-4 py-3 bg-white dark:bg-slate-600 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                     />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                      💡 Якщо вказати домен, система автоматично перевірить чи встановлено трекер на сайті
+                    </p>
                   </div>
                   <div className="flex justify-end space-x-3">
                     <button
@@ -412,6 +503,56 @@ export default function Setup() {
               </div>
             )}
 
+            {/* Info Banner */}
+            {websites.length > 0 && (
+              <div className="mb-6 space-y-3">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  <div className="flex items-start space-x-3">
+                    <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                        Як працює перевірка встановлення трекера?
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-400 mb-2">
+                        Система автоматично перевіряє наявність трекера двома способами:
+                      </p>
+                      <ul className="text-xs text-blue-700 dark:text-blue-400 list-disc list-inside space-y-1 ml-2">
+                        <li><strong>Verification ping</strong> - трекер надсилає ping кожні 5 хвилин (найнадійніший метод)</li>
+                        <li><strong>HTML перевірка</strong> - система шукає індикатори трекера в коді сторінки</li>
+                      </ul>
+                      <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
+                        💡 <strong>Порада:</strong> Після встановлення трекера, зачекайте 5-10 хвилин та натисніть "Перевірити" для оновлення статусу.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Statistics */}
+                {websites.length > 0 && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+                      <p className="text-2xl font-bold text-slate-800 dark:text-white">
+                        {websites.length}
+                      </p>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">Всього сайтів</p>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                      <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+                        {websites.filter(w => w.is_connected).length}
+                      </p>
+                      <p className="text-sm text-green-600 dark:text-green-400">Підключено</p>
+                    </div>
+                    <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+                      <p className="text-2xl font-bold text-red-700 dark:text-red-400">
+                        {websites.filter(w => !w.is_connected && !isLocalhost(w.domain)).length}
+                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-400">Не підключено</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Websites Table */}
             {loading ? (
               <div className="text-center py-12">
@@ -419,7 +560,17 @@ export default function Setup() {
               </div>
             ) : websites.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600">
-                <p className="text-slate-500 dark:text-slate-400">Поки що немає доданих сайтів. Додайте перший сайт!</p>
+                <Globe className="w-16 h-16 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+                <p className="text-slate-500 dark:text-slate-400 mb-2">Поки що немає доданих сайтів</p>
+                <p className="text-sm text-slate-400 dark:text-slate-500 mb-4">
+                  Додайте сайт, щоб почати відстежувати встановлення трекера
+                </p>
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
+                >
+                  Додати перший сайт
+                </button>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -444,16 +595,43 @@ export default function Setup() {
                           </div>
                         </td>
                         <td className="py-4 px-4">
-                          <span
-                            className={`inline-flex items-center space-x-2 px-3 py-1 rounded-lg font-medium text-sm ${
-                              website.is_connected
-                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                            }`}
-                          >
-                            <span className={`w-2 h-2 rounded-full ${website.is_connected ? 'bg-green-600' : 'bg-red-600'}`}></span>
-                            <span>{website.is_connected ? 'Підключено' : 'Не підключено'}</span>
-                          </span>
+                          <div className="flex flex-col space-y-2">
+                            <span
+                              className={`inline-flex items-center space-x-2 px-3 py-1 rounded-lg font-medium text-sm ${
+                                website.is_connected
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                              }`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${website.is_connected ? 'bg-green-600' : 'bg-red-600'}`}></span>
+                              <span>{website.is_connected ? '✅ Підключено' : '❌ Не підключено'}</span>
+                            </span>
+                            {!website.is_connected && website.domain && !isLocalhost(website.domain) && (
+                              <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 mt-2 border border-slate-200 dark:border-slate-600">
+                                <p className="mb-2 font-semibold text-slate-700 dark:text-slate-300">💡 Трекер не знайдено. Що робити:</p>
+                                <ol className="list-decimal list-inside space-y-1 ml-1">
+                                  <li>Переконайтеся, що код встановлено на <strong>всіх</strong> сторінках сайту</li>
+                                  <li>Перевірте правильність <code className="bg-white dark:bg-slate-600 px-1 rounded">BASE_URL</code> в коді</li>
+                                  <li>Очистіть кеш браузера та CDN (якщо використовується)</li>
+                                  <li>Зачекайте 5-10 хвилин після встановлення (для verification ping)</li>
+                                  <li>Натисніть "Перевірити зараз" для миттєвої перевірки</li>
+                                </ol>
+                                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
+                                  <p className="text-slate-600 dark:text-slate-300">
+                                    📋 <strong>Швидка перевірка:</strong> Відкрийте ваш сайт у браузері, натисніть F12 → Console, 
+                                    введіть <code className="bg-white dark:bg-slate-600 px-1 rounded">window.AffiliateTracker</code> - 
+                                    має з'явитися об'єкт трекера.
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            {website.is_connected && (
+                              <div className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg p-2 mt-2 border border-green-200 dark:border-green-800">
+                                <p className="font-semibold mb-1">✓ Трекер успішно знайдено!</p>
+                                <p>Система автоматично відстежує кліки та конверсії з вашого сайту.</p>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 px-4">
                           {isLocalhost(website.domain) ? (
@@ -466,14 +644,29 @@ export default function Setup() {
                               </span>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => handleCheckWebsite(website)}
-                              disabled={checkingId === website.id}
-                              className="inline-flex items-center space-x-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-all disabled:opacity-50"
-                            >
-                              <RefreshCw className={`w-4 h-4 ${checkingId === website.id ? 'animate-spin' : ''}`} />
-                              <span>{checkingId === website.id ? 'Перевіряю...' : 'Перевірити'}</span>
-                            </button>
+                            <div className="flex flex-col space-y-2">
+                              <button
+                                onClick={() => handleCheckWebsite(website)}
+                                disabled={checkingId === website.id}
+                                className="inline-flex items-center space-x-2 px-3 py-2 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-400 rounded-lg transition-all disabled:opacity-50"
+                              >
+                                <RefreshCw className={`w-4 h-4 ${checkingId === website.id ? 'animate-spin' : ''}`} />
+                                <span>{checkingId === website.id ? 'Перевіряю...' : 'Перевірити зараз'}</span>
+                              </button>
+                              {!website.is_connected && (
+                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                  <p className="mb-1">💡 Перевірка може зайняти до 10 секунд</p>
+                                  <p className="text-slate-400 dark:text-slate-500">
+                                    Система перевіряє HTML код сторінки та verification pings
+                                  </p>
+                                </div>
+                              )}
+                              {website.is_connected && (
+                                <p className="text-xs text-green-600 dark:text-green-400">
+                                  ✓ Остання перевірка: щойно
+                                </p>
+                              )}
+                            </div>
                           )}
                         </td>
                         <td className="py-4 px-4">
@@ -575,6 +768,67 @@ export default function Setup() {
             </div>
           </div>
 
+          {/* Version Selection */}
+          <div className="mb-6 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-violet-200 dark:border-violet-800">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Виберіть версію трекера</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Tracker v2.0 - рекомендовано: розумне автоматичне виявлення, налаштування без програмування
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setTrackerVersion('v2')}
+                className={`flex-1 px-6 py-4 rounded-xl border-2 transition-all ${
+                  trackerVersion === 'v2'
+                    ? 'border-violet-600 dark:border-violet-400 bg-violet-50 dark:bg-violet-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-violet-300 dark:hover:border-violet-700'
+                }`}
+              >
+                <div className="text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-slate-800 dark:text-white">Tracker v2.0</span>
+                    {trackerVersion === 'v2' && (
+                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold rounded-lg">
+                        Рекомендовано
+                      </span>
+                    )}
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                    <li>✅ Розумне автоматичне виявлення</li>
+                    <li>✅ Налаштування без програмування</li>
+                    <li>✅ Система очок для надійності</li>
+                    <li>✅ Менше помилок</li>
+                  </ul>
+                </div>
+              </button>
+              <button
+                onClick={() => setTrackerVersion('v1')}
+                className={`flex-1 px-6 py-4 rounded-xl border-2 transition-all ${
+                  trackerVersion === 'v1'
+                    ? 'border-violet-600 dark:border-violet-400 bg-violet-50 dark:bg-violet-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-violet-300 dark:hover:border-violet-700'
+                }`}
+              >
+                <div className="text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-slate-800 dark:text-white">Tracker v1.0</span>
+                    <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-semibold rounded-lg">
+                      Legacy
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                    <li>⚠️ Стара версія</li>
+                    <li>⚠️ Менш надійна</li>
+                    <li>ℹ️ Для зворотної сумісності</li>
+                  </ul>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Step 1 */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-3 flex items-center">
@@ -649,16 +903,39 @@ export default function Setup() {
 
           {/* Info Box */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
-              <strong>💡 Порада:</strong> Після встановлення, коли користувачі переходитимуть через ваше tracking посилання, 
-              система автоматично відстежуватиме кліки та конверсії на сторінках з ключовими словами 
-              (success, order, thank-you, тощо).
-            </p>
-            <p className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>🔍 Автоматична перевірка:</strong> Трекер автоматично надсилає verification ping кожні 5 хвилин, 
-              що дозволяє системі визначати його наявність та показувати статус "Підключено" в панелі управління. 
-              Перевірте статус на сторінці "Мої сайти" через 5-10 хвилин після встановлення.
-            </p>
+            {trackerVersion === 'v2' ? (
+              <>
+                <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
+                  <strong>💡 Tracker v2.0:</strong> Використовує розумне автоматичне виявлення конверсій з системою очок. 
+                  Для кращої роботи додайте ваші URL або селектори в конфігурацію (див. код вище).
+                </p>
+                <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
+                  <strong>⚙️ Налаштування:</strong> Розкоментуйте рядки в коді для налаштування автоматичного виявлення:
+                </p>
+                <ul className="text-sm text-blue-800 dark:text-blue-300 list-disc list-inside ml-4 mb-2">
+                  <li><code>CONVERSION_URLS</code> - додайте ваші URL сторінок підтвердження</li>
+                  <li><code>CONVERSION_SELECTORS</code> - додайте CSS селектори елементів</li>
+                  <li><code>MIN_CONFIDENCE_SCORE</code> - налаштуйте поріг впевненості (3-7)</li>
+                </ul>
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  <strong>🔍 Автоматична перевірка:</strong> Трекер автоматично надсилає verification ping кожні 5 хвилин. 
+                  Перевірте статус на сторінці "Мої сайти" через 5-10 хвилин після встановлення.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
+                  <strong>💡 Порада:</strong> Після встановлення, коли користувачі переходитимуть через ваше tracking посилання, 
+                  система автоматично відстежуватиме кліки та конверсії на сторінках з ключовими словами 
+                  (success, order, thank-you, тощо).
+                </p>
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  <strong>🔍 Автоматична перевірка:</strong> Трекер автоматично надсилає verification ping кожні 5 хвилин, 
+                  що дозволяє системі визначати його наявність та показувати статус "Підключено" в панелі управління. 
+                  Перевірте статус на сторінці "Мої сайти" через 5-10 хвилин після встановлення.
+                </p>
+              </>
+            )}
           </div>
         </div>
         )}
@@ -673,6 +950,67 @@ export default function Setup() {
             <div>
               <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Встановлення через Google Tag Manager</h2>
               <p className="text-slate-600 dark:text-slate-400">Ідеально для сайтів, які вже використовують GTM</p>
+            </div>
+          </div>
+
+          {/* Version Selection */}
+          <div className="mb-6 bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/20 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-800">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-2">Виберіть версію трекера</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Tracker v2.0 - рекомендовано: розумне автоматичне виявлення, налаштування без програмування
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setTrackerVersion('v2')}
+                className={`flex-1 px-6 py-4 rounded-xl border-2 transition-all ${
+                  trackerVersion === 'v2'
+                    ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700'
+                }`}
+              >
+                <div className="text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-slate-800 dark:text-white">Tracker v2.0</span>
+                    {trackerVersion === 'v2' && (
+                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold rounded-lg">
+                        Рекомендовано
+                      </span>
+                    )}
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                    <li>✅ Розумне автоматичне виявлення</li>
+                    <li>✅ Налаштування без програмування</li>
+                    <li>✅ Система очок для надійності</li>
+                    <li>✅ Менше помилок</li>
+                  </ul>
+                </div>
+              </button>
+              <button
+                onClick={() => setTrackerVersion('v1')}
+                className={`flex-1 px-6 py-4 rounded-xl border-2 transition-all ${
+                  trackerVersion === 'v1'
+                    ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700'
+                }`}
+              >
+                <div className="text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-slate-800 dark:text-white">Tracker v1.0</span>
+                    <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-semibold rounded-lg">
+                      Legacy
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                    <li>⚠️ Стара версія</li>
+                    <li>⚠️ Менш надійна</li>
+                    <li>ℹ️ Для зворотної сумісності</li>
+                  </ul>
+                </div>
+              </button>
             </div>
           </div>
 

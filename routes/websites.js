@@ -110,7 +110,16 @@ const checkTrackerInstallation = async (domain) => {
       // Розширений пошук трекера - шукаємо різні варіанти
       // Перевіряємо тільки реальні індикатори наявності нашого трекера
       const trackerIndicators = [
-        // Прямі посилання на tracker.js (найнадійніший індикатор)
+        // Tracker v2 (новий, рекомендований)
+        'tracker-v2.js',
+        '/tracker-v2.js',
+        'src="tracker-v2.js',
+        "src='tracker-v2.js",
+        'src="/tracker-v2.js',
+        "src='/tracker-v2.js",
+        '_affiliateTrackerV2Initialized',
+        'Affiliate Tracker v2',
+        // Tracker v1 (legacy)
         'tracker.js',
         '/tracker.js',
         'src="tracker.js',
@@ -119,7 +128,7 @@ const checkTrackerInstallation = async (domain) => {
         "src='/tracker.js",
         'href="tracker.js',
         "href='tracker.js",
-        // Конфігурація (обов'язкова частина коду)
+        // Конфігурація (обов'язкова частина коду для обох версій)
         'TRACKER_CONFIG',
         'window.TRACKER_CONFIG',
         'TRACKER_CONFIG =',
@@ -134,9 +143,16 @@ const checkTrackerInstallation = async (domain) => {
         '/api/track',
         'BASE_URL',
         'CONVERSION_KEYWORDS',
+        'CONVERSION_URLS',
+        'CONVERSION_SELECTORS',
+        'MIN_CONFIDENCE_SCORE',
         // Інші індикатори
         'aff_ref_code',
-        'affiliate_visitor_id'
+        'affiliate_visitor_id',
+        'affiliate_visitor_id',
+        // GTM індикатори (якщо використовується GTM)
+        '_lehkoTrackerGTMInitialized',
+        '_affiliateTrackerInitialized'
       ];
       
       // Перевіряємо наявність будь-якого з індикаторів (case-insensitive)
