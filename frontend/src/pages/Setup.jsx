@@ -114,15 +114,15 @@ export default function Setup() {
 
   // Tracker v2 code (recommended)
   const trackerV2Code = `<script>
-  window.TRACKER_CONFIG = {
-    BASE_URL: '${API_BASE}/api/track',
-    DEBUG: false,  // Встановіть true для діагностики
-    
-    // Налаштування автоматичного виявлення конверсій (опціонально)
-    // MIN_CONFIDENCE_SCORE: 5,  // Поріг впевненості (3-7, за замовчуванням 5)
-    // CONVERSION_URLS: ['/your-success-page'],  // Ваші URL для виявлення
-    // CONVERSION_SELECTORS: ['#order-success']   // Ваші CSS селектори
-  };
+window.TRACKER_CONFIG = {
+  BASE_URL: '${API_BASE}/api/track',
+  DEBUG: false,  // Встановіть true для діагностики
+  
+  // Налаштування автоматичного виявлення конверсій (опціонально)
+  // MIN_CONFIDENCE_SCORE: 5,  // Поріг впевненості (3-7, за замовчуванням 5)
+  // CONVERSION_URLS: ['/success', '/thank-you', '/order-complete'],  // Ваші URL для виявлення
+  // CONVERSION_SELECTORS: ['#order-success', '.order-complete']   // Ваші CSS селектори
+};
 </script>
 <script src="${API_BASE}/tracker-v2.js" async></script>`;
 
@@ -140,16 +140,16 @@ export default function Setup() {
 
   // GTM v2 code (recommended)
   const gtmV2Code = `<script>
-  // Конфігурація трекера
-  window.TRACKER_CONFIG = {
-    BASE_URL: '${API_BASE}/api/track',
-    DEBUG: false,  // Встановіть true для діагностики
-    
-    // Налаштування автоматичного виявлення конверсій (опціонально)
-    // MIN_CONFIDENCE_SCORE: 5,  // Поріг впевненості (3-7)
-    // CONVERSION_URLS: ['/your-success-page'],  // Ваші URL для виявлення
-    // CONVERSION_SELECTORS: ['#order-success']   // Ваші CSS селектори
-  };
+// Конфігурація трекера
+window.TRACKER_CONFIG = {
+  BASE_URL: '${API_BASE}/api/track',
+  DEBUG: false,  // Встановіть true для діагностики
+  
+  // Налаштування автоматичного виявлення конверсій (опціонально)
+  // MIN_CONFIDENCE_SCORE: 5,  // Поріг впевненості (3-7)
+  // CONVERSION_URLS: ['/success', '/thank-you', '/order-complete'],  // Ваші URL для виявлення
+  // CONVERSION_SELECTORS: ['#order-success', '.order-complete']   // Ваші CSS селектори
+};
 </script>
 <script src="${API_BASE}/tracker-v2.js" async></script>`;
 
@@ -782,7 +782,7 @@ export default function Setup() {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Встановлення кодом</h2>
-              <p className="text-slate-600 dark:text-slate-400">Найпростіший спосіб - додайте код безпосередньо в HTML</p>
+              <p className="text-slate-600 dark:text-slate-400">Найпростіший спосіб - додайте код безпосередньо в HTML. Tracker v2.0 працює автоматично!</p>
             </div>
           </div>
 
@@ -892,8 +892,21 @@ export default function Setup() {
   <title>Ваш сайт</title>
   
   <!-- Вставте tracking код тут -->
-  ${trackerConfigCode.split('\n').slice(0, 2).join('\n')}
-  ...
+${trackerVersion === 'v2' 
+  ? `  <script>
+window.TRACKER_CONFIG = {
+  BASE_URL: '${API_BASE}/api/track',
+  DEBUG: false
+};
+</script>
+  <script src="${API_BASE}/tracker-v2.js" async></script>`
+  : `  <script>
+window.TRACKER_CONFIG = {
+  BASE_URL: '${API_BASE}/api/track',
+  DEBUG: false
+};
+</script>
+  <script src="${API_BASE}/tracker.js"></script>`}
 </head>
 <body>
   ...
@@ -913,8 +926,10 @@ export default function Setup() {
               <p className="text-slate-700 dark:text-slate-300 mb-3">Відкрийте консоль браузера (F12) і перевірте:</p>
               <ul className="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300">
                 <li>Переконайтеся, що немає помилок завантаження скрипта</li>
-                <li>Якщо DEBUG: true, ви побачите повідомлення про tracking</li>
-                <li>Перевірте, що <code className="bg-white dark:bg-slate-600 px-2 py-1 rounded">window.AffiliateTracker</code> доступний в консолі</li>
+                <li>Введіть в консолі: <code className="bg-white dark:bg-slate-600 px-2 py-1 rounded">window.AffiliateTracker</code> - має з'явитися об'єкт</li>
+                <li>Якщо DEBUG: true, ви побачите повідомлення про tracking в консолі</li>
+                <li>Перевірте Network вкладку - має бути запит до <code className="bg-white dark:bg-slate-600 px-2 py-1 rounded">/api/track/verify</code></li>
+                <li>Статус встановлення автоматично оновиться на сторінці "Мої сайти" через 5-10 хвилин</li>
               </ul>
             </div>
           </div>
@@ -924,20 +939,23 @@ export default function Setup() {
             {trackerVersion === 'v2' ? (
               <>
                 <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
-                  <strong>💡 Tracker v2.0:</strong> Використовує розумне автоматичне виявлення конверсій з системою очок. 
-                  Для кращої роботи додайте ваші URL або селектори в конфігурацію (див. код вище).
+                  <strong>✅ Tracker v2.0 - Рекомендовано:</strong> Розумне автоматичне виявлення конверсій з системою очок. 
+                  Працює на більшості сайтів без додаткового налаштування!
                 </p>
                 <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
-                  <strong>⚙️ Налаштування:</strong> Розкоментуйте рядки в коді для налаштування автоматичного виявлення:
+                  <strong>⚙️ Опціональне налаштування:</strong> Для кращої точності розкоментуйте рядки в коді вище:
                 </p>
                 <ul className="text-sm text-blue-800 dark:text-blue-300 list-disc list-inside ml-4 mb-2">
-                  <li><code>CONVERSION_URLS</code> - додайте ваші URL сторінок підтвердження</li>
-                  <li><code>CONVERSION_SELECTORS</code> - додайте CSS селектори елементів</li>
-                  <li><code>MIN_CONFIDENCE_SCORE</code> - налаштуйте поріг впевненості (3-7)</li>
+                  <li><code className="bg-white dark:bg-slate-700 px-1 rounded">CONVERSION_URLS</code> - додайте ваші URL сторінок підтвердження замовлення</li>
+                  <li><code className="bg-white dark:bg-slate-700 px-1 rounded">CONVERSION_SELECTORS</code> - додайте CSS селектори елементів на сторінці замовлення</li>
+                  <li><code className="bg-white dark:bg-slate-700 px-1 rounded">MIN_CONFIDENCE_SCORE</code> - налаштуйте поріг впевненості (3-7, за замовчуванням 5)</li>
                 </ul>
+                <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
+                  <strong>🔍 Автоматична перевірка встановлення:</strong> Трекер автоматично надсилає verification ping кожні 5 хвилин. 
+                  Статус підключення можна перевірити на сторінці "Мої сайти" через 5-10 хвилин після встановлення.
+                </p>
                 <p className="text-sm text-blue-800 dark:text-blue-300">
-                  <strong>🔍 Автоматична перевірка:</strong> Трекер автоматично надсилає verification ping кожні 5 хвилин. 
-                  Перевірте статус на сторінці "Мої сайти" через 5-10 хвилин після встановлення.
+                  <strong>🧪 Тестування:</strong> Відкрийте <a href={`${API_BASE}/tracker-test.html`} target="_blank" rel="noopener noreferrer" className="underline font-semibold">тестову сторінку</a> для детальної перевірки роботи трекера.
                 </p>
               </>
             ) : (
