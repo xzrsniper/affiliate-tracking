@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дякуємо за замовлення — Shopin</title>
+    
+    <script>
+        window.TRACKER_CONFIG = {
+            BASE_URL: 'https://lehko.space/api/track',
+            DEBUG: true,
+            CONVERSION_URLS: ['/thank-you.html', '/thank-you'],
+            MIN_CONFIDENCE_SCORE: 5
+        };
+    </script>
+    <script src="https://lehko.space/tracker-v2.js" async></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 520px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            text-align: center;
+            padding: 48px 32px;
+        }
+        .success-icon { font-size: 4em; margin-bottom: 16px; }
+        h1 { color: #111; font-size: 2em; margin-bottom: 16px; }
+        .message { color: #6b7280; line-height: 1.6; margin-bottom: 24px; }
+        .order-details {
+            background: #f0fdfa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            text-align: left;
+            border: 1px solid #99f6e4;
+        }
+        .order-details h3 { color: #0f766e; margin-bottom: 12px; text-align: center; }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .detail-item:last-child { border-bottom: none; }
+        .detail-label { font-weight: 600; color: #6b7280; }
+        .detail-value { color: #111; }
+        .btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn:hover { opacity: 0.95; }
+        .tracker-note {
+            margin-top: 24px;
+            padding: 12px;
+            background: #ecfdf5;
+            border-left: 4px solid #0d9488;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 0.9em;
+            color: #065f46;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Дякуємо за замовлення!</h1>
+        <p class="message">
+            Ваше замовлення прийнято. Ми зв'яжемося з вами для підтвердження та доставки.
+        </p>
+        <div class="order-details" id="orderDetails"></div>
+        <a href="index.html" class="btn">Повернутися в магазин</a>
+        <div class="tracker-note">
+            <strong>Lehko Track:</strong> Конверсія відстежується автоматично. Перевірте статистику в панелі Lehko Track.
+        </div>
+    </div>
+    
+    <script>
+        const orderData = JSON.parse(localStorage.getItem('shopinOrder')) || {};
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderIdFromUrl = urlParams.get('order') || orderData.orderId || ('SHOPIN-' + Date.now());
+        const totalFromUrl = parseFloat(urlParams.get('total')) || (orderData.items ? orderData.items.reduce((s, i) => s + i.price, 0) : 0);
+        
+        function renderOrderDetails() {
+            const el = document.getElementById('orderDetails');
+            if (!orderData.name && !orderIdFromUrl) {
+                el.innerHTML = '<p>Дані замовлення не знайдено.</p>';
+                return;
+            }
+            const total = orderData.total || totalFromUrl;
+            const orderId = orderData.orderId || orderIdFromUrl;
+            el.innerHTML = `
+                <h3>Деталі замовлення</h3>
+                ${orderData.name ? `<div class="detail-item"><span class="detail-label">Ім'я:</span><span class="detail-value">${orderData.name}</span></div>` : ''}
+                ${orderData.email ? `<div class="detail-item"><span class="detail-label">Email:</span><span class="detail-value">${orderData.email}</span></div>` : ''}
+                ${orderData.phone ? `<div class="detail-item"><span class="detail-label">Телефон:</span><span class="detail-value">${orderData.phone}</span></div>` : ''}
+                <div class="detail-item">
+                    <span class="detail-label">Номер замовлення:</span>
+                    <span class="detail-value">${orderId}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Сума:</span>
+                    <span class="detail-value" style="font-weight: 700; color: #0d9488;">${(total || 0).toLocaleString('uk-UA')} ₴</span>
+                </div>
+            `;
+        }
+        
+        renderOrderDetails();
+        
+        // Відстеження конверсії: автоматично (v2) + ручний виклик для гарантії
+        setTimeout(function() {
+            if (window.AffiliateTracker && typeof window.AffiliateTracker.trackConversion === 'function') {
+                window.AffiliateTracker.trackConversion(totalFromUrl || orderData.total || 0, orderIdFromUrl || orderData.orderId);
+            }
+        }, 1500);
+    </script>
+</body>
+</html>

@@ -2,40 +2,37 @@ import express from 'express';
 import { Link, Click, Conversion, User, Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
+import { checkTrackerInstallation } from '../utils/trackerCheck.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
 const router = express.Router();
 
-// Helper function to extract domain from URL
 function extractDomain(url) {
   try {
     const urlObj = new URL(url);
-    return urlObj.hostname.replace(/^www\./, '').toLowerCase(); // Remove www. prefix and normalize
+    return urlObj.hostname.replace(/^www\./, '').toLowerCase();
   } catch (e) {
     return null;
   }
 }
 
-// Helper function to check if code is connected for a domain
-// Only checks the actual website status in database (set by user or automatic check)
-async function checkCodeConnection(userId, domain) {
-  if (!domain) return false;
-  
-  // Check website status in database (must be explicitly set to true)
+// Check if tracking code is connected: either in "My sites" with connected status, OR tracker detected on link's domain
+async function isCodeConnectedForLink(userId, linkDomain) {
+  if (!linkDomain) return false;
   const website = await Website.findOne({
     where: {
       user_id: userId,
       is_connected: true,
       [Op.or]: [
-        { domain: domain },
-        { domain: `www.${domain}` },
-        { domain: domain.replace(/^www\./, '') }
+        { domain: linkDomain },
+        { domain: `www.${linkDomain}` },
+        { domain: linkDomain.replace(/^www\./, '') }
       ]
     }
   });
-  
-  return !!website;
+  if (website) return true;
+  return await checkTrackerInstallation(linkDomain);
 }
 
 // All routes require authentication
@@ -162,9 +159,8 @@ router.get('/my-links', async (req, res, next) => {
       const totalConversions = parseInt(conversionStats?.conversions || 0);
       const totalRevenue = parseFloat(conversionStats?.total_revenue || 0);
 
-      // Check if tracking code is connected for this link's domain
       const domain = extractDomain(link.original_url);
-      const isCodeConnected = await checkCodeConnection(req.user.id, domain);
+      const isCodeConnected = await isCodeConnectedForLink(req.user.id, domain);
 
       return {
         id: link.id,
