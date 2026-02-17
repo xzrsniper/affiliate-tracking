@@ -16,7 +16,9 @@
     "db:add-fields": "node scripts/add-link-fields.js",
     "db:add-google-id": "node scripts/add-google-id-field.js",
     "db:add-websites": "node scripts/add-websites-table.js",
-    "create-admin": "node scripts/create-admin.js"
+    "create-admin": "node scripts/create-admin.js",
+    "check-admin": "node scripts/check-admin.js",
+    "diagnose-admin": "node scripts/diagnose-admin.js"
   },
   "keywords": [
     "affiliate",

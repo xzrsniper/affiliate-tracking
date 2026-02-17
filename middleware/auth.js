@@ -44,6 +44,12 @@ export const authenticate = async (req, res, next) => {
 
 // Check if user is super admin
 export const requireSuperAdmin = async (req, res, next) => {
+  // Check if user is authenticated
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  // Check if user has super_admin role
   if (req.user.role !== 'super_admin') {
     return res.status(403).json({ error: 'Access denied. Super admin required.' });
   }
@@ -64,7 +70,7 @@ export const requireSuperAdmin = async (req, res, next) => {
   const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
   if (ADMIN_EMAIL && user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
     return res.status(403).json({ 
-      error: 'Access denied. Admin panel is only accessible to the owner.' 
+      error: `Access denied. Admin panel is only accessible to the owner (${ADMIN_EMAIL}). Your email: ${user.email}` 
     });
   }
   
