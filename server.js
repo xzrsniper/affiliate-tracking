@@ -2,8 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { testConnection } from './config/database.js';
 import './models/index.js'; // Import models to register associations
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -42,8 +47,39 @@ app.use(cookieParser()); // Enable cookie parsing for conversion tracking
 // Trust proxy for accurate IP detection (if behind reverse proxy)
 app.set('trust proxy', true);
 
-// Serve static files (for tracker.js)
-app.use(express.static('public'));
+// Serve tracker.js files with proper CORS headers to avoid ORB blocking
+app.get('/tracker.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.sendFile(path.join(__dirname, 'public', 'tracker.js'));
+});
+
+app.get('/tracker-v2.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.sendFile(path.join(__dirname, 'public', 'tracker-v2.js'));
+});
+
+// Serve static files (for other static files)
+app.use(express.static('public', {
+  setHeaders: (res, path) => {
+    // Set CORS headers for all static files
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    // Set proper Content-Type for JavaScript files
+    if (path.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+    }
+  }
+}));
 
 // Health check
 app.get('/health', (req, res) => {
