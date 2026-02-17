@@ -681,10 +681,69 @@
     }
   }
 
+  // ========== VERIFICATION PING ==========
+  // Send verification ping to confirm tracker is installed
+  // This helps the system detect if tracker is active on the website
+
+  function sendVerificationPing() {
+    try {
+      const refCode = getStoredRefCode();
+      const domain = window.location.hostname;
+      const version = '2.0.0'; // Tracker version
+      
+      // Build verify URL correctly
+      let verifyBase = BASE_URL;
+      // Remove any trailing paths
+      if (verifyBase.endsWith('/conversion') || verifyBase.endsWith('/view')) {
+        verifyBase = verifyBase.replace(/\/conversion$|\/view$/, '');
+      }
+      // Ensure it ends with /api/track
+      if (!verifyBase.endsWith('/api/track')) {
+        try {
+          const urlObj = new URL(verifyBase);
+          verifyBase = urlObj.origin + '/api/track';
+        } catch (e) {
+          // If URL parsing fails, try to fix manually
+          verifyBase = BASE_URL.split('/api/track')[0] + '/api/track';
+        }
+      }
+      
+      const verifyUrl = verifyBase + '/verify?' + 
+        new URLSearchParams({
+          code: refCode || '',
+          domain: domain,
+          version: version,
+          timestamp: Date.now()
+        }).toString();
+      
+      // Send verification ping (fire and forget)
+      safeFetch(verifyUrl, {
+        method: 'GET'
+      }).then(function(response) {
+        if (DEBUG && response) {
+          log('✅ Verification ping sent');
+        }
+      }).catch(function(error) {
+        // Silent fail - don't break client site
+        if (DEBUG) {
+          logError('Verification ping failed:', error);
+        }
+      });
+    } catch (e) {
+      // Silent fail
+      if (DEBUG) {
+        logError('Verification ping error:', e);
+      }
+    }
+  }
+
   // ========== INITIALIZATION ==========
 
   function init() {
     try {
+      // Step 0: Send verification ping immediately
+      sendVerificationPing();
+
       // Step 1: Capture referral code from URL
       const refCode = getRefCodeFromURL();
       if (refCode) {
@@ -703,6 +762,13 @@
       }, 1000);
 
       log('Tracker initialized');
+
+      // Send periodic verification pings (every 5 minutes)
+      if (typeof window !== 'undefined' && !window._affiliateTrackerV2PingInterval) {
+        window._affiliateTrackerV2PingInterval = setInterval(function() {
+          sendVerificationPing();
+        }, 5 * 60 * 1000); // 5 minutes
+      }
     } catch (error) {
       logError('Initialization error:', error);
     }
@@ -718,6 +784,7 @@
     // Utility functions
     getVisitorId: getVisitorId,
     getRefCode: getStoredRefCode,
+    sendVerificationPing: sendVerificationPing,
     
     // Configuration
     setConfig: function(config) {

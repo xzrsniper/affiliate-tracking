@@ -523,6 +523,11 @@ export default function Setup() {
                       <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
                         💡 <strong>Порада:</strong> Після встановлення трекера, зачекайте 5-10 хвилин та натисніть "Перевірити" для оновлення статусу.
                       </p>
+                      <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+                        <p className="text-xs text-blue-700 dark:text-blue-400 mb-1">
+                          🧪 <strong>Тестування:</strong> Відкрийте <a href={`${API_BASE}/tracker-test.html`} target="_blank" rel="noopener noreferrer" className="underline font-semibold">тестову сторінку</a> для детальної перевірки роботи трекера.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -626,9 +631,19 @@ export default function Setup() {
                               </div>
                             )}
                             {website.is_connected && (
-                              <div className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg p-2 mt-2 border border-green-200 dark:border-green-800">
-                                <p className="font-semibold mb-1">✓ Трекер успішно знайдено!</p>
-                                <p>Система автоматично відстежує кліки та конверсії з вашого сайту.</p>
+                              <div className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg p-3 mt-2 border border-green-200 dark:border-green-800">
+                                <p className="font-semibold mb-2">✓ Трекер успішно знайдено та працює!</p>
+                                <div className="space-y-1 text-green-700 dark:text-green-300">
+                                  <p>✅ Verification ping активний</p>
+                                  <p>✅ Автоматичне відстеження кліків</p>
+                                  <p>✅ Автоматичне відстеження конверсій</p>
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-green-200 dark:border-green-800">
+                                  <p className="text-green-600 dark:text-green-400">
+                                    💡 <strong>Гарантії:</strong> Трекер надсилає verification ping кожні 5 хвилин. 
+                                    Система автоматично відстежує всі кліки та конверсії з вашого сайту.
+                                  </p>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -662,9 +677,12 @@ export default function Setup() {
                                 </div>
                               )}
                               {website.is_connected && (
-                                <p className="text-xs text-green-600 dark:text-green-400">
-                                  ✓ Остання перевірка: щойно
-                                </p>
+                                <div className="text-xs text-green-600 dark:text-green-400 space-y-1">
+                                  <p>✓ Остання перевірка: щойно</p>
+                                  <p className="text-green-500 dark:text-green-500">
+                                    🔄 Автоматична перевірка кожні 5 хв
+                                  </p>
+                                </div>
                               )}
                             </div>
                           )}

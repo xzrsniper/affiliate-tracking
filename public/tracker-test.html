@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест трекера - LehkoTrack</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+        .test-item strong {
+            color: #333;
+        }
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .button:active {
+            transform: translateY(0);
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+        .results pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Тест трекера LehkoTrack</h1>
+        <p class="subtitle">Перевірка правильності встановлення та роботи трекера</p>
+
+        <!-- Tracker Configuration -->
+        <div class="test-section">
+            <h2>1. Конфігурація трекера</h2>
+            <div class="test-item">
+                <strong>BASE_URL:</strong> 
+                <span id="baseUrl">Завантаження...</span>
+            </div>
+            <div class="test-item">
+                <strong>Tracker версія:</strong> 
+                <span id="trackerVersion">Завантаження...</span>
+            </div>
+            <div class="test-item">
+                <strong>DEBUG режим:</strong> 
+                <span id="debugMode">Завантаження...</span>
+            </div>
+        </div>
+
+        <!-- Tracker Status -->
+        <div class="test-section">
+            <h2>2. Статус трекера</h2>
+            <div class="test-item">
+                <strong>Трекер ініціалізовано:</strong> 
+                <span id="trackerInitialized">Перевірка...</span>
+            </div>
+            <div class="test-item">
+                <strong>Об'єкт AffiliateTracker:</strong> 
+                <span id="trackerObject">Перевірка...</span>
+            </div>
+            <div class="test-item">
+                <strong>Visitor ID:</strong> 
+                <span id="visitorId">Перевірка...</span>
+            </div>
+            <div class="test-item">
+                <strong>Реферальний код:</strong> 
+                <span id="refCode">Перевірка...</span>
+            </div>
+        </div>
+
+        <!-- API Tests -->
+        <div class="test-section">
+            <h2>3. Тестування API</h2>
+            <button class="button" onclick="testVerificationPing()">Тест Verification Ping</button>
+            <button class="button" onclick="testPageView()">Тест Page View</button>
+            <button class="button" onclick="testConversion()">Тест Conversion</button>
+            <div id="apiResults" class="results" style="display: none;">
+                <h3>Результати тестування:</h3>
+                <pre id="apiResultsContent"></pre>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="test-section">
+            <h2>4. Інструкції</h2>
+            <div class="test-item">
+                <p><strong>Як використовувати:</strong></p>
+                <ol style="margin-left: 20px; margin-top: 10px;">
+                    <li>Відкрийте цю сторінку з параметром <code>?ref=TEST123</code></li>
+                    <li>Перевірте статус трекера вище</li>
+                    <li>Натисніть кнопки тестування API</li>
+                    <li>Перевірте результати в консолі браузера (F12)</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tracker Script -->
+    <script>
+        // Get API base from current location
+        const API_BASE = window.location.origin;
+        
+        window.TRACKER_CONFIG = {
+            BASE_URL: API_BASE + '/api/track',
+            DEBUG: true  // Enable debug for testing
+        };
+    </script>
+    <script src="/tracker-v2.js"></script>
+
+    <!-- Test Script -->
+    <script>
+        function updateStatus() {
+            // Check configuration
+            const config = window.TRACKER_CONFIG || {};
+            document.getElementById('baseUrl').textContent = config.BASE_URL || 'Не встановлено';
+            document.getElementById('debugMode').textContent = config.DEBUG ? 'Увімкнено' : 'Вимкнено';
+            
+            // Check tracker
+            setTimeout(() => {
+                const tracker = window.AffiliateTracker;
+                if (tracker) {
+                    document.getElementById('trackerInitialized').innerHTML = '<span class="status success">✅ Так</span>';
+                    document.getElementById('trackerObject').innerHTML = '<span class="status success">✅ Доступний</span>';
+                    
+                    try {
+                        const visitorId = tracker.getVisitorId();
+                        document.getElementById('visitorId').textContent = visitorId || 'Не знайдено';
+                    } catch (e) {
+                        document.getElementById('visitorId').innerHTML = '<span class="status error">❌ Помилка: ' + e.message + '</span>';
+                    }
+                    
+                    try {
+                        const refCode = tracker.getRefCode();
+                        document.getElementById('refCode').textContent = refCode || 'Не знайдено (додайте ?ref=TEST123 до URL)';
+                    } catch (e) {
+                        document.getElementById('refCode').innerHTML = '<span class="status error">❌ Помилка: ' + e.message + '</span>';
+                    }
+                    
+                    // Check version
+                    if (window._affiliateTrackerV2Initialized) {
+                        document.getElementById('trackerVersion').innerHTML = '<span class="status success">v2.0</span>';
+                    } else if (window._affiliateTrackerInitialized) {
+                        document.getElementById('trackerVersion').innerHTML = '<span class="status info">v1.0</span>';
+                    } else {
+                        document.getElementById('trackerVersion').innerHTML = '<span class="status warning">Не визначено</span>';
+                    }
+                } else {
+                    document.getElementById('trackerInitialized').innerHTML = '<span class="status error">❌ Ні</span>';
+                    document.getElementById('trackerObject').innerHTML = '<span class="status error">❌ Не доступний</span>';
+                }
+            }, 500);
+        }
+
+        function testVerificationPing() {
+            const resultsDiv = document.getElementById('apiResults');
+            const resultsContent = document.getElementById('apiResultsContent');
+            resultsDiv.style.display = 'block';
+            resultsContent.textContent = 'Відправка verification ping...';
+            
+            if (window.AffiliateTracker && window.AffiliateTracker.sendVerificationPing) {
+                window.AffiliateTracker.sendVerificationPing();
+                resultsContent.textContent = '✅ Verification ping відправлено!\n\nПеревірте Network вкладку в DevTools для підтвердження.';
+            } else {
+                resultsContent.textContent = '❌ Помилка: AffiliateTracker.sendVerificationPing не доступний';
+            }
+        }
+
+        function testPageView() {
+            const resultsDiv = document.getElementById('apiResults');
+            const resultsContent = document.getElementById('apiResultsContent');
+            resultsDiv.style.display = 'block';
+            resultsContent.textContent = 'Тестування page view...';
+            
+            if (window.AffiliateTracker && window.AffiliateTracker.trackView) {
+                window.AffiliateTracker.trackView();
+                resultsContent.textContent = '✅ Page view відстежено!\n\nПеревірте Network вкладку в DevTools для підтвердження.';
+            } else {
+                resultsContent.textContent = '❌ Помилка: AffiliateTracker.trackView не доступний';
+            }
+        }
+
+        function testConversion() {
+            const resultsDiv = document.getElementById('apiResults');
+            const resultsContent = document.getElementById('apiResultsContent');
+            resultsDiv.style.display = 'block';
+            resultsContent.textContent = 'Тестування conversion...';
+            
+            if (window.AffiliateTracker && window.AffiliateTracker.trackConversion) {
+                const result = window.AffiliateTracker.trackConversion(99.99, 'TEST-' + Date.now());
+                if (result) {
+                    resultsContent.textContent = '✅ Conversion відстежено!\n\nСума: 99.99\nOrder ID: TEST-' + Date.now() + '\n\nПеревірте Network вкладку в DevTools для підтвердження.';
+                } else {
+                    resultsContent.textContent = '⚠️ Conversion не відстежено (можливо вже було відстежено раніше або немає ref code)';
+                }
+            } else {
+                resultsContent.textContent = '❌ Помилка: AffiliateTracker.trackConversion не доступний';
+            }
+        }
+
+        // Update status on load
+        window.addEventListener('load', () => {
+            updateStatus();
+            // Update every 2 seconds
+            setInterval(updateStatus, 2000);
+        });
+    </script>
+</body>
+</html>

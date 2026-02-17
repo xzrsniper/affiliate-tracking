@@ -107,6 +107,66 @@ router.get('/view/ping', async (req, res, next) => {
 });
 
 /**
+ * GET /api/track/test
+ * Test endpoint to verify tracker is working correctly
+ * Returns detailed information about tracker status
+ */
+router.get('/test', async (req, res, next) => {
+  try {
+    const { code, domain } = req.query;
+    
+    // Check if verification ping was received recently
+    let verificationStatus = null;
+    if (domain) {
+      const normalizedDomain = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+      const recentVerification = await TrackerVerification.findOne({
+        where: {
+          domain: normalizedDomain,
+          last_seen: {
+            [Op.gte]: new Date(Date.now() - 10 * 60 * 1000) // Within last 10 minutes
+          }
+        },
+        order: [['last_seen', 'DESC']]
+      });
+      
+      if (recentVerification) {
+        verificationStatus = {
+          found: true,
+          last_seen: recentVerification.last_seen,
+          version: recentVerification.version,
+          code: recentVerification.code
+        };
+      } else {
+        verificationStatus = {
+          found: false,
+          message: 'No verification ping received in last 10 minutes'
+        };
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Tracker test endpoint',
+      service: 'LehkoTrack',
+      timestamp: new Date().toISOString(),
+      verification: verificationStatus,
+      endpoints: {
+        verify: '/api/track/verify',
+        view: '/api/track/view/:code',
+        conversion: '/api/track/conversion',
+        conversionPixel: '/api/track/conversion-pixel'
+      },
+      tracker_files: {
+        v1: '/tracker.js',
+        v2: '/tracker-v2.js'
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/track/view/:code
  * Track a page view/click
  * This is called by the JS pixel on client domains
