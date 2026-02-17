@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запуск локального тестового магазину</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Запуск тестового магазину локально</h1>
+    
+    <h2>Варіант 1: Python HTTP Server (найпростіше)</h2>
+    
+    <div class="success">
+        <h3>Windows PowerShell:</h3>
+        <pre>cd C:\Users\ergoa\Downloads\affiliate-tracking-main\affiliate-tracking-main\public\test-shop
+python -m http.server 8080</pre>
+        
+        <p>Потім відкрийте: <code>http://localhost:8080/?ref=TEST123</code></p>
+    </div>
+    
+    <div class="success">
+        <h3>Windows CMD:</h3>
+        <pre>cd C:\Users\ergoa\Downloads\affiliate-tracking-main\affiliate-tracking-main\public\test-shop
+python -m http.server 8080</pre>
+    </div>
+    
+    <h2>Варіант 2: Node.js HTTP Server</h2>
+    
+    <pre>cd C:\Users\ergoa\Downloads\affiliate-tracking-main\affiliate-tracking-main\public\test-shop
+npx http-server -p 8080</pre>
+    
+    <h2>Варіант 3: Live Server (VS Code Extension)</h2>
+    
+    <p>Якщо використовуєте VS Code:</p>
+    <ol>
+        <li>Встановіть розширення "Live Server"</li>
+        <li>Відкрийте файл <code>index.html</code></li>
+        <li>Натисніть правою кнопкою → "Open with Live Server"</li>
+    </ol>
+    
+    <h2>Важливо!</h2>
+    
+    <div class="warning">
+        <p><strong>Трекер налаштований на production backend:</strong></p>
+        <pre>BASE_URL: 'https://lehko.space/api/track'</pre>
+        <p>Це означає, що відстеження буде працювати навіть локально!</p>
+        <p>Просто відкрийте: <code>http://localhost:8080/?ref=YOUR_TRACKING_CODE</code></p>
+    </div>
+    
+    <h2>Тестування</h2>
+    
+    <ol>
+        <li>Запустіть локальний сервер (один з варіантів вище)</li>
+        <li>Відкрийте <code>http://localhost:8080/?ref=TEST123</code></li>
+        <li>Додайте товари в кошик</li>
+        <li>Оформіть замовлення</li>
+        <li>Перевірте статистику в панелі <code>https://lehko.space</code></li>
+    </ol>
+    
+    <h2>Якщо Python не встановлений</h2>
+    
+    <p>Встановіть Python з <a href="https://www.python.org/downloads/">python.org</a> або використайте Node.js:</p>
+    <pre>npx http-server -p 8080</pre>
+    
+</body>
+</html>

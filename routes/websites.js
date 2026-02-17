@@ -1,6 +1,7 @@
 import express from 'express';
-import { Website } from '../models/index.js';
+import { Website, TrackerVerification } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
+import { Op } from 'sequelize';
 
 const router = express.Router();
 
@@ -30,23 +31,44 @@ router.get('/', async (req, res, next) => {
 /**
  * Helper function to check if tracker is installed on a domain
  * Uses multiple methods:
- * 1. HTML scraping (looks for tracker code in page source)
- * 2. Verification ping check (checks if tracker sent verification ping recently)
+ * 1. Verification ping check (checks if tracker sent verification ping recently) - PRIMARY METHOD
+ * 2. HTML scraping (looks for tracker code in page source) - FALLBACK METHOD
  */
 const checkTrackerInstallation = async (domain) => {
   if (!domain) return false;
 
+  // Normalize domain
+  const normalizedDomain = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+
   // Перевірка на localhost/127.0.0.1 - не можна перевірити з сервера
-  const isLocalhost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(domain.replace(/^https?:\/\//i, ''));
+  const isLocalhost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(normalizedDomain);
   if (isLocalhost) {
-    console.log(`[Website Check] Localhost detected: ${domain} - cannot check from server`);
-    // Для localhost завжди повертаємо false, бо сервер не може доступитися
+    console.log(`[Website Check] Localhost detected: ${normalizedDomain} - cannot check from server`);
     return false;
   }
   
-  // Method 1: Try to check verification ping logs (if we had a table for this)
-  // For now, we'll rely on HTML scraping, but in future we can add verification ping tracking
+  // Method 1: Check verification ping (most reliable - tracker sends pings every 5 minutes)
+  // If tracker sent verification ping within last 10 minutes, it's definitely installed
+  try {
+    const recentVerification = await TrackerVerification.findOne({
+      where: {
+        domain: normalizedDomain,
+        last_seen: {
+          [Op.gte]: new Date(Date.now() - 10 * 60 * 1000) // Within last 10 minutes
+        }
+      },
+      order: [['last_seen', 'DESC']]
+    });
 
+    if (recentVerification) {
+      console.log(`[Website Check] ✅ Tracker verified via ping on ${normalizedDomain} (last seen: ${recentVerification.last_seen})`);
+      return true;
+    }
+  } catch (error) {
+    console.error('[Website Check] Error checking verification pings:', error);
+  }
+
+  // Method 2: HTML scraping (fallback if no verification ping found)
   const buildUrls = (domain) => {
     const clean = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
     return [`https://${clean}`, `http://${clean}`];

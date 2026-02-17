@@ -1,0 +1,193 @@
+<!-- ========================================== -->
+<!-- Lehko Track - Google Tag Manager Setup -->
+<!-- ========================================== -->
+
+<!-- 
+    ІНСТРУКЦІЯ ПО ВСТАНОВЛЕННЮ В GTM:
+    
+    1. Відкрийте Google Tag Manager
+    2. Створіть новий тег типу "Custom HTML"
+    3. Скопіюйте код нижче в поле "HTML"
+    4. Налаштуйте тригер: "All Pages"
+    5. Встановіть пріоритет: "High" (щоб завантажувався рано)
+    6. Збережіть та опублікуйте контейнер
+-->
+
+<script>
+(function() {
+  'use strict';
+  
+  // Prevent duplicate initialization
+  if (window._lehkoTrackerGTMInitialized) {
+    return;
+  }
+  window._lehkoTrackerGTMInitialized = true;
+
+  // ========== КОНФІГУРАЦІЯ ==========
+  // Замініть BASE_URL на ваш production backend URL
+  const BASE_URL = 'https://lehko.space/api/track';
+  const CONVERSION_KEYWORDS = ['order', 'thank-you', 'thankyou', 'success', 'confirmation', 'complete', 'purchase'];
+  
+  // Storage keys
+  const STORAGE_REF_CODE = 'aff_ref_code';
+  const STORAGE_VISITOR_ID = 'lehko_visitor_id';
+  const REF_PARAM = 'ref';
+  
+  // Cookie settings
+  function getRootDomain() {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    if (parts.length <= 2) return hostname;
+    return '.' + parts.slice(-2).join('.');
+  }
+  
+  const COOKIE_DOMAIN = getRootDomain();
+  const COOKIE_PATH = '/';
+  const COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
+
+  // ========== УТИЛІТИ ==========
+  function setCookie(name, value, days) {
+    try {
+      const expires = new Date();
+      expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+      const cookieString = name + '=' + encodeURIComponent(value) +
+                          ';expires=' + expires.toUTCString() +
+                          ';path=' + COOKIE_PATH + ';SameSite=Lax';
+      if (COOKIE_DOMAIN && !COOKIE_DOMAIN.includes('localhost')) {
+        document.cookie = cookieString + ';domain=' + COOKIE_DOMAIN;
+      } else {
+        document.cookie = cookieString;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function getCookie(name) {
+    try {
+      const nameEQ = name + '=';
+      const ca = document.cookie.split(';');
+      for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) {
+          return decodeURIComponent(c.substring(nameEQ.length, c.length));
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getURLParameter(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+  }
+
+  function generateVisitorId() {
+    return 'visitor_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  function getVisitorId() {
+    let visitorId = localStorage.getItem(STORAGE_VISITOR_ID);
+    if (!visitorId) {
+      visitorId = generateVisitorId();
+      localStorage.setItem(STORAGE_VISITOR_ID, visitorId);
+    }
+    return visitorId;
+  }
+
+  // ========== ОСНОВНА ЛОГІКА ==========
+  function captureReferral() {
+    const refCode = getURLParameter(REF_PARAM);
+    if (refCode) {
+      setCookie(STORAGE_REF_CODE, refCode, 365);
+      localStorage.setItem(STORAGE_REF_CODE, refCode);
+    }
+  }
+
+  function trackPageView() {
+    const refCode = getURLParameter(REF_PARAM) || getCookie(STORAGE_REF_CODE) || localStorage.getItem(STORAGE_REF_CODE);
+    if (!refCode) return;
+
+    const visitorId = getVisitorId();
+    const url = BASE_URL + '/view/' + encodeURIComponent(refCode) + '?visitor_id=' + encodeURIComponent(visitorId);
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+    } else {
+      const img = new Image();
+      img.src = url;
+    }
+  }
+
+  function trackConversion() {
+    const refCode = getCookie(STORAGE_REF_CODE) || localStorage.getItem(STORAGE_REF_CODE);
+    if (!refCode) return;
+
+    const currentPath = window.location.pathname.toLowerCase();
+    const isConversionPage = CONVERSION_KEYWORDS.some(keyword => 
+      currentPath.includes(keyword.toLowerCase())
+    );
+
+    if (!isConversionPage) return;
+
+    const visitorId = getVisitorId();
+    const url = BASE_URL + '/conversion?code=' + encodeURIComponent(refCode) + 
+                '&visitor_id=' + encodeURIComponent(visitorId);
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+    } else {
+      const img = new Image();
+      img.src = url;
+    }
+  }
+
+  function sendVerificationPing() {
+    const refCode = getURLParameter(REF_PARAM) || getCookie(STORAGE_REF_CODE) || localStorage.getItem(STORAGE_REF_CODE);
+    if (!refCode) return;
+
+    const domain = window.location.hostname;
+    const url = BASE_URL.replace('/api/track', '') + '/api/track/verify?code=' + encodeURIComponent(refCode) + 
+                '&domain=' + encodeURIComponent(domain) + '&version=gtm';
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+    } else {
+      const img = new Image();
+      img.src = url;
+    }
+  }
+
+  // ========== ІНІЦІАЛІЗАЦІЯ ==========
+  function init() {
+    try {
+      captureReferral();
+      trackPageView();
+      sendVerificationPing();
+      setTimeout(function() {
+        trackConversion();
+      }, 500);
+    } catch (error) {
+      console.error('[Lehko Tracker GTM] Error:', error);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  setInterval(function() {
+    sendVerificationPing();
+  }, 5 * 60 * 1000);
+})();
+</script>
+
+<!-- ========================================== -->
+<!-- END OF GTM TRACKER CODE -->
+<!-- ========================================== -->

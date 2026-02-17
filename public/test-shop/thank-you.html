@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дякуємо за замовлення! - Тестовий магазин</title>
+    
+    <!-- ========== AFFILIATE TRACKER SCRIPT ========== -->
+    <script>
+        window.TRACKER_CONFIG = {
+            BASE_URL: 'https://lehko.space/api/track',
+            DEBUG: true  // Увімкнено для тестування
+        };
+    </script>
+    <script src="https://lehko.space/tracker.js"></script>
+    <!-- ========== END TRACKER SCRIPT ========== -->
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            text-align: center;
+            padding: 60px 40px;
+        }
+        
+        .success-icon {
+            font-size: 5em;
+            margin-bottom: 20px;
+            animation: bounce 1s ease;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-20px);
+            }
+            60% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            color: #666;
+            font-size: 1.2em;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .order-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        
+        .order-details h3 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .detail-value {
+            color: #333;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .tracker-info {
+            margin-top: 30px;
+            padding: 15px;
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            border-radius: 5px;
+            text-align: left;
+        }
+        
+        .tracker-info h4 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+        
+        .tracker-info p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Дякуємо за замовлення!</h1>
+        <p class="message">
+            Ваше замовлення успішно оформлено. Ми зв'яжемося з вами найближчим часом для підтвердження деталей доставки.
+        </p>
+        
+        <div class="order-details" id="orderDetails">
+            <!-- Деталі замовлення будуть додані через JavaScript -->
+        </div>
+        
+        <a href="index.html" class="btn">Повернутися до магазину</a>
+        
+        <div class="tracker-info">
+            <h4>📊 Відстеження конверсії</h4>
+            <p>Конверсія буде автоматично відстежена системою афіліатів. Перевірте статистику в панелі управління Lehko Track.</p>
+            <p><strong>URL цієї сторінки містить ключове слово "thank-you", що автоматично визначає конверсію.</strong></p>
+        </div>
+    </div>
+    
+    <script>
+        // Отримуємо дані замовлення
+        const orderData = JSON.parse(localStorage.getItem('testShopOrder')) || {};
+        
+        // Відображення деталей замовлення
+        function renderOrderDetails() {
+            const orderDetails = document.getElementById('orderDetails');
+            
+            if (!orderData.name) {
+                orderDetails.innerHTML = '<p>Дані замовлення не знайдено.</p>';
+                return;
+            }
+            
+            const total = orderData.items ? orderData.items.reduce((sum, item) => sum + item.price, 0) : 0;
+            
+            orderDetails.innerHTML = `
+                <h3>Деталі замовлення</h3>
+                <div class="detail-item">
+                    <span class="detail-label">Ім'я:</span>
+                    <span class="detail-value">${orderData.name}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value">${orderData.email}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Телефон:</span>
+                    <span class="detail-value">${orderData.phone}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Кількість товарів:</span>
+                    <span class="detail-value">${orderData.items ? orderData.items.length : 0}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Сума замовлення:</span>
+                    <span class="detail-value" style="font-weight: bold; color: #667eea;">${total.toLocaleString('uk-UA')} ₴</span>
+                </div>
+            `;
+        }
+        
+        // Ініціалізація
+        renderOrderDetails();
+        
+        // Логування для тестування
+        console.log('✅ Сторінка подяки завантажена');
+        console.log('📊 Конверсія має бути відстежена автоматично');
+        console.log('🔗 URL:', window.location.href);
+        
+        // Перевірка чи трекер завантажений
+        setTimeout(() => {
+            if (window._affiliateTrackerInitialized) {
+                console.log('✅ Трекер ініціалізовано');
+            } else {
+                console.warn('⚠️ Трекер не ініціалізовано');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

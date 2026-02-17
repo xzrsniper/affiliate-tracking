@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестовий магазин - Lehko Track</title>
+    
+    <!-- ========== AFFILIATE TRACKER SCRIPT ========== -->
+    <script>
+        window.TRACKER_CONFIG = {
+            BASE_URL: 'https://lehko.space/api/track',
+            DEBUG: true  // Увімкнено для тестування
+        };
+    </script>
+    <script src="https://lehko.space/tracker.js"></script>
+    <!-- ========== END TRACKER SCRIPT ========== -->
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .test-info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px;
+            border-radius: 5px;
+        }
+        
+        .test-info h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .test-info code {
+            background: #f8f9fa;
+            padding: 2px 8px;
+            border-radius: 3px;
+            color: #d63384;
+            font-size: 0.9em;
+        }
+        
+        .products {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+            padding: 40px;
+        }
+        
+        .product-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3em;
+        }
+        
+        .product-info {
+            padding: 20px;
+        }
+        
+        .product-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .product-description {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        
+        .product-price {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .cart-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        
+        .cart-info h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .cart-count {
+            font-size: 1.5em;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .checkout-btn {
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .checkout-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .checkout-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛍️ Тестовий магазин</h1>
+            <p>Перевірка роботи системи відстеження афіліатів</p>
+        </header>
+        
+        <div class="test-info">
+            <h3>📋 Інструкції для тестування:</h3>
+            <p>1. Відкрийте цю сторінку з параметром <code>?ref=TEST123</code> (замініть TEST123 на ваш трекінг код)</p>
+            <p>2. Перегляньте товари та додайте їх у кошик</p>
+            <p>3. Перейдіть до оформлення замовлення</p>
+            <p>4. Завершіть замовлення - конверсія буде відстежена автоматично</p>
+            <p><strong>Приклад URL:</strong> <code>https://lehko.space/test-shop/?ref=TEST123</code></p>
+        </div>
+        
+        <div class="products" id="products">
+            <!-- Товари будуть додані через JavaScript -->
+        </div>
+    </div>
+    
+    <div class="cart-info" id="cartInfo" style="display: none;">
+        <h3>🛒 Кошик</h3>
+        <div class="cart-count">Товарів: <span id="cartCount">0</span></div>
+        <button class="checkout-btn" onclick="goToCheckout()">Оформити замовлення</button>
+    </div>
+    
+    <script>
+        // Товари для тестування
+        const products = [
+            {
+                id: 1,
+                name: 'Ноутбук Pro',
+                description: 'Потужний ноутбук для роботи та розваг',
+                price: 25000,
+                emoji: '💻'
+            },
+            {
+                id: 2,
+                name: 'Смартфон Ultra',
+                description: 'Новітній смартфон з найкращою камерою',
+                price: 15000,
+                emoji: '📱'
+            },
+            {
+                id: 3,
+                name: 'Навушники Pro',
+                description: 'Бездротові навушники з шумозаглушенням',
+                price: 5000,
+                emoji: '🎧'
+            },
+            {
+                id: 4,
+                name: 'Планшет Max',
+                description: 'Великий планшет для творчості',
+                price: 12000,
+                emoji: '📱'
+            },
+            {
+                id: 5,
+                name: 'Годинник Smart',
+                description: 'Розумний годинник з відстеженням здоров\'я',
+                price: 8000,
+                emoji: '⌚'
+            },
+            {
+                id: 6,
+                name: 'Камера 4K',
+                description: 'Професійна камера для відео',
+                price: 30000,
+                emoji: '📷'
+            }
+        ];
+        
+        // Кошик
+        let cart = JSON.parse(localStorage.getItem('testShopCart')) || [];
+        
+        // Відображення товарів
+        function renderProducts() {
+            const productsContainer = document.getElementById('products');
+            productsContainer.innerHTML = products.map(product => `
+                <div class="product-card">
+                    <div class="product-image">${product.emoji}</div>
+                    <div class="product-info">
+                        <div class="product-title">${product.name}</div>
+                        <div class="product-description">${product.description}</div>
+                        <div class="product-price">${product.price.toLocaleString('uk-UA')} ₴</div>
+                        <button class="btn" onclick="addToCart(${product.id})">Додати в кошик</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Додавання в кошик
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (product) {
+                cart.push(product);
+                localStorage.setItem('testShopCart', JSON.stringify(cart));
+                updateCartInfo();
+                
+                // Логування для тестування
+                console.log('✅ Товар додано в кошик:', product.name);
+            }
+        }
+        
+        // Оновлення інформації про кошик
+        function updateCartInfo() {
+            const cartInfo = document.getElementById('cartInfo');
+            const cartCount = document.getElementById('cartCount');
+            
+            if (cart.length > 0) {
+                cartInfo.style.display = 'block';
+                cartCount.textContent = cart.length;
+            } else {
+                cartInfo.style.display = 'none';
+            }
+        }
+        
+        // Перехід до оформлення
+        function goToCheckout() {
+            if (cart.length === 0) {
+                alert('Кошик порожній!');
+                return;
+            }
+            window.location.href = 'checkout.html';
+        }
+        
+        // Ініціалізація
+        renderProducts();
+        updateCartInfo();
+        
+        // Логування для тестування трекера
+        console.log('🛍️ Тестовий магазин завантажено');
+        console.log('📊 Трекер налаштовано:', window.TRACKER_CONFIG);
+    </script>
+</body>
+</html>

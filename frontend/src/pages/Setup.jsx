@@ -97,28 +97,180 @@ export default function Setup() {
 </script>
 <script src="${API_BASE}/tracker.js"></script>`;
 
-  const gtmCode = `<!-- Google Tag Manager -->
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
+  const gtmCode = `<script>
+(function() {
+  'use strict';
   
-  // Завантажуємо tracker.js через GTM
-  (function() {
-    var script = document.createElement('script');
-    script.src = '${API_BASE}/tracker.js';
-    script.async = true;
-    
-    // Налаштування tracker
-    window.TRACKER_CONFIG = {
-      BASE_URL: '${API_BASE}/api/track',
-      CONVERSION_KEYWORDS: ['success', 'order', 'thank-you', 'thankyou', 'complete', 'purchase', 'confirmation'],
-      DEBUG: false
-    };
-    
-    document.head.appendChild(script);
-  })();
-</script>
-<!-- End Google Tag Manager -->`;
+  // Prevent duplicate initialization
+  if (window._lehkoTrackerGTMInitialized) {
+    return;
+  }
+  window._lehkoTrackerGTMInitialized = true;
+
+  // ========== КОНФІГУРАЦІЯ ==========
+  const BASE_URL = '${API_BASE}/api/track';
+  const CONVERSION_KEYWORDS = ['order', 'thank-you', 'thankyou', 'success', 'confirmation', 'complete', 'purchase'];
+  
+  // Storage keys
+  const STORAGE_REF_CODE = 'aff_ref_code';
+  const STORAGE_VISITOR_ID = 'lehko_visitor_id';
+  const REF_PARAM = 'ref';
+  
+  // Cookie settings
+  function getRootDomain() {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    if (parts.length <= 2) return hostname;
+    return '.' + parts.slice(-2).join('.');
+  }
+  
+  const COOKIE_DOMAIN = getRootDomain();
+  const COOKIE_PATH = '/';
+  const COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
+
+  // ========== УТИЛІТИ ==========
+  function setCookie(name, value, days) {
+    try {
+      const expires = new Date();
+      expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+      const cookieString = name + '=' + encodeURIComponent(value) +
+                          ';expires=' + expires.toUTCString() +
+                          ';path=' + COOKIE_PATH + ';SameSite=Lax';
+      if (COOKIE_DOMAIN && !COOKIE_DOMAIN.includes('localhost')) {
+        document.cookie = cookieString + ';domain=' + COOKIE_DOMAIN;
+      } else {
+        document.cookie = cookieString;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function getCookie(name) {
+    try {
+      const nameEQ = name + '=';
+      const ca = document.cookie.split(';');
+      for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) {
+          return decodeURIComponent(c.substring(nameEQ.length, c.length));
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getURLParameter(name) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+  }
+
+  function generateVisitorId() {
+    return 'visitor_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  function getVisitorId() {
+    let visitorId = localStorage.getItem(STORAGE_VISITOR_ID);
+    if (!visitorId) {
+      visitorId = generateVisitorId();
+      localStorage.setItem(STORAGE_VISITOR_ID, visitorId);
+    }
+    return visitorId;
+  }
+
+  // ========== ОСНОВНА ЛОГІКА ==========
+  function captureReferral() {
+    const refCode = getURLParameter(REF_PARAM);
+    if (refCode) {
+      setCookie(STORAGE_REF_CODE, refCode, 365);
+      localStorage.setItem(STORAGE_REF_CODE, refCode);
+    }
+  }
+
+  function trackPageView() {
+    const refCode = getURLParameter(REF_PARAM) || getCookie(STORAGE_REF_CODE) || localStorage.getItem(STORAGE_REF_CODE);
+    if (!refCode) return;
+
+    const visitorId = getVisitorId();
+    const url = BASE_URL + '/view/' + encodeURIComponent(refCode) + '?visitor_id=' + encodeURIComponent(visitorId);
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+    } else {
+      const img = new Image();
+      img.src = url;
+    }
+  }
+
+  function trackConversion() {
+    const refCode = getCookie(STORAGE_REF_CODE) || localStorage.getItem(STORAGE_REF_CODE);
+    if (!refCode) return;
+
+    const currentPath = window.location.pathname.toLowerCase();
+    const isConversionPage = CONVERSION_KEYWORDS.some(keyword => 
+      currentPath.includes(keyword.toLowerCase())
+    );
+
+    if (!isConversionPage) return;
+
+    const visitorId = getVisitorId();
+    const url = BASE_URL + '/conversion?code=' + encodeURIComponent(refCode) + 
+                '&visitor_id=' + encodeURIComponent(visitorId);
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+    } else {
+      const img = new Image();
+      img.src = url;
+    }
+  }
+
+  function sendVerificationPing() {
+    const refCode = getURLParameter(REF_PARAM) || getCookie(STORAGE_REF_CODE) || localStorage.getItem(STORAGE_REF_CODE);
+    if (!refCode) return;
+
+    const domain = window.location.hostname;
+    const url = BASE_URL.replace('/api/track', '') + '/api/track/verify?code=' + encodeURIComponent(refCode) + 
+                '&domain=' + encodeURIComponent(domain) + '&version=gtm';
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+    } else {
+      const img = new Image();
+      img.src = url;
+    }
+  }
+
+  // ========== ІНІЦІАЛІЗАЦІЯ ==========
+  function init() {
+    try {
+      captureReferral();
+      trackPageView();
+      sendVerificationPing();
+      setTimeout(function() {
+        trackConversion();
+      }, 500);
+    } catch (error) {
+      console.error('[Lehko Tracker GTM] Error:', error);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Verification ping кожні 5 хвилин
+  setInterval(function() {
+    sendVerificationPing();
+  }, 5 * 60 * 1000);
+})();
+</script>`;
 
   const copyToClipboard = (text, sectionId) => {
     navigator.clipboard.writeText(text);
@@ -497,10 +649,15 @@ export default function Setup() {
 
           {/* Info Box */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
+            <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
               <strong>💡 Порада:</strong> Після встановлення, коли користувачі переходитимуть через ваше tracking посилання, 
               система автоматично відстежуватиме кліки та конверсії на сторінках з ключовими словами 
               (success, order, thank-you, тощо).
+            </p>
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              <strong>🔍 Автоматична перевірка:</strong> Трекер автоматично надсилає verification ping кожні 5 хвилин, 
+              що дозволяє системі визначати його наявність та показувати статус "Підключено" в панелі управління. 
+              Перевірте статус на сторінці "Мої сайти" через 5-10 хвилин після встановлення.
             </p>
           </div>
         </div>
@@ -568,7 +725,7 @@ export default function Setup() {
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-3 flex items-center">
               <span className="w-8 h-8 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">3</span>
-              Налаштуйте тригери
+              Налаштуйте тригери та пріоритет
             </h3>
             <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600 mb-3">
               <p className="text-slate-700 dark:text-slate-300 mb-3">Встановіть тригер для запуску тега:</p>
@@ -576,6 +733,7 @@ export default function Setup() {
                 <li>Оберіть <strong>All Pages</strong> для відстеження на всіх сторінках</li>
                 <li>Рекомендується: <strong>Page View</strong> → <strong>All Pages</strong></li>
                 <li><strong>Важливо:</strong> Встановіть тільки ОДИН тригер, щоб уникнути дублювання</li>
+                <li><strong>Пріоритет:</strong> Встановіть <strong>High</strong> (високий), щоб тег завантажувався рано</li>
               </ul>
             </div>
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
@@ -595,17 +753,45 @@ export default function Setup() {
             <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
               <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300">
                 <li>Натисніть <strong>Save</strong> для збереження тега</li>
-                <li>Перевірте тег в режимі <strong>Preview</strong></li>
+                <li>Перевірте тег в режимі <strong>Preview</strong> (рекомендується)</li>
                 <li>Якщо все працює, натисніть <strong>Submit</strong> для публікації</li>
               </ol>
             </div>
           </div>
 
+          {/* Step 5 */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-3 flex items-center">
+              <span className="w-8 h-8 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">5</span>
+              Перевірте встановлення
+            </h3>
+            <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+              <p className="text-slate-700 dark:text-slate-300 mb-3">Після публікації тега:</p>
+              <ul className="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300">
+                <li>Перейдіть на сторінку <strong>"Мої сайти"</strong> в панелі LehkoTrack</li>
+                <li>Додайте ваш сайт (якщо ще не додано) з доменом</li>
+                <li>Натисніть кнопку <strong>"Перевірити"</strong> біля вашого сайту</li>
+                <li>Система автоматично визначить наявність трекера через verification ping</li>
+                <li>Статус <strong>"Підключено"</strong> з'явиться протягом 5-10 хвилин після встановлення</li>
+              </ul>
+              <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <p className="text-sm text-green-800 dark:text-green-300">
+                  <strong>✅ Автоматична перевірка:</strong> Трекер автоматично надсилає verification ping кожні 5 хвилин, 
+                  що дозволяє системі надійно визначати його наявність на сайті.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Info Box */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-300">
+            <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
               <strong>💡 Переваги GTM:</strong> Ви можете легко оновлювати налаштування tracking без зміни коду сайту. 
               Також можете додати додаткові умови та правила для запуску tracking.
+            </p>
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              <strong>🔍 Автоматична перевірка:</strong> Трекер надсилає verification ping кожні 5 хвилин, що дозволяє системі 
+              автоматично визначати його наявність та показувати статус "Підключено" в панелі управління.
             </p>
           </div>
         </div>
@@ -748,10 +934,17 @@ export default function Setup() {
                   <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 2: Налаштуйте тег</h4>
                   <ul className="list-disc list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
                     <li><strong>Назва тегу:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">LehkoTrack - Tracking Code</code></li>
-                    <li><strong>Тип тегу:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">Пользовательский HTML</code></li>
-                    <li><strong>HTML код:</strong> Вставте код з панелі LehkoTrack</li>
+                    <li><strong>Тип тегу:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">Custom HTML</code> (або "Пользовательский HTML")</li>
+                    <li><strong>HTML код:</strong> Перейдіть на вкладку <strong>"Google Tag Manager"</strong> в панелі LehkoTrack та скопіюйте готовий код</li>
                     <li><strong>Триггер:</strong> <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">All Pages</code> (всі сторінки)</li>
+                    <li><strong>Пріоритет:</strong> Встановіть <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">High</code> (високий) для раннього завантаження</li>
                   </ul>
+                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      <strong>💡 Важливо:</strong> Код автоматично надсилає verification ping кожні 5 хвилин, що дозволяє системі 
+                      надійно визначати наявність трекера на вашому сайті та показувати статус "Підключено" в панелі управління.
+                    </p>
+                  </div>
                 </div>
 
                 <div>
@@ -772,10 +965,27 @@ export default function Setup() {
                 <div>
                   <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 4: Опублікуйте зміни</h4>
                   <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
-                    <li>Натисніть <strong>"Опублікувати"</strong></li>
+                    <li>Натисніть <strong>"Опублікувати"</strong> (Submit)</li>
                     <li>Введіть назву версії (наприклад: "Додано LehkoTrack")</li>
                     <li>Натисніть <strong>"Опублікувати"</strong></li>
                   </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Крок 5: Перевірте встановлення</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
+                    <li>Перейдіть на сторінку <strong>"Налаштування"</strong> → вкладка <strong>"Мої сайти"</strong> в панелі LehkoTrack</li>
+                    <li>Додайте ваш сайт з доменом (якщо ще не додано)</li>
+                    <li>Натисніть кнопку <strong>"Перевірити"</strong> біля вашого сайту</li>
+                    <li>Зачекайте 5-10 хвилин після встановлення (трекер надсилає verification ping кожні 5 хвилин)</li>
+                    <li>Статус <strong>"Підключено"</strong> з'явиться автоматично після отримання першого verification ping</li>
+                  </ol>
+                  <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm text-green-800 dark:text-green-300">
+                      <strong>✅ Автоматична перевірка:</strong> Система використовує verification ping для надійного визначення 
+                      наявності трекера. Це працює як для прямого встановлення, так і для GTM.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -789,17 +999,27 @@ export default function Setup() {
               
               <div className="space-y-6">
                 <div>
-                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Метод 1: Автоматична перевірка (рекомендовано)</h4>
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-3">Метод 1: Автоматична перевірка через verification ping (рекомендовано)</h4>
                   <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
-                    <li>У панелі LehkoTrack перейдіть на сторінку <strong>"Налаштування"</strong></li>
-                    <li>Знайдіть ваш сайт в списку</li>
+                    <li>У панелі LehkoTrack перейдіть на сторінку <strong>"Налаштування"</strong> → вкладка <strong>"Мої сайти"</strong></li>
+                    <li>Додайте ваш сайт з доменом (якщо ще не додано)</li>
                     <li>Натисніть кнопку <strong>"Перевірити"</strong> біля вашого сайту</li>
-                    <li>Система автоматично перевірить наявність коду на вашому сайті</li>
+                    <li>Система автоматично перевірить наявність трекера двома способами:
+                      <ul className="list-disc list-inside ml-6 mt-2 space-y-1">
+                        <li><strong>Verification ping</strong> - якщо трекер надіслав ping протягом останніх 10 хвилин (найнадійніший метод)</li>
+                        <li><strong>HTML scraping</strong> - перевірка наявності коду в HTML сторінки (резервний метод)</li>
+                      </ul>
+                    </li>
+                    <li>Статус оновиться автоматично після перевірки</li>
                   </ol>
                   <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-sm text-green-800 dark:text-green-300 mb-2">
+                      <strong>✅ Зелений індикатор "Підключено"</strong> - трекер встановлено та працює<br/>
+                      <strong>❌ Червоний індикатор "Не підключено"</strong> - трекер не знайдено, перевірте встановлення
+                    </p>
                     <p className="text-sm text-green-800 dark:text-green-300">
-                      <strong>✅ Зелений індикатор</strong> - трекер встановлено та працює<br/>
-                      <strong>❌ Червоний індикатор</strong> - трекер не знайдено, перевірте встановлення
+                      <strong>⏱️ Час очікування:</strong> Після встановлення трекера, verification ping надсилається кожні 5 хвилин. 
+                      Статус може з'явитися протягом 5-10 хвилин після встановлення.
                     </p>
                   </div>
                 </div>
@@ -832,9 +1052,16 @@ export default function Setup() {
                   <ol className="list-decimal list-inside space-y-2 text-slate-700 dark:text-slate-300 ml-4">
                     <li>Відкрийте ваш сайт в браузері</li>
                     <li>Натисніть <strong>F12</strong> → вкладка <strong>"Network"</strong></li>
-                    <li>Оновіть сторінку (F5)</li>
-                    <li>Шукайте запити до <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/api/track/verify</code> або <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/tracker.js</code></li>
+                    <li>Оновіть сторінку (F5) або зачекайте 5 хвилин</li>
+                    <li>Шукайте запити до:
+                      <ul className="list-disc list-inside ml-6 mt-2 space-y-1">
+                        <li><code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/api/track/verify</code> - verification ping (надсилається кожні 5 хвилин)</li>
+                        <li><code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/api/track/view/</code> - відстеження переглядів сторінок</li>
+                        <li><code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/tracker.js</code> - завантаження скрипта (тільки для прямого встановлення)</li>
+                      </ul>
+                    </li>
                     <li>Якщо запити є - трекер працює ✅</li>
+                    <li><strong>Для GTM:</strong> Перевірте наявність запитів до <code className="bg-slate-100 dark:bg-slate-700 px-1 rounded">/api/track/verify</code> - це підтвердить, що трекер встановлено через GTM</li>
                   </ol>
                 </div>
               </div>

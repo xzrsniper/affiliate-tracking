@@ -5,6 +5,7 @@ import Conversion from './Conversion.js';
 import Website from './Website.js';
 import PageContent from './PageContent.js';
 import PageStructure from './PageStructure.js';
+import TrackerVerification from './TrackerVerification.js';
 
 // Define Associations
 
@@ -60,7 +61,8 @@ export {
   Conversion,
   Website,
   PageContent,
-  PageStructure
+  PageStructure,
+  TrackerVerification
 };
 
 export default {
@@ -70,5 +72,6 @@ export default {
   Conversion,
   Website,
   PageContent,
-  PageStructure
+  PageStructure,
+  TrackerVerification
 };

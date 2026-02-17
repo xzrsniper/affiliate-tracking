@@ -327,7 +327,7 @@ export default function Dashboard() {
                 placeholder="https://example.com"
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
               />
-              {newLink.original_url && !newLink.original_url.match(/^https?:\/\/.+\..+/i) && (
+              {newLink.original_url && !newLink.original_url.match(/^https?:\/\/(.+\.|localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)/i) && (
                 <p className="mt-1 text-sm text-amber-600">Перевірте правильність URL</p>
               )}
             </div>

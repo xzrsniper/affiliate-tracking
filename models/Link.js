@@ -26,7 +26,20 @@ const Link = sequelize.define('Link', {
     type: DataTypes.TEXT,
     allowNull: false,
     validate: {
-      isUrl: true
+      isUrl: {
+        msg: 'Must be a valid URL',
+        // Custom validator that accepts localhost and IP addresses
+        validator: function(value) {
+          if (!value) return false;
+          try {
+            const url = new URL(value);
+            // Accept http://localhost, http://127.0.0.1, and regular domains
+            return url.protocol === 'http:' || url.protocol === 'https:';
+          } catch (e) {
+            return false;
+          }
+        }
+      }
     }
   },
   source_type: {

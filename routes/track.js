@@ -1,5 +1,5 @@
 import express from 'express';
-import { Link, Click, Conversion } from '../models/index.js';
+import { Link, Click, Conversion, TrackerVerification } from '../models/index.js';
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
@@ -32,18 +32,41 @@ router.get('/verify', async (req, res, next) => {
   try {
     const { code, domain, version } = req.query;
     
-    // Log verification for tracking
-    if (code) {
-      const link = await Link.findOne({ where: { unique_code: code } });
-      if (link) {
-        // Update last verification time (could store in a separate table for tracking)
-        console.log('[Tracker Verification]', {
-          code: code,
-          domain: domain || 'unknown',
+    // Normalize domain
+    const normalizedDomain = domain ? domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase() : null;
+    
+    if (normalizedDomain) {
+      // Find or create verification record
+      const [verification, created] = await TrackerVerification.findOrCreate({
+        where: { domain: normalizedDomain },
+        defaults: {
+          domain: normalizedDomain,
+          code: code || null,
           version: version || 'unknown',
-          link_id: link.id,
-          timestamp: new Date().toISOString()
-        });
+          last_seen: new Date()
+        }
+      });
+      
+      if (!created) {
+        // Update existing record
+        verification.last_seen = new Date();
+        if (code) verification.code = code;
+        if (version) verification.version = version;
+        await verification.save();
+      }
+      
+      // Log verification
+      if (code) {
+        const link = await Link.findOne({ where: { unique_code: code } });
+        if (link) {
+          console.log('[Tracker Verification]', {
+            code: code,
+            domain: normalizedDomain,
+            version: version || 'unknown',
+            link_id: link.id,
+            timestamp: new Date().toISOString()
+          });
+        }
       }
     }
     
@@ -56,6 +79,7 @@ router.get('/verify', async (req, res, next) => {
     });
   } catch (error) {
     // Still return success to not break tracker
+    console.error('[Tracker Verification Error]', error);
     res.json({ 
       success: true, 
       verified: true,
