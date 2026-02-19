@@ -179,7 +179,7 @@ export default function Dashboard() {
   const uniqueClicks = links.reduce((sum, link) => sum + (link.stats?.unique_clicks || 0), 0);
   const totalLeads = links.reduce((sum, link) => sum + (link.stats?.leads || 0), 0);
   const totalSales = links.reduce((sum, link) => sum + (link.stats?.sales || 0), 0);
-  const salesRevenue = links.reduce((sum, link) => sum + (link.stats?.sales_revenue || link.stats?.total_revenue || 0), 0);
+  const salesRevenue = links.reduce((sum, link) => sum + (link.stats?.sales_revenue ?? 0), 0);
 
   const convRate = totalClicks > 0 ? ((totalSales / totalClicks) * 100).toFixed(1) : 0;
 
@@ -774,7 +774,7 @@ export default function Dashboard() {
                           <div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Дохід</p>
                             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                              {(link.stats?.sales_revenue || link.stats?.total_revenue || 0).toFixed(2)} ₴
+                              {(link.stats?.sales_revenue ?? 0).toFixed(2)} ₴
                             </p>
                           </div>
                         </div>

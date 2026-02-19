@@ -233,23 +233,25 @@
   // ── 5. Event Sender ────────────────────────────────────────────────────
   // Dedup rules:
   //   - With orderId: block same orderId permanently (prevents reload/back)
-  //   - Without orderId: block rapid duplicates within 3 seconds ONLY (anti-double-click)
-  //   - Every NEW purchase (different orderId or >3s apart) ALWAYS goes through
+  //   - Without orderId: block rapid duplicates (lead: 12s — GTM+pixel double fire; sale: 3s)
+  //   - Lead: завжди відправляємо order_value 0 — дохід рахується тільки з sale (після покупки)
   function sendEvent(eventType, value, orderId) {
     var ref = getRef();
     if (!ref) return;
+    if (eventType === 'lead') value = 0;
 
     if (orderId) {
       // Permanent dedup by orderId — same order never sent twice
       var orderKey = 'lehko_oid_' + eventType + '_' + orderId;
       try { if (ls(orderKey)) { console.log('[LehkoTrack] Dedup: orderId already sent', orderId); return; } ls(orderKey, '1'); } catch (e) { /* */ }
     } else {
-      // Anti-double-click: block same event type within 3 seconds
+      // Anti-double: lead 12s (GTM + pixel обидва можуть викликати на один клік), sale 3s
+      var dedupMs = eventType === 'lead' ? 12000 : 3000;
       var tsKey = 'lehko_ts_' + eventType;
       var now = Date.now();
       try {
         var lastTs = parseInt(ss(tsKey) || '0');
-        if (now - lastTs < 3000) { console.log('[LehkoTrack] Dedup: rapid duplicate blocked', eventType); return; }
+        if (now - lastTs < dedupMs) { console.log('[LehkoTrack] Dedup: duplicate blocked', eventType, '(within', dedupMs / 1000, 's)'); return; }
         ss(tsKey, String(now));
       } catch (e) { /* */ }
     }
@@ -473,7 +475,7 @@
 
     if (btn) {
       var price = extractPrice(btn);
-      sendEvent('lead', price, null);
+      sendEvent('lead', 0, null);
       storePendingSale(price);
       startConfirmationWatcher(price);
     }

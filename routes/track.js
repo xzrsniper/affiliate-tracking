@@ -588,17 +588,18 @@ router.post('/conversion', async (req, res, next) => {
           // Continue without duplicate check
         }
       } else {
-        // No order_id: check for same event_type from same link in last 3 seconds
+        // No order_id: block duplicate same event_type from same link (lead: 15s, sale: 3s)
+        const dedupSeconds = event_type === 'lead' ? 15 : 3;
         const recentResults = await sequelize.query(`
           SELECT * FROM conversions 
           WHERE link_id = ? 
           AND event_type = ?
-          AND created_at >= DATE_SUB(NOW(), INTERVAL 3 SECOND)
+          AND created_at >= DATE_SUB(NOW(), INTERVAL ? SECOND)
           ORDER BY created_at DESC
           LIMIT 1
           FOR UPDATE
         `, {
-          replacements: [link.id, event_type],
+          replacements: [link.id, event_type, dedupSeconds],
           type: QueryTypes.SELECT,
           transaction: t
         });
@@ -608,7 +609,7 @@ router.post('/conversion', async (req, res, next) => {
           : null;
         
         if (recentConversion) {
-          console.log('[Conversion Warning] Duplicate blocked (same event_type within 3s)', {
+          console.log('[Conversion Warning] Duplicate blocked (same event_type within ' + dedupSeconds + 's)', {
             existing_id: recentConversion.id,
             event_type: event_type,
             time_diff: Date.now() - new Date(recentConversion.created_at).getTime()
