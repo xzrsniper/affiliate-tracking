@@ -290,6 +290,20 @@
     return LEAD_BUTTON_RE.test(combined);
   }
 
+  // Сторінка кошика (повна або попап): «Оформити замовлення» тут лише веде на крок оплати — не лід.
+  function isCartPage() {
+    var path = location.pathname || '';
+    return /\/(cart|basket|koszyk|korzin)(\/|$|\?)/i.test(path) || /^\/cart(\/|$|\?)/i.test(path);
+  }
+
+  // Сторінка оформлення/оплати (фінальна кнопка «Оформити замовлення» — саме тут рахуємо 1 лід).
+  function isOrderFormPage() {
+    var path = location.pathname || '';
+    if (isCartPage()) return false;
+    return /\/(checkout|order|payment|oplata|pay|oformlennya|zamovlennya)(\/|$|\?)/i.test(path) ||
+      /checkout|order|payment|oplata/i.test(path);
+  }
+
   // ── 7. Success Page Detection ─────────────────────────────────────────
   // Не вважати success: checkout, cart, сторінка оформлення/оплати (це ще не подяка)
   var CHECKOUT_URL_RE = /checkout|cart|basket|korzin|koszyk|oplata|payment|\/pay\/|order\/?$|zamovlennya|oformlennya|checkout/i;
@@ -461,7 +475,7 @@
   }
 
   // ── 11. Click Handler ─────────────────────────────────────────────────
-  // Лід тільки по кнопці оформлення замовлення (Оформити замовлення / checkout / place order). «Купити» = додати в кошик — не лід.
+  // Лід тільки по кнопці «Оформити замовлення» на сторінці оформлення/оплати (друга кнопка). Кошик або попап кошика — не лід.
   function onDocClick(e) {
     var target = e.target;
     var btn = null;
@@ -475,7 +489,7 @@
       if (clickable && isCheckoutButton(clickable)) btn = clickable;
     }
 
-    if (btn) {
+    if (btn && !isCartPage() && isOrderFormPage()) {
       var price = extractPrice(btn);
       sendEvent('lead', 0, null);
       storePendingSale(price);
