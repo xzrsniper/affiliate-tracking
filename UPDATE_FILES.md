@@ -124,14 +124,21 @@
    echo "✅ Оновлення завершено!"
    ```
 
-   **Якщо після оновлення з’явилась помилка "Unknown column 'event_type' in 'field list'":**
+   **Після git pull — якщо з’явились помилки БД (Unknown column ...):**
    
-   Потрібно один раз виконати міграцію бази даних (додає колонку `event_type` в таблицю конверсій):
+   На сервері потрібно виконати міграції. Рекомендовано запустити **усі** по черзі (безпечно — скрипти пропускають вже існуючі колонки/таблиці):
    ```bash
    cd ~/affiliate-tracking   # або ваш шлях до проєкту
+   npm run db:add-websites
+   npm run db:add-universal-tracker
+   npm run db:add-click-id
    npm run db:add-event-type
+   pm2 restart affiliate-tracking-api
    ```
-   Після успішного виконання перезапустіть API: `pm2 restart affiliate-tracking-api`
+   Якщо бачите конкретну помилку:
+   - **"Unknown column 'conversion_urls'"** → `npm run db:add-universal-tracker`
+   - **"Unknown column 'event_type'"** → `npm run db:add-event-type`
+   - **"Unknown column 'purchase_button_selector'"** або **"Unknown column 'click_id'"** → `npm run db:add-click-id`
 
    ```bash
    chmod +x update.sh
