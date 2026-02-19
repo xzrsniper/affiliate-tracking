@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.1 — auto-propagation, fixed dedup
+ * LehkoTrack Pixel v4.2 — GTM: один лід, sale тільки на сторінці подяки
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
  *
@@ -13,6 +13,8 @@
  */
 (function () {
   'use strict';
+  if (window.__lehkoTrackLoaded) return;
+  window.__lehkoTrackLoaded = true;
 
   // Config sources (priority): window.__lehkoConfig > script[data-site] > document.currentScript
   var gtmCfg = window.__lehkoConfig || {};
@@ -286,7 +288,9 @@
   }
 
   // ── 7. Success Page Detection ─────────────────────────────────────────
-  var SUCCESS_URL_RE = /thank|success|complete|confirm|dyakuy|zamovlen|pidtverd|oformlen|spasybi|oplata|payment[_-]?success|order[_-]?(confirm|done|ready)/i;
+  // Не вважати success: checkout, cart, сторінка оформлення/оплати (це ще не подяка)
+  var CHECKOUT_URL_RE = /checkout|cart|basket|korzin|koszyk|oplata|payment|\/pay\/|order\/?$|zamovlennya|oformlennya|checkout/i;
+  var SUCCESS_URL_RE = /thank|thanks|dyakuy|spasybi|success|payment[_-]?success|order[_-]?(done|ready)|complete/i;
 
   var SUCCESS_TEXT_RE = new RegExp([
     'дякуємо за (замовлення|покупку|оплату|ваше замовлення)',
@@ -309,8 +313,9 @@
   ].join('|'), 'i');
 
   function isSuccessPage() {
-    if (SUCCESS_URL_RE.test(location.pathname)) return true;
     var path = location.pathname + location.search;
+    if (CHECKOUT_URL_RE.test(path)) return false;
+    if (SUCCESS_URL_RE.test(location.pathname)) return true;
     for (var i = 0; i < cfg.conversionUrls.length; i++) {
       if (path.indexOf(cfg.conversionUrls[i]) !== -1) return true;
     }
@@ -419,10 +424,11 @@
       return false;
     }
 
-    // Watch DOM mutations for success text
+    // Watch DOM mutations for success text (не на checkout/cart)
     try {
       observer = new MutationObserver(function (mutations) {
         if (checkTimeout()) return;
+        if (CHECKOUT_URL_RE.test(location.pathname)) return;
         for (var m = 0; m < mutations.length; m++) {
           var added = mutations[m].addedNodes;
           for (var n = 0; n < added.length; n++) {
@@ -494,7 +500,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.1', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.2', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -616,7 +622,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '4.1',
+    version: '4.2',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,

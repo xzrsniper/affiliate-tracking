@@ -493,30 +493,22 @@ cd .. && pm2 restart affiliate-tracking-api
 
 **Симптом:** У консолі/Network бачите `pixel.js (failed) net::ERR_BLOCKED_BY_ORB`. Трекер з GTM не працює.
 
-**Причина:** Запит на `https://lehko.space/pixel.js` обробляє nginx. Якщо для `/pixel.js` немає окремого `location`, nginx віддає фронт (index.html). Браузер очікує JavaScript → бачить HTML → блокує (ORB).
+**Рішення:** Використати готовий конфіг nginx, де `/pixel.js` і `/api` проксуються на Node.
 
-**Рішення:** Проксувати `/pixel.js` на бекенд (Node), а не віддавати статику/SPA.
-
-У конфіг сайту lehko.space (наприклад `/etc/nginx/sites-available/lehko.space`) у **HTTPS server block** (де `listen 443`) додайте **перед** `location /`:
-
-```nginx
-location = /pixel.js {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-Порт `3000` замініть на порт вашого Node (PM2). Збережіть конфіг, потім:
+У проєкті є файл **`nginx-lehko.space.conf.example`** — повний приклад конфігу для lehko.space. На сервері:
 
 ```bash
+# 1. Завантажте файл на сервер (або скопіюйте вміст вручну), потім:
+sudo cp /root/affiliate-tracking/nginx-lehko.space.conf.example /etc/nginx/sites-available/lehko.space
+
+# 2. Відредагуйте шляхи до SSL і порт Node (за замовчуванням 3000):
+sudo nano /etc/nginx/sites-available/lehko.space
+
+# 3. Перевірка і перезавантаження:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Після цього `https://lehko.space/pixel.js` має віддавати JavaScript з бекенду, і ORB зникне.
+У конфігу потрібно лише підставити свої шляхи до сертифікатів (наприклад Let's Encrypt: `fullchain.pem` та `privkey.pem`). Решта вже врахована: pixel.js → Node, /api та /track → Node, фронт з `/var/www/lehko.space`, SPA try_files.
 
 ---
 
