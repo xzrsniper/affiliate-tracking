@@ -464,14 +464,17 @@
   }
 
   // ── 11. Click Handler ─────────────────────────────────────────────────
+  // If purchaseButtonSelector is configured for this site → ONLY that button triggers a lead.
+  // If NOT configured → fall back to generic regex detection (PURCHASE_RE / CART_RE).
   function onDocClick(e) {
     var target = e.target;
     var btn = null;
 
     if (cfg.purchaseButtonSelector) {
+      // Strict mode: only the exact configured selector counts
       btn = target.closest(cfg.purchaseButtonSelector);
-    }
-    if (!btn) {
+    } else {
+      // Fallback: generic heuristic when no selector is configured
       var clickable = target.closest('button, a, input[type="submit"], [role="button"], .btn, [class*="btn"], [class*="button"]');
       if (clickable && isPurchaseButton(clickable)) btn = clickable;
     }
