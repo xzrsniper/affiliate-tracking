@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { checkTrackerInstallation } from '../utils/trackerCheck.js';
+import { storeConfigCode } from './track.js';
 
 const router = express.Router();
 
@@ -185,8 +186,9 @@ router.post('/:id/configure-session', async (req, res, next) => {
       { expiresIn: '10m' }
     );
 
+    const shortCode = storeConfigCode(token);
     const protocol = website.domain.startsWith('localhost') ? 'http' : 'https';
-    const configUrl = `${protocol}://${website.domain}?lehko_mode=configure&token=${token}`;
+    const configUrl = `${protocol}://${website.domain}?lehko_cfg=${shortCode}`;
 
     res.json({ success: true, token, configUrl, websiteId: website.id });
   } catch (error) {

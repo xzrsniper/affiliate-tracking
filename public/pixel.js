@@ -514,7 +514,31 @@
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
   function isConfigMode() {
     var params = new URLSearchParams(location.search);
-    return params.get('lehko_mode') === 'configure' && params.get('token');
+    // Support both: full token or short code
+    return (params.get('lehko_mode') === 'configure' && params.get('token')) || params.get('lehko_cfg');
+  }
+
+  function resolveConfigToken(cb) {
+    var params = new URLSearchParams(location.search);
+    // Legacy: full token in URL
+    if (params.get('lehko_mode') === 'configure' && params.get('token')) {
+      cb(params.get('token'));
+      return;
+    }
+    // New: short code → fetch full token from server
+    var code = params.get('lehko_cfg');
+    if (code) {
+      fetch(BASE_URL + '/api/track/cfg/' + encodeURIComponent(code), { mode: 'cors' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.success && d.token) {
+            cb(d.token);
+          } else {
+            console.warn('[LehkoTrack] Config code expired or invalid');
+          }
+        })
+        .catch(function () { console.warn('[LehkoTrack] Failed to resolve config code'); });
+    }
   }
 
   function startConfigMode(token) {
@@ -714,7 +738,9 @@
 
   // ── INIT ──────────────────────────────────────────────────────────────
   if (isConfigMode()) {
-    startConfigMode(new URLSearchParams(location.search).get('token'));
+    resolveConfigToken(function (token) {
+      startConfigMode(token);
+    });
   } else {
     captureAndPersist();
 

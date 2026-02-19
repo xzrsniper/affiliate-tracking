@@ -12,6 +12,39 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
+// ── Short config codes (in-memory, expire after 10 min) ─────────────────
+const configCodes = new Map();
+
+function generateShortCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghkmnpqrstuvwxyz23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+export function storeConfigCode(token) {
+  const code = generateShortCode();
+  configCodes.set(code, { token, created: Date.now() });
+  // Cleanup expired codes (older than 10 min)
+  for (const [k, v] of configCodes) {
+    if (Date.now() - v.created > 10 * 60 * 1000) configCodes.delete(k);
+  }
+  return code;
+}
+
+/**
+ * GET /api/track/cfg/:code
+ * Resolve short config code to full JWT token for Visual Mapper
+ */
+router.get('/cfg/:code', (req, res) => {
+  const entry = configCodes.get(req.params.code);
+  if (!entry || Date.now() - entry.created > 10 * 60 * 1000) {
+    configCodes.delete(req.params.code);
+    return res.status(404).json({ error: 'Code expired or not found' });
+  }
+  res.json({ success: true, token: entry.token });
+});
+
 /**
  * GET /api/track/pixel.js
  * Serve pixel.js tracker file (workaround for React Router intercepting /pixel.js)
