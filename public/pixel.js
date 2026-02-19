@@ -7,7 +7,7 @@
  *   1. Captures ref & click_id from URL → stores in localStorage + cookies
  *   2. Decorates ALL internal links so ref/click_id follow the user across pages
  *   3. On ANY page load: checks if it's a success page → sends "sale"
- *   4. Detects purchase buttons (not cart!) → sends "lead"
+ *   4. Detects checkout button (Оформити замовлення / place order only; «Купити» = кошик — не лід) → sends "lead"
  *   5. Deferred conversion: if user returns after purchase → sale detected
  *   6. Works even if installed only on ONE page (cookies + URL decoration)
  */
@@ -277,16 +277,17 @@
   }
 
   // ── 6. Button Detection ───────────────────────────────────────────────
-  var PURCHASE_RE = /купити|купить|замовити|заказать|оформити замовлення|оформить заказ|оплатити|оплатить|придбати|checkout|pay now|buy now|place order|confirm order|підтвердити|complete purchase|оформити покупку|submit order/i;
-  var CART_RE = /кошик|корзин|cart|wishlist|обране|favorite|порівн|compar|додати|добавить|add to/i;
+  // Лід рахуємо тільки по кнопці оформлення замовлення (друга кнопка). «Купити» / «Додати в кошик» — не лід.
+  var CART_RE = /кошик|корзин|cart|wishlist|обране|favorite|порівн|compar|додати|добавить|add to|купити в один клік|купить в один клик/i;
+  var LEAD_BUTTON_RE = /оформити замовлення|оформить заказ|оплатити|оплатить|checkout|place order|pay now|підтвердити замовлення|confirm order|complete purchase|оформити покупку|submit order|перейти до оплати|перейти к оплате/i;
 
-  function isPurchaseButton(el) {
+  function isCheckoutButton(el) {
     var text = (el.textContent || '').trim();
     if (text.length > 80) return false;
     var val = el.getAttribute('value') || '';
     var combined = text + ' ' + val;
     if (CART_RE.test(combined)) return false;
-    return PURCHASE_RE.test(combined);
+    return LEAD_BUTTON_RE.test(combined);
   }
 
   // ── 7. Success Page Detection ─────────────────────────────────────────
@@ -460,6 +461,7 @@
   }
 
   // ── 11. Click Handler ─────────────────────────────────────────────────
+  // Лід тільки по кнопці оформлення замовлення (Оформити замовлення / checkout / place order). «Купити» = додати в кошик — не лід.
   function onDocClick(e) {
     var target = e.target;
     var btn = null;
@@ -470,7 +472,7 @@
 
     if (!btn) {
       var clickable = target.closest('button, a, input[type="submit"], [role="button"], .btn, [class*="btn"], [class*="button"]');
-      if (clickable && isPurchaseButton(clickable)) btn = clickable;
+      if (clickable && isCheckoutButton(clickable)) btn = clickable;
     }
 
     if (btn) {
