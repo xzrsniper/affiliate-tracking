@@ -46,6 +46,72 @@ router.get('/cfg/:code', (req, res) => {
 });
 
 /**
+ * GET /api/track/mapper/:code
+ * Serve a self-contained JS file that injects the Visual Mapper onto ANY page.
+ * Usage: user pastes in browser console on the target site:
+ *   fetch('https://server/api/track/mapper/CODE').then(r=>r.text()).then(eval)
+ * Or simpler one-liner:
+ *   var s=document.createElement('script');s.src='https://server/api/track/mapper/CODE';document.head.appendChild(s)
+ */
+router.get('/mapper/:code', (req, res) => {
+  const entry = configCodes.get(req.params.code);
+  if (!entry || Date.now() - entry.created > 10 * 60 * 1000) {
+    configCodes.delete(req.params.code);
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    return res.send('console.error("[LehkoTrack] Код закінчився або не знайдений. Згенеруйте новий в адмінці.");alert("Код закінчився. Згенеруйте новий в адмінці LehkoTrack.");');
+  }
+
+  const token = entry.token;
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    return res.send('console.error("[LehkoTrack] Токен невалідний.");');
+  }
+
+  const serverOrigin = `${req.protocol}://${req.get('host')}`;
+
+  // Serve a JS that: sets global config, loads pixel.js in config mode
+  const script = `
+(function() {
+  if (window.__lehkoMapperLoaded) { console.log('[LehkoTrack] Mapper already loaded'); return; }
+  window.__lehkoMapperLoaded = true;
+
+  // Set config so pixel.js knows where the server is
+  window.__lehkoConfig = window.__lehkoConfig || {};
+  window.__lehkoConfig.siteId = window.__lehkoConfig.siteId || '${decoded.websiteId}';
+  window.__lehkoConfig.baseUrl = '${serverOrigin}';
+
+  // Inject URL params so pixel.js detects config mode
+  var url = new URL(location.href);
+  url.searchParams.set('lehko_mode', 'configure');
+  url.searchParams.set('token', '${token}');
+  history.replaceState(null, '', url.toString());
+
+  // Remove existing pixel.js instance if any
+  window.__lehkoTrackLoaded = false;
+
+  // Load pixel.js fresh
+  var s = document.createElement('script');
+  s.src = '${serverOrigin}/pixel.js?t=' + Date.now();
+  s.onerror = function() {
+    // Try alternative path
+    s.src = '${serverOrigin}/api/track/pixel.js?t=' + Date.now();
+    document.head.appendChild(s);
+  };
+  document.head.appendChild(s);
+  console.log('[LehkoTrack] Visual Mapper завантажено! Оберіть кнопку ліду.');
+})();
+`;
+
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-cache, no-store');
+  res.send(script);
+});
+
+/**
  * GET /api/track/pixel.js
  * Serve pixel.js tracker file (workaround for React Router intercepting /pixel.js)
  * This allows pixel.js to be accessed via /api/track/pixel.js when Nginx is not configured

@@ -1026,22 +1026,29 @@ window.__lehkoConfig = {
                       onClick={async () => {
                         try {
                           const res = await api.post(`/api/websites/${editingWebsite.id}/configure-session`);
-                          const { configUrl } = res.data;
-                          await navigator.clipboard.writeText(configUrl);
-                          alert('Посилання скопійовано!\n\n1. Відкрийте сайт клієнта у браузері\n2. Перейдіть на сторінку де є потрібна кнопка\n3. Вставте це посилання в адресний рядок\n4. Оберіть кнопку через інтерфейс LehkoTrack');
+                          const { token } = res.data;
+                          // Find the short code from the configUrl
+                          const configUrl = res.data.configUrl || '';
+                          const codeMatch = configUrl.match(/lehko_cfg=([^&]+)/);
+                          const code = codeMatch ? codeMatch[1] : '';
+                          if (!code) { alert('Помилка генерації коду'); return; }
+                          const mapperUrl = `${API_BASE}/api/track/mapper/${code}`;
+                          const snippet = `var s=document.createElement('script');s.src='${mapperUrl}';document.head.appendChild(s);`;
+                          await navigator.clipboard.writeText(snippet);
+                          alert('Код скопійовано! 🎯\n\nІнструкція:\n1. Відкрийте сайт клієнта в браузері\n2. Перейдіть на сторінку з потрібною кнопкою\n3. Натисніть F12 → Console\n4. Вставте код (Ctrl+V) → Enter\n5. З\'явиться панель — оберіть кнопку ліду\n\nКод дійсний 10 хвилин.');
                         } catch (err) {
                           alert(err.response?.data?.error || 'Помилка');
                         }
                       }}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors text-sm"
-                      title="Скопіювати посилання Visual Mapper"
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm"
+                      title="Скопіювати код для вставки в консоль браузера на сайті клієнта"
                     >
-                      <Copy className="w-4 h-4" />
-                      <span>Скопіювати посилання</span>
+                      <Code className="w-4 h-4" />
+                      <span>Код для консолі</span>
                     </button>
                   </div>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
-                    Якщо Visual Mapper не відкривається — введіть CSS-селектор вручну або скопіюйте посилання і вставте його в адресний рядок на вже відкритому сайті.
+                    <strong>Visual Mapper</strong> — відкриє сайт автоматично. <strong>Код для консолі</strong> — якщо сайт не відкривається: скопіюйте код, відкрийте сайт вручну, F12 → Console → вставте код.
                   </p>
                 </div>
 
