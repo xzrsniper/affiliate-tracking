@@ -126,7 +126,7 @@
     if (el.tagName === 'FORM') {
       var ref = getRef();
       var cid = getClickId();
-      if (!ref) return;
+    if (!ref) return;
       // Add hidden inputs to forms
       if (!el.querySelector('input[name="ref"]')) {
         var inp = document.createElement('input');

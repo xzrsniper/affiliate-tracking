@@ -37,4 +37,7 @@ export default defineConfig({
     target: 'esnext',
     minify: false,
   },
+  define: {
+    __BUILD_ID__: JSON.stringify(Date.now()),
+  },
 })

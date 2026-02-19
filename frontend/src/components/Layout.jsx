@@ -122,6 +122,11 @@ export default function Layout({ children }) {
             <LogOut className="w-5 h-5" />
             <span>Logout</span>
           </button>
+          {typeof __BUILD_ID__ !== 'undefined' && (
+            <p className="mt-3 px-4 text-[10px] text-slate-400 dark:text-slate-500" title="Новий білд = нове число">
+              Build: {__BUILD_ID__}
+            </p>
+          )}
         </div>
       </aside>
 
