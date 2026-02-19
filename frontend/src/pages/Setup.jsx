@@ -973,7 +973,7 @@ window.__lehkoConfig = {
                 </div>
                 {/* Conversion Button Selector */}
                 <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Кнопка конверсії</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Кнопка ліду (оформлення замовлення)</label>
                   {editForm.purchase_button_selector ? (
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-green-600 dark:text-green-400 text-sm">&#10004;</span>
@@ -992,16 +992,57 @@ window.__lehkoConfig = {
                   ) : (
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Не налаштовано. Використовується автоматичний пошук за текстом кнопки.</p>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => handleConfigureVisualMapper(editingWebsite)}
-                    disabled={configuringId === editingWebsite?.id}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors disabled:opacity-50"
-                  >
-                    <MousePointerClick className="w-4 h-4" />
-                    <span>{configuringId === editingWebsite?.id ? 'Очікую вибору...' : 'Обрати кнопку ліду на сайті (Visual Mapper)'}</span>
-                  </button>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">Відкриється ваш сайт — просто натисніть на потрібну кнопку.</p>
+
+                  {/* Manual CSS selector input */}
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">CSS-селектор кнопки (вручну)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editForm.purchase_button_selector || ''}
+                        onChange={(e) => setEditForm(f => ({ ...f, purchase_button_selector: e.target.value }))}
+                        placeholder="Напр. .btn-checkout, #order-button, a.buy-btn"
+                        className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm font-mono"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                      Як знайти: відкрийте сайт → ПКМ на кнопку → «Перевірити» → скопіюйте class або id елемента.
+                    </p>
+                  </div>
+
+                  {/* Visual Mapper buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleConfigureVisualMapper(editingWebsite)}
+                      disabled={configuringId === editingWebsite?.id}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors disabled:opacity-50 text-sm"
+                    >
+                      <MousePointerClick className="w-4 h-4" />
+                      <span>{configuringId === editingWebsite?.id ? 'Очікую...' : 'Visual Mapper'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.post(`/api/websites/${editingWebsite.id}/configure-session`);
+                          const { configUrl } = res.data;
+                          await navigator.clipboard.writeText(configUrl);
+                          alert('Посилання скопійовано!\n\n1. Відкрийте сайт клієнта у браузері\n2. Перейдіть на сторінку де є потрібна кнопка\n3. Вставте це посилання в адресний рядок\n4. Оберіть кнопку через інтерфейс LehkoTrack');
+                        } catch (err) {
+                          alert(err.response?.data?.error || 'Помилка');
+                        }
+                      }}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors text-sm"
+                      title="Скопіювати посилання Visual Mapper"
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span>Скопіювати посилання</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+                    Якщо Visual Mapper не відкривається — введіть CSS-селектор вручну або скопіюйте посилання і вставте його в адресний рядок на вже відкритому сайті.
+                  </p>
                 </div>
 
                 {/* Price Settings */}
