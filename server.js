@@ -103,8 +103,22 @@ app.use((err, req, res, next) => {
 // Serve frontend in production (after all API routes)
 if (process.env.NODE_ENV === 'production') {
   const frontendPath = path.join(__dirname, 'frontend', 'dist');
-  app.use(express.static(frontendPath));
+  // Static assets (JS/CSS with hash in name) — cache aggressively
+  app.use(express.static(frontendPath, {
+    maxAge: '1h',
+    setHeaders: (res, filePath) => {
+      // index.html should never be cached
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    }
+  }));
   app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
