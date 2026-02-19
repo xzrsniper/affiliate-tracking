@@ -237,7 +237,10 @@
   //   - Lead: завжди відправляємо order_value 0 — дохід рахується тільки з sale (після покупки)
   function sendEvent(eventType, value, orderId) {
     var ref = getRef();
-    if (!ref) return;
+    if (!ref) {
+      console.warn('[LehkoTrack] Подія не відправлена: немає ref (зайдіть по трекінговому посиланню з click_id/ref)');
+      return;
+    }
     if (eventType === 'lead') value = 0;
 
     if (orderId) {
@@ -635,28 +638,20 @@
   if (isConfigMode()) {
     startConfigMode(new URLSearchParams(location.search).get('token'));
   } else {
-    // Step 1: Capture & persist tracking params (URL → localStorage + cookies)
     captureAndPersist();
 
-    // Step 2: Fetch server config, then init everything
+    // Клік і перевірка success — завжди, навіть якщо config не завантажився (щоб нічого не ламалось)
+    document.addEventListener('click', onDocClick, true);
+    checkSuccessOnLoad();
+    watchUrlChanges();
+
     fetchConfig().then(function () {
-      // Step 3: Decorate all internal links (propagate ref to other pages)
       decorateAllLinks();
-
-      // Step 4: Check for deferred conversion (user returned from success page)
       checkDeferredConversion();
-
-      // Step 5: Check if THIS page is a success page
       checkSuccessOnLoad();
-
-      // Step 6: Set up purchase button detection
-      document.addEventListener('click', onDocClick, true);
-
-      // Step 7: Watch URL changes (SPA support)
       watchUrlChanges();
-    });
+    }).catch(function () {});
 
-    // Step 8: Verification ping
     verify();
     setInterval(verify, 5 * 60 * 1000);
   }
