@@ -518,8 +518,11 @@
   }
 
   function startConfigMode(token) {
-    var selecting = 'button';
+    // Two modes: 'navigate' (browse the site freely) and 'select' (pick elements)
+    var mode = 'navigate';       // 'navigate' | 'select'
+    var selecting = 'button';    // what we're selecting: 'button' | 'price'
     var overlay, tooltip, toolbar, highlighted;
+    var savedBtn = null, savedPrice = null;
 
     function buildSelector(el) {
       if (el.id) return '#' + CSS.escape(el.id);
@@ -549,42 +552,103 @@
       '.lehko-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483640;pointer-events:none}' +
       '.lehko-highlight{outline:3px solid #6d28d9;outline-offset:2px;background:rgba(109,40,217,.08);position:relative;z-index:2147483641}' +
       '.lehko-tooltip{position:fixed;z-index:2147483645;background:#1e1b4b;color:#fff;padding:8px 14px;border-radius:8px;font:13px/1.4 system-ui,sans-serif;max-width:360px;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.3)}' +
-      '.lehko-toolbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483646;background:#1e1b4b;color:#fff;padding:14px 24px;border-radius:12px;font:14px/1.5 system-ui,sans-serif;display:flex;gap:12px;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.3)}' +
-      '.lehko-toolbar button{padding:8px 18px;border:none;border-radius:8px;font:600 13px/1 system-ui,sans-serif;cursor:pointer}' +
+      '.lehko-toolbar{position:fixed;top:16px;right:16px;z-index:2147483646;background:#1e1b4b;color:#fff;padding:16px 20px;border-radius:12px;font:14px/1.5 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:340px;user-select:none}' +
+      '.lehko-toolbar button{padding:8px 16px;border:none;border-radius:8px;font:600 13px/1 system-ui,sans-serif;cursor:pointer;width:100%}' +
       '.lehko-toolbar .lehko-btn-primary{background:#7c3aed;color:#fff}.lehko-toolbar .lehko-btn-primary:hover{background:#6d28d9}' +
       '.lehko-toolbar .lehko-btn-secondary{background:#334155;color:#e2e8f0}.lehko-toolbar .lehko-btn-secondary:hover{background:#475569}' +
       '.lehko-toolbar .lehko-btn-done{background:#059669;color:#fff}.lehko-toolbar .lehko-btn-done:hover{background:#047857}' +
-      '.lehko-selected{outline:3px solid #059669!important;outline-offset:2px;background:rgba(5,150,105,.1)!important}';
+      '.lehko-toolbar .lehko-btn-nav{background:#0ea5e9;color:#fff}.lehko-toolbar .lehko-btn-nav:hover{background:#0284c7}' +
+      '.lehko-toolbar .lehko-btn-select{background:#f59e0b;color:#1e1b4b}.lehko-toolbar .lehko-btn-select:hover{background:#d97706}' +
+      '.lehko-selected{outline:3px solid #059669!important;outline-offset:2px;background:rgba(5,150,105,.1)!important}' +
+      '.lehko-mode-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;margin-left:8px}' +
+      '.lehko-mode-nav{background:#0ea5e9;color:#fff}' +
+      '.lehko-mode-sel{background:#f59e0b;color:#1e1b4b}';
     document.head.appendChild(style);
 
     overlay = document.createElement('div'); overlay.className = 'lehko-overlay'; document.body.appendChild(overlay);
     tooltip = document.createElement('div'); tooltip.className = 'lehko-tooltip'; tooltip.style.display = 'none'; document.body.appendChild(tooltip);
     toolbar = document.createElement('div'); toolbar.className = 'lehko-toolbar'; document.body.appendChild(toolbar);
 
-    var savedBtn = null, savedPrice = null;
-    function setMode(m) { selecting = m; render(); }
+    // Make toolbar draggable
+    var dragging = false, dragX = 0, dragY = 0;
+    toolbar.addEventListener('mousedown', function (ev) {
+      if (ev.target.tagName === 'BUTTON') return;
+      dragging = true; dragX = ev.clientX - toolbar.offsetLeft; dragY = ev.clientY - toolbar.offsetTop;
+      toolbar.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', function (ev) {
+      if (!dragging) return;
+      toolbar.style.right = 'auto';
+      toolbar.style.left = Math.max(0, Math.min(ev.clientX - dragX, window.innerWidth - toolbar.offsetWidth)) + 'px';
+      toolbar.style.top = Math.max(0, Math.min(ev.clientY - dragY, window.innerHeight - toolbar.offsetHeight)) + 'px';
+    });
+    document.addEventListener('mouseup', function () { dragging = false; toolbar.style.cursor = ''; });
+
     function esc(s) { return (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+    function switchMode(m, sel) {
+      if (m === 'navigate') {
+        mode = 'navigate';
+        // Remove highlight when switching to navigate
+        if (highlighted) { highlighted.classList.remove('lehko-highlight'); highlighted = null; }
+        tooltip.style.display = 'none';
+      } else {
+        mode = 'select';
+        selecting = sel || selecting;
+      }
+      render();
+    }
+
     function render() {
-      var bl = savedBtn ? '<span style="color:#34d399">\u2714</span> ' + esc(savedBtn) : '\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e';
-      var pl = savedPrice ? '<span style="color:#34d399">\u2714</span> ' + esc(savedPrice) : '\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e';
+      var isNav = mode === 'navigate';
+      var modeBadge = isNav
+        ? '<span class="lehko-mode-badge lehko-mode-nav">\u{1F310} \u041d\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044f</span>'
+        : '<span class="lehko-mode-badge lehko-mode-sel">\u{1F3AF} \u0412\u0438\u0431\u0456\u0440 ' + (selecting === 'button' ? '\u043a\u043d\u043e\u043f\u043a\u0438' : '\u0446\u0456\u043d\u0438') + '</span>';
+
+      var bl = savedBtn ? '<span style="color:#34d399">\u2714</span> ' + esc(savedBtn) : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
+      var pl = savedPrice ? '<span style="color:#34d399">\u2714</span> ' + esc(savedPrice) : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
+
+      var hint = '';
+      if (isNav) {
+        hint = '<div style="font-size:12px;color:#94a3b8;margin-top:4px">\u041a\u043b\u0456\u043a\u0430\u0439\u0442\u0435 \u043f\u043e \u0441\u0430\u0439\u0442\u0443 \u0432\u0456\u043b\u044c\u043d\u043e: \u0432\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0439\u0442\u0435 \u043a\u043e\u0448\u0438\u043a, \u043f\u0435\u0440\u0435\u0445\u043e\u0434\u044c\u0442\u0435 \u043d\u0430 \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0438, \u0434\u043e\u0434\u0430\u0432\u0430\u0439\u0442\u0435 \u0442\u043e\u0432\u0430\u0440\u0438.<br/>\u041a\u043e\u043b\u0438 \u043f\u043e\u0431\u0430\u0447\u0438\u0442\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0443 \u043a\u043d\u043e\u043f\u043a\u0443 \u2014 \u043d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c &laquo;\u{1F3AF} \u041e\u0431\u0440\u0430\u0442\u0438 \u043a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443&raquo;.</div>';
+      } else {
+        hint = '<div style="font-size:12px;color:#fbbf24;margin-top:4px">\u041d\u0430\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 ' + (selecting === 'button' ? '\u043a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443' : '\u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u0446\u0456\u043d\u0438') + ' \u0456 \u043a\u043b\u0456\u043a\u043d\u0456\u0442\u044c. \u041a\u043b\u0456\u043a\u0438 \u043f\u043e \u0441\u0430\u0439\u0442\u0443 \u0437\u0430\u0431\u043b\u043e\u043a\u043e\u0432\u0430\u043d\u0456.</div>';
+      }
+
       toolbar.innerHTML =
-        '<div style="display:flex;flex-direction:column;gap:6px"><div style="font-weight:700;font-size:15px">\uD83D\uDD27 LehkoTrack</div>' +
-        '<div style="font-size:13px;opacity:.8">' + (selecting === 'button' ? '\u27A1 \u041a\u043b\u0456\u043a\u043d\u0456\u0442\u044c \u043d\u0430 \u043a\u043d\u043e\u043f\u043a\u0443' : '\u27A1 \u041a\u043b\u0456\u043a\u043d\u0456\u0442\u044c \u043d\u0430 \u0446\u0456\u043d\u0443') + '</div>' +
-        '<div style="font-size:12px">\u041a\u043d\u043e\u043f\u043a\u0430: ' + bl + '</div><div style="font-size:12px">\u0426\u0456\u043d\u0430: ' + pl + '</div></div>' +
-        '<div style="display:flex;flex-direction:column;gap:6px;margin-left:16px">' +
-        '<button class="lehko-btn-' + (selecting === 'button' ? 'primary' : 'secondary') + '" data-a="btn">\u041a\u043d\u043e\u043f\u043a\u0430</button>' +
-        '<button class="lehko-btn-' + (selecting === 'price' ? 'primary' : 'secondary') + '" data-a="price">\u0426\u0456\u043d\u0430</button>' +
-        (savedBtn ? '<button class="lehko-btn-done" data-a="save">\u2714 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438</button>' : '') +
-        '<button class="lehko-btn-secondary" data-a="cancel">\u2716 \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438</button></div>';
+        '<div style="margin-bottom:10px">' +
+          '<div style="font-weight:700;font-size:15px;display:flex;align-items:center">\uD83D\uDD27 LehkoTrack' + modeBadge + '</div>' +
+          hint +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">' +
+          '<div style="font-size:12px">\u041a\u043d\u043e\u043f\u043a\u0430 \u043b\u0456\u0434\u0443: ' + bl + '</div>' +
+          '<div style="font-size:12px">\u0421\u0435\u043b\u0435\u043a\u0442\u043e\u0440 \u0446\u0456\u043d\u0438: ' + pl + '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:6px">' +
+          (isNav
+            ? '<button class="lehko-btn-select" data-a="sel-btn">\u{1F3AF} \u041e\u0431\u0440\u0430\u0442\u0438 \u043a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443</button>' +
+              '<button class="lehko-btn-secondary" data-a="sel-price">\u{1F3AF} \u041e\u0431\u0440\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u0446\u0456\u043d\u0438</button>'
+            : '<button class="lehko-btn-nav" data-a="nav">\u{1F310} \u041d\u0430\u0437\u0430\u0434 \u0434\u043e \u043d\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u0457</button>'
+          ) +
+          (savedBtn ? '<button class="lehko-btn-done" data-a="save">\u2714 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438</button>' : '') +
+          '<button class="lehko-btn-secondary" data-a="cancel">\u2716 \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438</button>' +
+        '</div>';
+
       toolbar.querySelectorAll('button').forEach(function (b) {
-        b.onclick = function (ev) { ev.stopPropagation(); var a = b.getAttribute('data-a');
-          if (a === 'btn') setMode('button'); else if (a === 'price') setMode('price');
-          else if (a === 'save') save(); else if (a === 'cancel') cleanupConfig(); };
+        b.onclick = function (ev) {
+          ev.stopPropagation();
+          var a = b.getAttribute('data-a');
+          if (a === 'sel-btn') switchMode('select', 'button');
+          else if (a === 'sel-price') switchMode('select', 'price');
+          else if (a === 'nav') switchMode('navigate');
+          else if (a === 'save') save();
+          else if (a === 'cancel') cleanupConfig();
+        };
       });
     }
 
     function onMove(e) {
+      if (mode !== 'select') return;
       var el = document.elementFromPoint(e.clientX, e.clientY);
       if (!el || el.closest('.lehko-toolbar,.lehko-tooltip')) return;
       if (highlighted && highlighted !== el) highlighted.classList.remove('lehko-highlight');
@@ -598,23 +662,34 @@
 
     function onClick(e) {
       if (e.target.closest('.lehko-toolbar')) return;
+
+      // In navigate mode — let all clicks through (user browses the site freely)
+      if (mode === 'navigate') return;
+
+      // In select mode — block the click and capture the element
       e.preventDefault(); e.stopPropagation();
       if (!highlighted) return;
       var sel = buildSelector(highlighted);
       highlighted.classList.remove('lehko-highlight'); highlighted.classList.add('lehko-selected');
-      if (selecting === 'button') { if (savedBtn) try { document.querySelector(savedBtn).classList.remove('lehko-selected'); } catch (x) {} savedBtn = sel; }
-      else { if (savedPrice) try { document.querySelector(savedPrice).classList.remove('lehko-selected'); } catch (x) {} savedPrice = sel; }
-      render();
+      if (selecting === 'button') {
+        if (savedBtn) try { document.querySelector(savedBtn).classList.remove('lehko-selected'); } catch (x) {}
+        savedBtn = sel;
+      } else {
+        if (savedPrice) try { document.querySelector(savedPrice).classList.remove('lehko-selected'); } catch (x) {}
+        savedPrice = sel;
+      }
+      // After selecting, go back to navigate mode so user can continue browsing
+      switchMode('navigate');
     }
 
     function save() {
       if (!savedBtn) return;
-      toolbar.innerHTML = '<div style="padding:8px">\u23F3 ...</div>';
+      toolbar.innerHTML = '<div style="padding:12px;text-align:center">\u23F3 \u0417\u0431\u0435\u0440\u0456\u0433\u0430\u044e...</div>';
       fetch(BASE_URL + '/api/track/save-selector', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: token, selector: savedBtn, priceSelector: savedPrice }) })
         .then(function (r) { return r.json(); })
-        .then(function (d) { toolbar.innerHTML = d.success ? '<div style="padding:12px;text-align:center">\u2705 \u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e!</div>' : '<div style="color:#f87171">\u274C ' + esc(d.error) + '</div>'; if (d.success) setTimeout(cleanupConfig, 3000); })
-        .catch(function () { toolbar.innerHTML = '<div style="color:#f87171">\u274C Error</div>'; });
+        .then(function (d) { toolbar.innerHTML = d.success ? '<div style="padding:12px;text-align:center">\u2705 \u041a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e!</div>' : '<div style="color:#f87171;padding:8px">\u274C ' + esc(d.error) + '</div>'; if (d.success) setTimeout(cleanupConfig, 3000); })
+        .catch(function () { toolbar.innerHTML = '<div style="color:#f87171;padding:8px">\u274C \u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043d\u044f</div>'; });
     }
 
     function cleanupConfig() {

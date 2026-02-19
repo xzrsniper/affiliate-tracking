@@ -187,7 +187,7 @@ export default function Setup() {
             pollRef.current = null;
             setConfiguringId(null);
             setWebsites(prev => prev.map(w => w.id === website.id ? { ...w, ...updated } : w));
-            alert(`Кнопку конверсії налаштовано: ${updated.purchase_button_selector}`);
+            alert(`Кнопку ліду налаштовано: ${updated.purchase_button_selector}`);
           }
         } catch (e) { /* keep polling */ }
       }, 3000);
@@ -724,8 +724,8 @@ window.__lehkoConfig = {
                                   : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30'
                               } ${configuringId === website.id ? 'animate-pulse' : ''}`}
                               title={website.purchase_button_selector
-                                ? `Кнопка: ${website.purchase_button_selector} (клікніть щоб змінити)`
-                                : 'Налаштувати кнопку конверсії (Visual Mapper)'
+                                ? `Кнопка ліду: ${website.purchase_button_selector} (клікніть щоб змінити)`
+                                : 'Налаштувати кнопку ліду (Visual Mapper)'
                               }
                             >
                               <MousePointerClick className="w-5 h-5" />
@@ -999,7 +999,7 @@ window.__lehkoConfig = {
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors disabled:opacity-50"
                   >
                     <MousePointerClick className="w-4 h-4" />
-                    <span>{configuringId === editingWebsite?.id ? 'Очікую вибору...' : 'Обрати кнопку на сайті (Visual Mapper)'}</span>
+                    <span>{configuringId === editingWebsite?.id ? 'Очікую вибору...' : 'Обрати кнопку ліду на сайті (Visual Mapper)'}</span>
                   </button>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">Відкриється ваш сайт — просто натисніть на потрібну кнопку.</p>
                 </div>
@@ -1160,7 +1160,7 @@ window.__lehkoConfig = {
                 Додаткові налаштування (для досвідчених)
               </summary>
               <div className="px-4 pb-4 space-y-3 text-sm text-slate-600 dark:text-slate-400">
-                <p><strong>Visual Mapper</strong> — вручну вказати кнопку покупки, якщо автодетект не спрацював. Натисніть <MousePointerClick className="w-4 h-4 inline" /> у таблиці сайтів.</p>
+                <p><strong>Visual Mapper</strong> — вручну вказати кнопку ліду (оформлення замовлення), якщо автодетект не спрацював. Натисніть <MousePointerClick className="w-4 h-4 inline" /> у таблиці сайтів.</p>
                 <p><strong>Success URL</strong> — вказати URL сторінки подяки вручну (якщо є). Іконка <Sliders className="w-4 h-4 inline" /> → «URL сторінки успіху».</p>
                 <p><strong>Фіксована ціна</strong> — задати ціну вручну, якщо автоматичне зчитування не працює.</p>
                 <p><strong>JS API</strong> — викликати після оплати з коду:</p>
