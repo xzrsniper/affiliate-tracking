@@ -90,7 +90,6 @@
 ---
 
 ## Спосіб 2: Через Git (рекомендовано для регулярних оновлень)
-
 ### Налаштування Git на сервері:
 
 1. **Створіть Git репозиторій** (GitHub, GitLab, Bitbucket)
@@ -509,6 +508,43 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 У конфігу потрібно лише підставити свої шляхи до сертифікатів (наприклад Let's Encrypt: `fullchain.pem` та `privkey.pem`). Решта вже врахована: pixel.js → Node, /api та /track → Node, фронт з `/var/www/lehko.space`, SPA try_files.
+
+---
+
+## Щоб трекер працював на хостингу (чеклист)
+
+### На сервері lehko.space (ваш API/бекенд)
+
+1. **Nginx віддає pixel.js і tracker.js з бекенду (не HTML).**  
+   У конфігу мають бути окремі `location` з `proxy_pass` на Node (порт 3000):
+   - `location = /pixel.js { proxy_pass http://127.0.0.1:3000; ... }`
+   - `location = /tracker.js { proxy_pass http://127.0.0.1:3000; ... }`  
+   Інакше браузер отримає HTML (SPA) і з’явиться **ERR_BLOCKED_BY_ORB**.
+
+2. **Node (PM2) запущений** і слухає той самий порт, що в nginx (`proxy_pass`).
+
+3. **Після оновлення коду** перезапустіть API:  
+   `pm2 restart affiliate-tracking-api`
+
+### На сайті, де ставите трекер (клієнтський хостинг)
+
+4. **Підключайте один скрипт** — або **pixel.js** (рекомендовано), або tracker.js. Обидва URL тепер віддають один і той самий трекер. Посилання тільки на **HTTPS**:  
+   `https://lehko.space/pixel.js` (або `https://lehko.space/tracker.js`).
+
+5. **Якщо ставите через GTM** — у Custom HTML тегу має бути:
+   - `window.__lehkoConfig = { siteId: 'ID_САЙТУ', baseUrl: 'https://lehko.space' };`
+   - потім підключення скрипта: `https://lehko.space/pixel.js` з `data-site="ID_САЙТУ"`.  
+   Тригер — **All Pages**.
+
+6. **Не блокуйте домен трекера**: у налаштуваннях хостингу / WAF / бот-захисті не має бути блокування запитів до `lehko.space` з вашого домену. Список ботів (Yandex, Ahrefs тощо) на це не впливає — трекер працює в браузері відвідувача.
+
+7. **Якщо є Content-Security-Policy (CSP)** — у ній має бути дозвіл на скрипти з `https://lehko.space` (наприклад `script-src ... https://lehko.space`).
+
+### Перевірка
+
+8. Відкрийте сайт з трекером → DevTools → **Network**. Знайдіть запит до `pixel.js` або `tracker.js`: статус має бути **200**, тип — **script**. Якщо **failed** або **ERR_BLOCKED_BY_ORB** — перевірте пункти 1–2 і 6–7.
+
+9. У **Console** після кліку по кнопці покупки/оформлення мають з’являтися повідомлення типу `[LehkoTrack] LEAD` або `[LehkoTrack] SALE`.
 
 ---
 

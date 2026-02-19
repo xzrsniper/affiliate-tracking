@@ -47,15 +47,17 @@ app.use(cookieParser()); // Enable cookie parsing for conversion tracking
 // Trust proxy for accurate IP detection (if behind reverse proxy)
 app.set('trust proxy', true);
 
-// Serve pixel.js tracker — CORS + MIME headers to avoid ERR_BLOCKED_BY_ORB on cross-origin load (GTM)
-app.get('/pixel.js', (req, res) => {
+// Serve pixel.js — CORS + MIME щоб не було ERR_BLOCKED_BY_ORB при завантаженні з GTM/інших сайтів
+function serveTrackerScript(req, res) {
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.sendFile(path.join(__dirname, 'public', 'pixel.js'));
-});
+}
+app.get('/pixel.js', serveTrackerScript);
+app.get('/tracker.js', serveTrackerScript);
 
 // Serve static files (for other static files)
 app.use(express.static('public', {
