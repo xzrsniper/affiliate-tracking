@@ -19,6 +19,8 @@ export async function checkTrackerInstallation(domain) {
     const domainsToCheck = [normalizedDomain];
     if (!normalizedDomain.startsWith('www.')) domainsToCheck.push('www.' + normalizedDomain);
     else domainsToCheck.push(normalizedDomain.replace(/^www\./, ''));
+    
+    // Check verification ping (last 10 minutes)
     const recentVerification = await TrackerVerification.findOne({
       where: {
         domain: { [Op.in]: domainsToCheck },
@@ -26,17 +28,32 @@ export async function checkTrackerInstallation(domain) {
       },
       order: [['last_seen', 'DESC']]
     });
-    if (recentVerification) return true;
+    if (recentVerification) {
+      console.log('[Tracker Check] Found verification ping for domain:', normalizedDomain);
+      return true;
+    }
+    
+    // Also check if any website with this domain is marked as connected
+    const { Website } = await import('../models/index.js');
+    const website = await Website.findOne({
+      where: {
+        domain: { [Op.in]: domainsToCheck },
+        is_connected: true
+      }
+    });
+    if (website) {
+      console.log('[Tracker Check] Found connected website for domain:', normalizedDomain);
+      return true;
+    }
   } catch (e) {
-    // ignore
+    console.error('[Tracker Check Error]', e);
   }
 
   const clean = domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').split('/')[0];
   const urls = [`https://${clean}`, `http://${clean}`];
   const trackerIndicators = [
-    'tracker-v2.js', 'tracker.js', 'TRACKER_CONFIG', 'window.TRACKER_CONFIG',
-    'AffiliateTracker', 'window.AffiliateTracker', 'api/track', 'BASE_URL',
-    '_affiliateTrackerV2Initialized', '_lehkoTrackerGTMInitialized', '_affiliateTrackerInitialized'
+    'pixel.js', 'LehkoTrack', 'window.LehkoTrack', 'api/track', 'BASE_URL',
+    '_lehkoPixelInit'
   ];
 
   for (const url of urls) {

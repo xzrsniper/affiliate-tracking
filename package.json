@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "dev:all": "concurrently \"npm start\" \"cd frontend && npm run dev\"",
     "db:create": "node scripts/create-database.js",
     "db:init": "node scripts/init-db.js",
     "db:reset": "node scripts/init-db.js --force",
@@ -16,6 +17,7 @@
     "db:add-fields": "node scripts/add-link-fields.js",
     "db:add-google-id": "node scripts/add-google-id-field.js",
     "db:add-websites": "node scripts/add-websites-table.js",
+    "db:add-click-id": "node scripts/add-click-id-and-button-selector.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"

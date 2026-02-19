@@ -4,18 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shopin — тестовий магазин</title>
-    
-    <!-- Lehko Track - Tracker v2 -->
-    <script>
-        window.TRACKER_CONFIG = {
-            BASE_URL: 'https://lehko.space/api/track',
-            DEBUG: true,
-            CONVERSION_URLS: ['/thank-you.html', '/thank-you'],
-            MIN_CONFIDENCE_SCORE: 5
-        };
-    </script>
-    <script src="https://lehko.space/tracker-v2.js" async></script>
-    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -23,118 +11,34 @@
             background: linear-gradient(135deg, #0f766e 0%, #0d9488 20%, #14b8a6 100%);
             min-height: 100vh;
             padding: 20px;
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MXSR99PZ"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: #fff;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-            overflow: hidden;
-        }
-        header {
-            background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
-            color: #fff;
-            padding: 32px;
-            text-align: center;
-        }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; }
+        header { background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); color: #fff; padding: 32px; text-align: center; }
         header h1 { font-size: 2.2em; margin-bottom: 8px; }
         header p { opacity: 0.95; font-size: 1.05em; }
-        .badge {
-            display: inline-block;
-            background: rgba(255,255,255,0.2);
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            margin-top: 10px;
-        }
-        .test-info {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
-            padding: 16px 20px;
-            margin: 20px;
-            border-radius: 8px;
-        }
+        .badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em; margin-top: 10px; }
+        .test-info { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px 20px; margin: 20px; border-radius: 8px; }
         .test-info h3 { color: #92400e; margin-bottom: 10px; }
-        .test-info code {
-            background: #fff;
-            padding: 2px 8px;
-            border-radius: 4px;
-            color: #b45309;
-            font-size: 0.9em;
-        }
-        .products {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 24px;
-            padding: 32px;
-        }
-        .product-card {
-            background: #fff;
-            border: 2px solid #e5e7eb;
-            border-radius: 16px;
-            overflow: hidden;
-            transition: all 0.25s ease;
-            cursor: pointer;
-        }
-        .product-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.1);
-            border-color: #0d9488;
-        }
-        .product-image {
-            width: 100%;
-            height: 180px;
-            background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-size: 3em;
-        }
+        .test-info code { background: #fff; padding: 2px 8px; border-radius: 4px; color: #b45309; font-size: 0.9em; }
+        .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px; padding: 32px; }
+        .product-card { background: #fff; border: 2px solid #e5e7eb; border-radius: 16px; overflow: hidden; transition: all 0.25s ease; cursor: pointer; }
+        .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); border-color: #0d9488; }
+        .product-image { width: 100%; height: 180px; background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 3em; }
         .product-info { padding: 20px; }
         .product-title { font-size: 1.2em; font-weight: 700; margin-bottom: 8px; color: #111; }
         .product-description { color: #6b7280; margin-bottom: 12px; font-size: 0.9em; line-height: 1.4; }
         .product-price { font-size: 1.6em; font-weight: 700; color: #0d9488; margin-bottom: 12px; }
-        .btn {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
+        .btn { width: 100%; padding: 12px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); color: #fff; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
         .btn:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(13, 148, 136, 0.4); }
-        .cart-info {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: #fff;
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-            z-index: 1000;
-        }
+        .cart-info { position: fixed; bottom: 24px; right: 24px; background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 1000; }
         .cart-info h3 { margin-bottom: 8px; color: #111; }
         .cart-count { font-size: 1.4em; color: #0d9488; font-weight: 700; }
-        .checkout-btn {
-            margin-top: 12px;
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-        }
+        .checkout-btn { margin-top: 12px; padding: 12px 24px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); color: #fff; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; width: 100%; }
         .checkout-btn:hover { transform: scale(1.02); }
-        .checkout-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -144,23 +48,19 @@
             <p>Тестовий магазин для перевірки Lehko Track</p>
             <span class="badge">shopin.pp.ua</span>
         </header>
-        
         <div class="test-info">
             <h3>Як тестувати</h3>
-            <p>1. Відкрийте сторінку з параметром <code>?ref=ВАШ_КОД</code> (наприклад: <code>https://shopin.pp.ua/?ref=TEST123</code>)</p>
-            <p>2. Додайте товари в кошик та оформіть замовлення.</p>
-            <p>3. На сторінці «Дякуємо» конверсія відстежиться автоматично.</p>
+            <p>1. Вставте код трекера з кабінету Lehko Track у <code>&lt;head&gt;</code> (тут його немає — тестовий сайт без трекера).</p>
+            <p>2. Відкрийте сторінку з <code>?ref=ВАШ_КОД</code>, додайте товари, оформіть замовлення.</p>
+            <p>3. На сторінці «Дякуємо» конверсія зарахується, якщо там є код трекера.</p>
         </div>
-        
         <div class="products" id="products"></div>
     </div>
-    
     <div class="cart-info" id="cartInfo" style="display: none;">
         <h3>Кошик</h3>
         <div class="cart-count">Товарів: <span id="cartCount">0</span></div>
         <button class="checkout-btn" onclick="goToCheckout()">Оформити замовлення</button>
     </div>
-    
     <script>
         const products = [
             { id: 1, name: 'Ноутбук Pro', description: 'Потужний ноутбук для роботи', price: 25000, emoji: '💻' },
@@ -170,9 +70,7 @@
             { id: 5, name: 'Годинник Smart', description: 'Розумний годинник', price: 8000, emoji: '⌚' },
             { id: 6, name: 'Камера 4K', description: 'Професійна камера', price: 30000, emoji: '📷' }
         ];
-        
         let cart = JSON.parse(localStorage.getItem('shopinCart')) || [];
-        
         function renderProducts() {
             document.getElementById('products').innerHTML = products.map(p => `
                 <div class="product-card">
@@ -186,32 +84,19 @@
                 </div>
             `).join('');
         }
-        
         function addToCart(id) {
             const p = products.find(x => x.id === id);
-            if (p) {
-                cart.push(p);
-                localStorage.setItem('shopinCart', JSON.stringify(cart));
-                updateCartInfo();
-            }
+            if (p) { cart.push(p); localStorage.setItem('shopinCart', JSON.stringify(cart)); updateCartInfo(); }
         }
-        
         function updateCartInfo() {
             const el = document.getElementById('cartInfo');
             const count = document.getElementById('cartCount');
-            if (cart.length > 0) {
-                el.style.display = 'block';
-                count.textContent = cart.length;
-            } else {
-                el.style.display = 'none';
-            }
+            if (cart.length > 0) { el.style.display = 'block'; count.textContent = cart.length; } else { el.style.display = 'none'; }
         }
-        
         function goToCheckout() {
             if (cart.length === 0) { alert('Кошик порожній'); return; }
             window.location.href = 'checkout.html';
         }
-        
         renderProducts();
         updateCartInfo();
     </script>

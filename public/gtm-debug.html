@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GTM Debug - Lehko Track</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #0d9488;
+            border-radius: 5px;
+        }
+        .success { color: #10b981; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .warning { color: #f59e0b; font-weight: bold; }
+        code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        button {
+            background: #0d9488;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0f766e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 GTM Debug - Lehko Track</h1>
+        <p>Ця сторінка допоможе діагностувати проблеми з трекером через GTM.</p>
+
+        <div class="test-section">
+            <h2>1. Перевірка завантаження трекера</h2>
+            <div id="trackerCheck">
+                <p>Перевіряємо...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. Перевірка API URL</h2>
+            <div id="apiCheck">
+                <p>Перевіряємо...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. Тест verification ping</h2>
+            <button onclick="testVerification()">Відправити verification ping</button>
+            <div id="verificationResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. Інформація про трекер</h2>
+            <div id="trackerInfo"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>5. Інструкції</h2>
+            <ol>
+                <li>Переконайтеся що в GTM тег опублікований (Submit → Publish)</li>
+                <li>Перевірте що тригер встановлений на "All Pages"</li>
+                <li>Переконайтеся що API URL правильний (НЕ <code>app.netlify.com</code>, а ваш API домен)</li>
+                <li>Відкрийте консоль браузера (F12) і перевірте помилки</li>
+                <li>Перевірте Network вкладку - має бути запит до <code>pixel.js</code> зі статусом 200</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Check if tracker is loaded
+        function checkTracker() {
+            const checkDiv = document.getElementById('trackerCheck');
+            if (typeof window.LehkoTrack !== 'undefined') {
+                checkDiv.innerHTML = '<p class="success">✅ Трекер завантажено!</p>';
+            } else {
+                checkDiv.innerHTML = '<p class="error">❌ Трекер НЕ завантажено!</p><p>Перевірте чи правильно встановлено тег в GTM.</p>';
+            }
+        }
+
+        // Check API URL
+        function checkApiUrl() {
+            const apiDiv = document.getElementById('apiCheck');
+            const scripts = document.getElementsByTagName('script');
+            let found = false;
+            let apiUrl = null;
+            
+            for (let script of scripts) {
+                if (script.src && script.src.includes('pixel.js')) {
+                    found = true;
+                    try {
+                        const url = new URL(script.src);
+                        apiUrl = url.origin;
+                        break;
+                    } catch (e) {}
+                }
+            }
+            
+            if (found && apiUrl) {
+                if (apiUrl.includes('app.netlify.com')) {
+                    apiDiv.innerHTML = '<p class="error">❌ НЕПРАВИЛЬНИЙ API URL: <code>' + apiUrl + '</code></p><p>Це панель управління Netlify, а не API сервер! Замініть на правильний API URL (наприклад: <code>https://lehko.space</code>).</p>';
+                } else if (apiUrl.includes('localhost')) {
+                    apiDiv.innerHTML = '<p class="warning">⚠️ Використовується localhost: <code>' + apiUrl + '</code></p><p>Для продакшн-сайтів замініть на правильний API URL.</p>';
+                } else {
+                    apiDiv.innerHTML = '<p class="success">✅ API URL: <code>' + apiUrl + '</code></p>';
+                }
+            } else {
+                apiDiv.innerHTML = '<p class="error">❌ Не знайдено скрипт pixel.js</p>';
+            }
+        }
+
+        // Test verification ping
+        async function testVerification() {
+            const resultDiv = document.getElementById('verificationResult');
+            resultDiv.innerHTML = '<p>Відправляємо ping...</p>';
+            
+            try {
+                let apiUrl = 'https://lehko.space';
+                const scripts = document.getElementsByTagName('script');
+                for (let script of scripts) {
+                    if (script.src && script.src.includes('pixel.js')) {
+                        try {
+                            const url = new URL(script.src);
+                            apiUrl = url.origin;
+                            break;
+                        } catch (e) {}
+                    }
+                }
+                
+                const domain = window.location.hostname;
+                const response = await fetch(apiUrl + '/api/track/verify?domain=' + encodeURIComponent(domain) + '&version=gtm&timestamp=' + Date.now());
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = '<p class="success">✅ Verification ping відправлено успішно!</p><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    resultDiv.innerHTML = '<p class="error">❌ Помилка: ' + JSON.stringify(data) + '</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<p class="error">❌ Помилка відправки ping: ' + error.message + '</p>';
+            }
+        }
+
+        // Show tracker info
+        function showTrackerInfo() {
+            const infoDiv = document.getElementById('trackerInfo');
+            if (typeof window.LehkoTrack !== 'undefined') {
+                const info = {
+                    siteId: window.LehkoTrack.getSiteId ? window.LehkoTrack.getSiteId() : 'N/A',
+                    baseUrl: window.LehkoTrack.getBaseUrl ? window.LehkoTrack.getBaseUrl() : 'N/A',
+                    ref: window.LehkoTrack.getRef ? window.LehkoTrack.getRef() : 'N/A',
+                    visitorId: window.LehkoTrack.getVisitorId ? window.LehkoTrack.getVisitorId() : 'N/A'
+                };
+                infoDiv.innerHTML = '<pre>' + JSON.stringify(info, null, 2) + '</pre>';
+            } else {
+                infoDiv.innerHTML = '<p class="error">Трекер не завантажено</p>';
+            }
+        }
+
+        // Run checks on load
+        setTimeout(() => {
+            checkTracker();
+            checkApiUrl();
+            showTrackerInfo();
+        }, 1000);
+    </script>
+</body>
+</html>

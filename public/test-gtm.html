@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест GTM - Lehko Track</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #0d9488;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0f766e;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Тест GTM - Lehko Track</h1>
+    
+    <div class="test-box">
+        <h2>1. Перевірка завантаження скрипта</h2>
+        <div id="scriptCheck">
+            <p class="info">Перевіряю...</p>
+        </div>
+    </div>
+    
+    <div class="test-box">
+        <h2>2. Перевірка Network запитів</h2>
+        <p>Відкрийте F12 → Network → перезавантажте сторінку</p>
+        <p>Шукайте запити до:</p>
+        <ul>
+            <li><code>pixel.js</code> - має бути статус 200</li>
+            <li><code>/api/track/verify</code> - має бути статус 200</li>
+        </ul>
+    </div>
+    
+    <div class="test-box">
+        <h2>3. Код для GTM</h2>
+        <p>Скопіюйте цей код в GTM Custom HTML тег:</p>
+        <pre id="gtmCode"></pre>
+        <button onclick="copyCode()">📋 Копіювати код</button>
+    </div>
+    
+    <div class="test-box">
+        <h2>4. Діагностика</h2>
+        <button onclick="checkTracker()">Перевірити трекер</button>
+        <button onclick="testVerify()">Тест Verification Ping</button>
+        <div id="diagnostics"></div>
+    </div>
+
+    <script>
+        // Generate GTM code
+        const siteId = new URLSearchParams(window.location.search).get('id') || 'YOUR_SITE_ID';
+        // Use current origin for API URL (works for localhost or production)
+        const apiUrl = window.location.origin.includes('localhost') 
+            ? window.location.origin 
+            : 'https://lehko.space';
+        const gtmCode = `<script>
+(function() {
+  var script = document.createElement('script');
+  script.src = '${apiUrl}/pixel.js?id=${siteId}';
+  script.async = true;
+  (document.head || document.getElementsByTagName('head')[0]).appendChild(script);
+})();
+</script>`;
+        
+        document.getElementById('gtmCode').textContent = gtmCode;
+        
+        // Show API URL info
+        const apiInfo = document.createElement('div');
+        apiInfo.className = 'test-box';
+        apiInfo.innerHTML = `
+            <h2>ℹ️ Інформація про API URL</h2>
+            <p><strong>Поточний API URL:</strong> <code>${apiUrl}</code></p>
+            <p class="info">Для локального тестування використовується поточний origin.</p>
+            <p class="info">Для продакшн використовуйте: <code>https://lehko.space</code></p>
+        `;
+        document.body.insertBefore(apiInfo, document.body.firstChild.nextSibling);
+        
+        function copyCode() {
+            navigator.clipboard.writeText(gtmCode);
+            alert('Код скопійовано!');
+        }
+        
+        function checkTracker() {
+            const div = document.getElementById('diagnostics');
+            let html = '<h3>Результати перевірки:</h3><ul>';
+            
+            // Check if tracker loaded
+            if (typeof window.LehkoTrack !== 'undefined') {
+                html += '<li class="success">✅ Трекер завантажено (window.LehkoTrack існує)</li>';
+                try {
+                    const siteId = window.LehkoTrack.getSiteId ? window.LehkoTrack.getSiteId() : 'N/A';
+                    const baseUrl = window.LehkoTrack.getBaseUrl ? window.LehkoTrack.getBaseUrl() : 'N/A';
+                    html += `<li class="info">Site ID: ${siteId}</li>`;
+                    html += `<li class="info">Base URL: ${baseUrl}</li>`;
+                } catch(e) {
+                    html += `<li class="error">Помилка отримання інфо: ${e.message}</li>`;
+                }
+            } else {
+                html += '<li class="error">❌ Трекер НЕ завантажено (window.LehkoTrack не існує)</li>';
+            }
+            
+            // Check script tags
+            const scripts = document.getElementsByTagName('script');
+            let foundPixel = false;
+            for (let script of scripts) {
+                if (script.src && script.src.includes('pixel.js')) {
+                    foundPixel = true;
+                    html += `<li class="success">✅ Знайдено script тег: ${script.src}</li>`;
+                }
+            }
+            if (!foundPixel) {
+                html += '<li class="error">❌ Не знайдено script тег з pixel.js</li>';
+            }
+            
+            html += '</ul>';
+            div.innerHTML = html;
+        }
+        
+        function testVerify() {
+            const div = document.getElementById('diagnostics');
+            div.innerHTML += '<p class="info">Відправляю verification ping...</p>';
+            
+            const siteId = new URLSearchParams(window.location.search).get('id') || '6';
+            const domain = window.location.hostname;
+            // Use current origin for API URL
+            const apiUrl = window.location.origin.includes('localhost') 
+                ? window.location.origin 
+                : 'https://lehko.space';
+            const url = `${apiUrl}/api/track/verify?domain=${encodeURIComponent(domain)}&site_id=${siteId}&version=test&timestamp=${Date.now()}`;
+            
+            fetch(url, { method: 'GET', keepalive: true })
+                .then(res => res.json())
+                .then(data => {
+                    div.innerHTML += `<p class="success">✅ Verification ping успішний!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                })
+                .catch(err => {
+                    div.innerHTML += `<p class="error">❌ Помилка: ${err.message}</p><p class="info">Перевірте що сервер запущено та доступний за URL: ${apiUrl}</p>`;
+                });
+        }
+        
+        // Auto-check on load
+        setTimeout(() => {
+            checkTracker();
+            const scriptCheck = document.getElementById('scriptCheck');
+            if (typeof window.LehkoTrack !== 'undefined') {
+                scriptCheck.innerHTML = '<p class="success">✅ Скрипт завантажено!</p>';
+            } else {
+                scriptCheck.innerHTML = '<p class="error">❌ Скрипт НЕ завантажено. Перевірте Console (F12) на помилки.</p>';
+            }
+        }, 2000);
+    </script>
+    
+    <!-- Test: Load script programmatically (like GTM does) -->
+    <script>
+        (function() {
+            // Use current origin for API URL (works for localhost or production)
+            const apiUrl = window.location.origin.includes('localhost') 
+                ? window.location.origin 
+                : 'https://lehko.space';
+            var script = document.createElement('script');
+            script.src = apiUrl + '/pixel.js?id=' + (new URLSearchParams(window.location.search).get('id') || '6');
+            script.async = true;
+            (document.head || document.getElementsByTagName('head')[0]).appendChild(script);
+        })();
+    </script>
+</body>
+</html>

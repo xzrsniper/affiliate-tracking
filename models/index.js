@@ -6,6 +6,7 @@ import Website from './Website.js';
 import PageContent from './PageContent.js';
 import PageStructure from './PageStructure.js';
 import TrackerVerification from './TrackerVerification.js';
+import LinkClick from './LinkClick.js';
 
 // Define Associations
 
@@ -42,6 +43,10 @@ Conversion.belongsTo(Link, {
   as: 'link'
 });
 
+// Link -> LinkClicks (auto-event tracking on client site)
+Link.hasMany(LinkClick, { foreignKey: 'link_id', as: 'linkClicks', onDelete: 'SET NULL' });
+LinkClick.belongsTo(Link, { foreignKey: 'link_id', as: 'link' });
+
 // User -> Websites (One-to-Many)
 User.hasMany(Website, {
   foreignKey: 'user_id',
@@ -62,7 +67,8 @@ export {
   Website,
   PageContent,
   PageStructure,
-  TrackerVerification
+  TrackerVerification,
+  LinkClick
 };
 
 export default {
@@ -73,5 +79,6 @@ export default {
   Website,
   PageContent,
   PageStructure,
-  TrackerVerification
+  TrackerVerification,
+  LinkClick
 };

@@ -69,7 +69,6 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
       structure: pageStructure.structure
     });
   } catch (error) {
-<<<<<<< HEAD
     // Логуємо помилку для діагностики
     console.error('❌ Error in pageStructure route:', {
       name: error.name,

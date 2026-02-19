@@ -20,6 +20,7 @@ router.get('/:unique_code', async (req, res, next) => {
     // Track the click (PRIMARY tracking point)
     const visitorFingerprint = getVisitorFingerprint(req);
     const ipAddress = getClientIP(req);
+    let clickId = null;
 
     try {
       // Track every click - allow multiple clicks from same user
@@ -47,12 +48,15 @@ router.get('/:unique_code', async (req, res, next) => {
           visitor_fingerprint: visitorFingerprint,
           ip_address: ipAddress
         });
+        clickId = newClick.id;
         
         // Log successful click tracking (for debugging)
         if (process.env.NODE_ENV === 'development') {
           console.log(`[Tracking] ✅ Click tracked: link ${link.id}, visitor ${visitorFingerprint.substring(0, 20)}..., click_id: ${newClick.id}`);
         }
       } else {
+        // Use existing click ID for duplicate prevention
+        clickId = veryRecentClick.id;
         // Log duplicate attempt (for debugging)
         if (process.env.NODE_ENV === 'development') {
           const timeDiff = Date.now() - new Date(veryRecentClick.created_at).getTime();
@@ -93,16 +97,24 @@ router.get('/:unique_code', async (req, res, next) => {
       path: '/'
     });
 
-    // Redirect to original URL with ref parameter (for conversion tracking)
+    // Redirect to original URL with ref and click_id parameters (for conversion tracking)
     try {
       const targetUrl = new URL(link.original_url);
       // Add ref parameter so tracker.js can track conversions
       targetUrl.searchParams.set('ref', unique_code);
+      // Add click_id parameter to link conversion to specific click
+      if (clickId) {
+        targetUrl.searchParams.set('click_id', clickId.toString());
+      }
       res.redirect(302, targetUrl.toString());
     } catch (urlError) {
       // If URL parsing fails, try simple string append
       const separator = link.original_url.includes('?') ? '&' : '?';
-      res.redirect(302, link.original_url + separator + 'ref=' + encodeURIComponent(unique_code));
+      let redirectUrl = link.original_url + separator + 'ref=' + encodeURIComponent(unique_code);
+      if (clickId) {
+        redirectUrl += '&click_id=' + clickId.toString();
+      }
+      res.redirect(302, redirectUrl);
     }
   } catch (error) {
     next(error);

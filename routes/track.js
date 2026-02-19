@@ -1,10 +1,162 @@
 import express from 'express';
-import { Link, Click, Conversion, TrackerVerification } from '../models/index.js';
+import path from 'path';
+import jwt from 'jsonwebtoken';
+import { fileURLToPath } from 'url';
+import { Link, Click, Conversion, TrackerVerification, Website, LinkClick } from '../models/index.js';
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
+
+/**
+ * GET /api/track/pixel.js
+ * Serve pixel.js tracker file (workaround for React Router intercepting /pixel.js)
+ * This allows pixel.js to be accessed via /api/track/pixel.js when Nginx is not configured
+ */
+router.get('/pixel.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.sendFile(path.join(__dirname, '..', 'public', 'pixel.js'));
+});
+
+/**
+ * GET /api/track/config
+ * Public config for Universal Tracker (pixel.js?site=ID). Returns success URLs, price selector, static price.
+ */
+router.get('/config', async (req, res, next) => {
+  try {
+    const siteId = req.query.site || req.query.id;
+    if (!siteId) {
+      return res.json({
+        success: true,
+        conversionUrls: [],
+        priceSelector: null,
+        staticPrice: null,
+        purchaseButtonSelectors: null
+      });
+    }
+    const website = await Website.findByPk(siteId, { attributes: ['id', 'conversion_urls', 'price_selector', 'static_price', 'purchase_button_selector'] });
+    if (!website) {
+      return res.json({
+        success: true,
+        conversionUrls: [],
+        priceSelector: null,
+        staticPrice: null,
+        purchaseButtonSelector: null
+      });
+    }
+    let conversionUrls = [];
+    try {
+      if (website.conversion_urls) {
+        const parsed = typeof website.conversion_urls === 'string' ? JSON.parse(website.conversion_urls) : website.conversion_urls;
+        conversionUrls = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (e) {}
+    res.json({
+      success: true,
+      conversionUrls,
+      priceSelector: website.price_selector || null,
+      staticPrice: website.static_price != null ? parseFloat(website.static_price) : null,
+      purchaseButtonSelector: website.purchase_button_selector || null
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/track/save-selector
+ * Called by pixel.js in configuration mode (Visual Event Mapper).
+ * Validates the short-lived configure token and saves CSS selectors to the website.
+ *
+ * Body: { token, selector, priceSelector? }
+ */
+router.post('/save-selector', async (req, res, next) => {
+  try {
+    const { token, selector, priceSelector } = req.body;
+
+    if (!token || !selector) {
+      return res.status(400).json({ error: 'token and selector are required' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+      return res.status(401).json({ error: 'Invalid or expired configuration token' });
+    }
+
+    if (decoded.purpose !== 'configure' || !decoded.websiteId) {
+      return res.status(401).json({ error: 'Invalid token purpose' });
+    }
+
+    const website = await Website.findByPk(decoded.websiteId);
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    website.purchase_button_selector = selector;
+    if (priceSelector !== undefined) {
+      website.price_selector = priceSelector || null;
+    }
+    await website.save();
+
+    console.log('[Visual Mapper] Selectors saved', {
+      websiteId: website.id,
+      domain: website.domain,
+      buttonSelector: selector,
+      priceSelector: priceSelector || null
+    });
+
+    res.json({ success: true, message: 'Selectors saved successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/track/link-click
+ * Auto-event: every click on <a> on client site. keepalive recommended.
+ * Body: code (ref), visitor_id, url, text, id, class (element id/class)
+ */
+router.post('/link-click', async (req, res, next) => {
+  try {
+    const code = req.body.code || req.body.ref || req.query.code;
+    const visitor_id = req.body.visitor_id || req.body.visitorId || req.headers['x-visitor-id'];
+    const url = req.body.url || req.body.href;
+    const text = req.body.text || req.body.link_text || req.body.innerText;
+    const id = req.body.id || req.body.element_id;
+    const className = req.body.class || req.body.className || req.body.element_class;
+    const domain = req.body.domain || (typeof window !== 'undefined' ? window.location?.hostname : null);
+
+    if (!code) {
+      return res.status(400).json({ error: 'code (ref) required' });
+    }
+    const link = await Link.findOne({ where: { unique_code: code } });
+    if (!link) {
+      return res.status(200).json({ success: true, stored: false });
+    }
+    await LinkClick.create({
+      link_id: link.id,
+      visitor_id: visitor_id || null,
+      url: url || null,
+      link_text: text || null,
+      element_id: id || null,
+      element_class: className || null,
+      domain: domain || null
+    });
+    res.status(201).json({ success: true, stored: true });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * Normalize order ID - remove prefixes like "ORDER-", "INV-", etc.
@@ -30,10 +182,63 @@ const normalizeOrderId = (id) => {
  */
 router.get('/verify', async (req, res, next) => {
   try {
-    const { code, domain, version } = req.query;
+    const { code, domain, version, site_id } = req.query;
     
     // Normalize domain
     const normalizedDomain = domain ? domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase() : null;
+    
+    // Log all verification attempts for debugging
+    console.log('[Tracker Verification Request]', {
+      domain: normalizedDomain,
+      site_id: site_id || 'N/A',
+      code: code || 'N/A',
+      version: version || 'unknown',
+      timestamp: new Date().toISOString()
+    });
+    
+    // If site_id provided, update website connection status directly
+    if (site_id) {
+      try {
+        const website = await Website.findByPk(site_id);
+        if (website) {
+          // Update website connection status
+          const wasConnected = website.is_connected;
+          website.is_connected = true;
+          await website.save();
+          
+          console.log('[Tracker Verification] Website updated:', {
+            site_id: site_id,
+            website_domain: website.domain,
+            was_connected: wasConnected,
+            now_connected: true
+          });
+          
+          // Also create verification record for the website domain
+          if (website.domain) {
+            const websiteDomain = website.domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+            const [verification] = await TrackerVerification.findOrCreate({
+              where: { domain: websiteDomain },
+              defaults: {
+                domain: websiteDomain,
+                code: code || null,
+                version: version || 'universal',
+                last_seen: new Date()
+              }
+            });
+            verification.last_seen = new Date();
+            if (code) verification.code = code;
+            if (version) verification.version = version;
+            await verification.save();
+            
+            console.log('[Tracker Verification] Verification record updated for website domain:', websiteDomain);
+          }
+        } else {
+          console.warn('[Tracker Verification] Website not found for site_id:', site_id);
+        }
+      } catch (e) {
+        console.error('[Verification: Website update error]', e);
+      }
+    }
     
     if (normalizedDomain) {
       // Find or create verification record
@@ -55,18 +260,39 @@ router.get('/verify', async (req, res, next) => {
         await verification.save();
       }
       
-      // Log verification
-      if (code) {
-        const link = await Link.findOne({ where: { unique_code: code } });
-        if (link) {
-          console.log('[Tracker Verification]', {
-            code: code,
-            domain: normalizedDomain,
-            version: version || 'unknown',
-            link_id: link.id,
-            timestamp: new Date().toISOString()
+      console.log('[Tracker Verification] Verification record:', {
+        domain: normalizedDomain,
+        created: created,
+        last_seen: verification.last_seen
+      });
+      
+      // Also check if this domain matches any website and update its status
+      try {
+        const domainsToCheck = [normalizedDomain];
+        if (!normalizedDomain.startsWith('www.')) domainsToCheck.push('www.' + normalizedDomain);
+        else domainsToCheck.push(normalizedDomain.replace(/^www\./, ''));
+        
+        const websites = await Website.findAll({
+          where: {
+            domain: { [Op.in]: domainsToCheck }
+          }
+        });
+        
+        for (const website of websites) {
+          const wasConnected = website.is_connected;
+          website.is_connected = true;
+          await website.save();
+          
+          console.log('[Tracker Verification] Website matched by domain:', {
+            website_id: website.id,
+            website_domain: website.domain,
+            request_domain: normalizedDomain,
+            was_connected: wasConnected,
+            now_connected: true
           });
         }
+      } catch (e) {
+        console.error('[Tracker Verification] Error matching websites:', e);
       }
     }
     
@@ -75,7 +301,9 @@ router.get('/verify', async (req, res, next) => {
       verified: true,
       message: 'Tracker verified',
       service: 'LehkoTrack',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      domain: normalizedDomain,
+      site_id: site_id || null
     });
   } catch (error) {
     // Still return success to not break tracker
@@ -156,10 +384,7 @@ router.get('/test', async (req, res, next) => {
         conversion: '/api/track/conversion',
         conversionPixel: '/api/track/conversion-pixel'
       },
-      tracker_files: {
-        v1: '/tracker.js',
-        v2: '/tracker-v2.js'
-      }
+      tracker_file: '/pixel.js'
     });
   } catch (error) {
     next(error);
@@ -246,37 +471,34 @@ router.get('/view/:code', async (req, res, next) => {
  * - order_id: (optional) Order ID for duplicate prevention
  */
 router.post('/conversion', async (req, res, next) => {
+  const unique_code = req.body.unique_code || req.body.code || req.query.code;
+  const order_value = req.body.order_value || req.body.value || req.body.amount || req.body.total || req.query.value;
+  const visitor_id = req.body.visitor_id || req.body.visitorId || req.headers['x-visitor-id'];
+  const order_id = req.body.order_id || req.body.orderId || req.body.order_number;
+  const click_id = req.body.click_id || req.body.clickId || null;
+  const event_type = (req.body.event_type === 'lead' || req.body.event_type === 'sale') ? req.body.event_type : 'sale';
+
+  console.log('[Conversion] POST received', {
+    unique_code: unique_code || '(missing)',
+    order_value: order_value,
+    order_id: order_id,
+    click_id: click_id,
+    event_type: event_type,
+    has_visitor_id: !!visitor_id
+  });
+
   try {
-    // Accept multiple field names for flexibility
-    const unique_code = req.body.unique_code || req.body.code || req.query.code;
-    const order_value = req.body.order_value || req.body.value || req.body.amount || req.body.total || req.query.value;
-    const visitor_id = req.body.visitor_id || req.body.visitorId || req.headers['x-visitor-id'];
-    const order_id = req.body.order_id || req.body.orderId || req.body.order_number;
-
-    // Log incoming request for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Conversion Request Received]', {
-        body: req.body,
-        query: req.query,
-        headers: {
-          'x-visitor-id': req.headers['x-visitor-id'],
-          'content-type': req.headers['content-type']
-        }
-      });
-    }
-
     if (!unique_code) {
-      console.warn('[Conversion Error] Missing unique_code', { body: req.body });
+      console.warn('[Conversion] Rejected: missing unique_code', { body: req.body });
       return res.status(400).json({ 
         error: 'unique_code is required',
         received: Object.keys(req.body)
       });
     }
 
-    // Find link by unique code
     const link = await Link.findOne({ where: { unique_code } });
     if (!link) {
-      console.warn('[Conversion Error] Link not found', { unique_code });
+      console.warn('[Conversion] Rejected: link not found', { unique_code });
       return res.status(404).json({ error: 'Link not found', unique_code });
     }
 
@@ -366,17 +588,17 @@ router.post('/conversion', async (req, res, next) => {
           // Continue without duplicate check
         }
       } else {
-        // If no order_id, check for conversions in last 5 seconds (fallback duplicate prevention)
-        // Use raw query with FOR UPDATE lock
+        // No order_id: check for same event_type from same link in last 3 seconds
         const recentResults = await sequelize.query(`
           SELECT * FROM conversions 
           WHERE link_id = ? 
-          AND created_at >= DATE_SUB(NOW(), INTERVAL 5 SECOND)
+          AND event_type = ?
+          AND created_at >= DATE_SUB(NOW(), INTERVAL 3 SECOND)
           ORDER BY created_at DESC
           LIMIT 1
           FOR UPDATE
         `, {
-          replacements: [link.id],
+          replacements: [link.id, event_type],
           type: QueryTypes.SELECT,
           transaction: t
         });
@@ -386,36 +608,41 @@ router.post('/conversion', async (req, res, next) => {
           : null;
         
         if (recentConversion) {
-          isDuplicate = true;
-          console.log('[Conversion Warning] Possible duplicate detected (no order_id, but recent conversion exists)', {
+          console.log('[Conversion Warning] Duplicate blocked (same event_type within 3s)', {
             existing_id: recentConversion.id,
+            event_type: event_type,
             time_diff: Date.now() - new Date(recentConversion.created_at).getTime()
           });
-          
-          // Still create conversion but log warning (admin can review)
+          throw { isDuplicate: true, existingConversion: recentConversion };
         }
       }
 
-      // Record conversion
-      // Only include order_id if it's provided (don't send null explicitly)
       const conversionData = {
         link_id: link.id,
-        order_value: parsedOrderValue
+        order_value: parsedOrderValue,
+        event_type: event_type
       };
       
-      // Use normalized order_id for consistency (use normalizedOrderId from outer scope)
       const finalNormalizedOrderId = normalizedOrderId || null;
       if (finalNormalizedOrderId) {
         conversionData.order_id = finalNormalizedOrderId;
       }
       
+      if (click_id) {
+        const clickIdNum = parseInt(click_id);
+        if (!isNaN(clickIdNum) && clickIdNum > 0) {
+          conversionData.click_id = clickIdNum;
+        }
+      }
+      
       try {
         return await Conversion.create(conversionData, { transaction: t });
       } catch (createError) {
-        // If order_id field doesn't exist, try without it
-        if (createError.message && createError.message.includes('order_id')) {
-          console.warn('[Conversion Warning] order_id field not available, creating without it:', createError.message);
+        if (createError.message && (createError.message.includes('order_id') || createError.message.includes('click_id') || createError.message.includes('event_type'))) {
+          console.warn('[Conversion Warning] Some fields not available, creating without them:', createError.message);
           delete conversionData.order_id;
+          delete conversionData.click_id;
+          delete conversionData.event_type;
           return await Conversion.create(conversionData, { transaction: t });
         } else {
           throw createError;
@@ -430,6 +657,7 @@ router.post('/conversion', async (req, res, next) => {
       unique_code: unique_code,
       order_value: parsedOrderValue,
       order_id: normalizedOrderId || order_id || 'none',
+      click_id: click_id || 'none',
       visitor_id: visitorFingerprint,
       is_duplicate: isDuplicate,
       timestamp: new Date().toISOString()
@@ -622,7 +850,9 @@ router.get('/conversion-pixel', async (req, res, next) => {
  */
 router.get('/conversion', async (req, res, next) => {
   try {
-    const { code, value, visitor_id, order_id } = req.query;
+    const code = req.query.code || req.query.ref;
+    const { value, visitor_id, order_id } = req.query;
+    const event_type = (req.query.event_type === 'lead' || req.query.event_type === 'sale') ? req.query.event_type : 'sale';
 
     if (!code) {
       // Return 1x1 transparent pixel for image tracking
@@ -687,40 +917,37 @@ router.get('/conversion', async (req, res, next) => {
       }
     }
 
-    // Record conversion
-    // Only include order_id if it's provided (don't send null explicitly)
     const conversionData = {
       link_id: link.id,
-      order_value: parsedOrderValue
+      order_value: parsedOrderValue,
+      event_type: event_type
     };
     
-    if (order_id) {
-      conversionData.order_id = order_id;
+    if (normalizedOrderIdGet) {
+      conversionData.order_id = normalizedOrderIdGet;
     }
     
     let conversion;
     try {
       conversion = await Conversion.create(conversionData);
     } catch (createError) {
-      // If order_id field doesn't exist, try without it
-      if (createError.message && createError.message.includes('order_id')) {
-        console.warn('[Conversion GET Warning] order_id field not available, creating without it:', createError.message);
+      if (createError.message && (createError.message.includes('order_id') || createError.message.includes('event_type'))) {
+        console.warn('[Conversion GET Warning] Some fields not available:', createError.message);
         delete conversionData.order_id;
+        delete conversionData.event_type;
         conversion = await Conversion.create(conversionData);
       } else {
         throw createError;
       }
     }
 
-    // Log for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Conversion Tracked via GET]', {
-        link_id: link.id,
-        unique_code: code,
-        order_value: parsedOrderValue,
-        order_id: normalizedOrderIdGet || order_id || 'none'
-      });
-    }
+    console.log('[Conversion Tracked via GET]', {
+      link_id: link.id,
+      unique_code: code,
+      order_value: parsedOrderValue,
+      event_type: event_type,
+      order_id: normalizedOrderIdGet || order_id || 'none'
+    });
 
     // Return 1x1 transparent pixel
     const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
@@ -732,6 +959,274 @@ router.get('/conversion', async (req, res, next) => {
     const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
     res.set('Content-Type', 'image/gif');
     res.send(pixel);
+  }
+});
+
+/**
+ * POST /api/track/conversion-server
+ * Server-Side API Integration (API-First Tracking)
+ * 
+ * Supports both server-side calls (from backend) and client-side calls (from GTM/browser)
+ * 
+ * Body parameters:
+ * - order_id: (required) Order ID for duplicate prevention
+ * - order_value: (required) Purchase amount
+ * - amount: (alternative) Purchase amount
+ * - value: (alternative) Purchase amount
+ * - ref_code: (optional) Tracking code - if not provided, will try to get from cookie
+ * - customer_email: (optional) Customer email - used to find ref if cookie/ref_code not available
+ * - customer_id: (optional) Customer ID
+ * - timestamp: (optional) Order timestamp
+ * - metadata: (optional) Additional order data
+ * 
+ * Cookie support:
+ * - aff_ref_code: Automatically read from cookie if ref_code not provided in body
+ * 
+ * Usage examples:
+ * 
+ * 1. Server-side (Node.js):
+ *    fetch('https://lehko.space/api/track/conversion-server', {
+ *      method: 'POST',
+ *      headers: { 'Content-Type': 'application/json' },
+ *      body: JSON.stringify({
+ *        order_id: '12345',
+ *        order_value: 299.99,
+ *        ref_code: 'ABC123' // or rely on cookie
+ *      })
+ *    });
+ * 
+ * 2. GTM Custom HTML:
+ *    fetch('https://lehko.space/api/track/conversion-server', {
+ *      method: 'POST',
+ *      headers: { 'Content-Type': 'application/json' },
+ *      credentials: 'include', // Important: sends cookies
+ *      body: JSON.stringify({
+ *        order_id: {{Order ID}},
+ *        order_value: {{Order Value}}
+ *      })
+ *    });
+ */
+router.post('/conversion-server', async (req, res, next) => {
+  try {
+    const {
+      order_id,
+      orderId,
+      order_value,
+      amount,
+      value,
+      ref_code,
+      refCode,
+      customer_email,
+      customerEmail,
+      customer_id,
+      customerId,
+      timestamp,
+      metadata,
+      click_id,
+      clickId
+    } = req.body;
+
+    // Get order_id (support multiple formats)
+    const finalOrderId = order_id || orderId;
+    if (!finalOrderId) {
+      return res.status(400).json({
+        error: 'order_id is required',
+        message: 'Order ID is required for duplicate prevention'
+      });
+    }
+
+    // Get order_value (support multiple formats)
+    const orderValueStr = order_value || amount || value;
+    if (orderValueStr === undefined || orderValueStr === null || orderValueStr === '') {
+      return res.status(400).json({
+        error: 'order_value is required',
+        message: 'Order value (amount) is required'
+      });
+    }
+
+    // Parse order value
+    let parsedOrderValue = 0;
+    try {
+      const cleaned = String(orderValueStr).replace(/[^\d.,-]/g, '').replace(/,/g, '');
+      parsedOrderValue = parseFloat(cleaned) || 0;
+      if (parsedOrderValue < 0 || parsedOrderValue > 10000000) {
+        parsedOrderValue = 0;
+      }
+    } catch (e) {
+      return res.status(400).json({
+        error: 'Invalid order_value format',
+        message: 'Order value must be a valid number'
+      });
+    }
+
+    // Find tracking code (priority: ref_code in body > cookie > customer_email lookup)
+    let trackingCode = ref_code || refCode || req.cookies?.aff_ref_code;
+
+    // If no tracking code found, try to find via customer_email (last 24 hours)
+    if (!trackingCode && (customer_email || customerEmail)) {
+      try {
+        const email = customer_email || customerEmail;
+        const recentClick = await Click.findOne({
+          where: {
+            created_at: {
+              [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+            }
+          },
+          order: [['created_at', 'DESC']],
+          include: [{
+            model: Link,
+            required: true
+          }]
+        });
+
+        if (recentClick?.Link) {
+          trackingCode = recentClick.Link.unique_code;
+          console.log(`[Conversion Server] Found ref via customer_email lookup: ${trackingCode}`);
+        }
+      } catch (lookupError) {
+        console.warn('[Conversion Server] Customer email lookup failed:', lookupError);
+      }
+    }
+
+    if (!trackingCode) {
+      return res.status(400).json({
+        error: 'Tracking code not found',
+        message: 'No tracking code found. Ensure user clicked tracking link first, or provide ref_code in request.',
+        hint: 'Tracking code can be provided via: 1) ref_code in body, 2) aff_ref_code cookie, 3) customer_email lookup'
+      });
+    }
+
+    // Find link by tracking code
+    const link = await Link.findOne({ where: { unique_code: trackingCode } });
+    if (!link) {
+      return res.status(404).json({
+        error: 'Link not found',
+        message: `Tracking link with code "${trackingCode}" not found`
+      });
+    }
+
+    // Normalize order_id for duplicate prevention
+    const normalizedOrderId = normalizeOrderId(finalOrderId);
+
+    // Check for duplicate conversions using transaction lock
+    const conversion = await sequelize.transaction(async (t) => {
+      if (normalizedOrderId) {
+        try {
+          const lockQuery = `
+            SELECT * FROM conversions 
+            WHERE link_id = ? 
+            AND (order_id = ? ${finalOrderId && finalOrderId !== normalizedOrderId ? 'OR order_id = ?' : ''})
+            LIMIT 1
+            FOR UPDATE
+          `;
+          const lockParams = finalOrderId && finalOrderId !== normalizedOrderId
+            ? [link.id, normalizedOrderId, finalOrderId]
+            : [link.id, normalizedOrderId];
+
+          const lockResults = await sequelize.query(lockQuery, {
+            replacements: lockParams,
+            type: QueryTypes.SELECT,
+            transaction: t
+          });
+
+          if (lockResults && lockResults.length > 0) {
+            const existingConversion = await Conversion.findByPk(lockResults[0].id, { transaction: t });
+            console.log('[Conversion Server] Duplicate conversion detected', {
+              existing_id: existingConversion.id,
+              order_id: normalizedOrderId,
+              link_id: link.id
+            });
+
+            return {
+              isDuplicate: true,
+              conversion: existingConversion
+            };
+          }
+        } catch (checkError) {
+          console.warn('[Conversion Server] Duplicate check failed:', checkError);
+        }
+      }
+
+      // Create new conversion
+      const conversionData = {
+        link_id: link.id,
+        order_value: parsedOrderValue
+      };
+
+      if (normalizedOrderId) {
+        conversionData.order_id = normalizedOrderId;
+      }
+
+      // Add click_id if provided (for server-to-server tracking with click reference)
+      const finalClickId = click_id || clickId;
+      if (finalClickId) {
+        const clickIdNum = parseInt(finalClickId);
+        if (!isNaN(clickIdNum) && clickIdNum > 0) {
+          conversionData.click_id = clickIdNum;
+        }
+      }
+
+      try {
+        const newConversion = await Conversion.create(conversionData, { transaction: t });
+        return {
+          isDuplicate: false,
+          conversion: newConversion
+        };
+      } catch (createError) {
+        if (createError.message && (createError.message.includes('order_id') || createError.message.includes('click_id'))) {
+          delete conversionData.order_id;
+          delete conversionData.click_id;
+          const newConversion = await Conversion.create(conversionData, { transaction: t });
+          return {
+            isDuplicate: false,
+            conversion: newConversion
+          };
+        }
+        throw createError;
+      }
+    });
+
+    // Handle duplicate
+    if (conversion.isDuplicate) {
+      return res.json({
+        success: true,
+        message: 'Conversion already tracked (duplicate prevented)',
+        conversion_id: conversion.conversion.id,
+        order_value: conversion.conversion.order_value,
+        link_id: link.id,
+        unique_code: trackingCode,
+        is_duplicate: true
+      });
+    }
+
+    // Log successful conversion
+    console.log('[✅ Conversion Server Tracked Successfully]', {
+      conversion_id: conversion.conversion.id,
+      link_id: link.id,
+      unique_code: trackingCode,
+      order_value: parsedOrderValue,
+      order_id: normalizedOrderId || finalOrderId,
+      click_id: (click_id || clickId) || 'none',
+      source: 'server-api',
+      has_customer_email: !!(customer_email || customerEmail)
+    });
+
+    res.json({
+      success: true,
+      message: 'Conversion tracked successfully',
+      conversion_id: conversion.conversion.id,
+      order_value: parsedOrderValue,
+      link_id: link.id,
+      unique_code: trackingCode,
+      order_id: normalizedOrderId || finalOrderId
+    });
+  } catch (error) {
+    console.error('[❌ Conversion Server Error]', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
+    next(error);
   }
 });
 

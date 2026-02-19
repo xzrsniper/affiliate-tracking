@@ -18,7 +18,10 @@ import {
   Edit,
   Save,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Code,
+  Zap,
+  Target
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -174,11 +177,11 @@ export default function Dashboard() {
   // Calculate aggregated stats
   const totalClicks = links.reduce((sum, link) => sum + (link.stats?.total_clicks || 0), 0);
   const uniqueClicks = links.reduce((sum, link) => sum + (link.stats?.unique_clicks || 0), 0);
-  const totalConversions = links.reduce((sum, link) => sum + (link.stats?.conversions || 0), 0);
-  const totalRevenue = links.reduce((sum, link) => sum + (link.stats?.total_revenue || 0), 0);
-  
-  // ROMI (Return on Marketing Investment) - simple calculation
-  const romi = totalClicks > 0 ? ((totalRevenue / totalClicks) * 100).toFixed(1) : 0;
+  const totalLeads = links.reduce((sum, link) => sum + (link.stats?.leads || 0), 0);
+  const totalSales = links.reduce((sum, link) => sum + (link.stats?.sales || 0), 0);
+  const salesRevenue = links.reduce((sum, link) => sum + (link.stats?.sales_revenue || link.stats?.total_revenue || 0), 0);
+
+  const convRate = totalClicks > 0 ? ((totalSales / totalClicks) * 100).toFixed(1) : 0;
 
   const canCreateMoreLinks = links.length < (user?.link_limit || 3);
   const currentDate = new Date().toLocaleDateString('uk-UA', {
@@ -199,36 +202,78 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         <StatCard
           icon={MousePointerClick}
-          label="Всього кліків"
+          label="Кліків"
           value={totalClicks.toLocaleString()}
           bgColor="bg-blue-100"
           iconColor="text-blue-600"
         />
         <StatCard
           icon={Users}
-          label="Унікальних кліків"
+          label="Унікальних"
           value={uniqueClicks.toLocaleString()}
           bgColor="bg-purple-100"
           iconColor="text-purple-600"
         />
         <StatCard
+          icon={Target}
+          label="Ліди (кнопка)"
+          value={totalLeads.toLocaleString()}
+          bgColor="bg-amber-100"
+          iconColor="text-amber-600"
+        />
+        <StatCard
           icon={TrendingUp}
-          label="Конверсій"
-          value={totalConversions.toLocaleString()}
+          label="Продажі"
+          value={totalSales.toLocaleString()}
           bgColor="bg-green-100"
           iconColor="text-green-600"
         />
         <StatCard
           icon={DollarSign}
-          label="ROMI"
-          value={`${romi}%`}
+          label="Дохід"
+          value={`${salesRevenue.toLocaleString()} ₴`}
           bgColor="bg-emerald-100"
           iconColor="text-emerald-600"
         />
       </div>
+
+      {/* Quick Start Steps */}
+      {links.length === 0 && !loading && (
+        <div className="mb-8 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-violet-200 dark:border-violet-800">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Як почати відстежувати конверсії</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[
+              { step: 1, icon: Code, title: 'Встановіть трекер', desc: '1 рядок коду — решту робить сервіс', link: '/setup', linkText: 'Встановлення' },
+              { step: 2, icon: Plus, title: 'Створіть посилання', desc: 'Унікальний URL для кожної кампанії', action: true },
+              { step: 3, icon: Zap, title: 'Все автоматично', desc: 'Трекер сам знайде кнопки та відстежить продажі' },
+            ].map(({ step, icon: Icon, title, desc, link: href, linkText, action }) => (
+              <div key={step} className="flex gap-3 items-start">
+                <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">{step}</div>
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Icon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                    <span className="font-semibold text-sm text-slate-800 dark:text-white">{title}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{desc}</p>
+                  {href && (
+                    <Link to={href} className="text-xs text-violet-600 dark:text-violet-400 hover:underline font-medium mt-1 inline-block">
+                      {linkText} &rarr;
+                    </Link>
+                  )}
+                  {action && (
+                    <button onClick={() => setShowCreateForm(true)} className="text-xs text-violet-600 dark:text-violet-400 hover:underline font-medium mt-1">
+                      Створити &rarr;
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Action Area */}
       <div className="mb-8 flex items-center justify-between">
@@ -709,21 +754,27 @@ export default function Dashboard() {
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Всього</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Кліків</p>
                             <p className="text-lg font-bold text-slate-800 dark:text-white">
                               {link.stats?.total_clicks || 0}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Конверсій</p>
-                            <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                              {link.stats?.conversions || 0}
+                            <p className="text-xs text-amber-500 dark:text-amber-400 mb-1">Ліди</p>
+                            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                              {link.stats?.leads || 0}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Доходи</p>
+                            <p className="text-xs text-green-500 dark:text-green-400 mb-1">Продажі</p>
+                            <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                              {link.stats?.sales || 0}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Дохід</p>
                             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                              ${(link.stats?.total_revenue || 0).toFixed(2)}
+                              {(link.stats?.sales_revenue || link.stats?.total_revenue || 0).toFixed(2)} ₴
                             </p>
                           </div>
                         </div>

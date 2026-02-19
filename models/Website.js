@@ -32,6 +32,26 @@ const Website = sequelize.define('Website', {
     defaultValue: false,
     comment: 'Чи підключено tracking код'
   },
+  conversion_urls: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'JSON array of success URLs e.g. ["/thanks","/success"]'
+  },
+  price_selector: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: 'CSS selector for price element (DOM scraping)'
+  },
+  static_price: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: true,
+    comment: 'Fixed price per conversion if not on page'
+  },
+  purchase_button_selector: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: 'CSS selector for purchase button (Visual Event Mapper)'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

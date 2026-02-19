@@ -1,0 +1,31 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2025-01-01T00:00:00.000Z",
+  "containerVersion": {
+    "name": "Lehko Track Universal",
+    "tags": [
+      {
+        "name": "Lehko Track Universal Pixel",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "template",
+            "key": "html",
+            "value": "<script>\n(function() {\n  var script = document.createElement('script');\n  script.src = 'https://lehko.space/pixel.js?id=YOUR_SITE_ID';\n  script.async = true;\n  document.head.appendChild(script);\n})();\n</script>"
+          }
+        ],
+        "fingerprint": "lehko-universal-pixel",
+        "firingTriggerId": ["2147479553"]
+      }
+    ],
+    "triggers": [
+      {
+        "triggerId": "2147479553",
+        "name": "All Pages",
+        "type": "pageview",
+        "fingerprint": "gtm-all-pages"
+      }
+    ],
+    "variables": []
+  }
+}

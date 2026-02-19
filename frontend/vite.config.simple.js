@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Simplified config without esbuild bundling
 export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    host: '0.0.0.0',
+    host: true,
     strictPort: false,
     hmr: {
       protocol: 'ws',
@@ -28,10 +29,9 @@ export default defineConfig({
       },
     },
   },
-  // Skip config file bundling to avoid esbuild EPERM
-  clearScreen: false,
+  // Disable esbuild optimizations that cause EPERM errors
   optimizeDeps: {
-    force: false,
+    disabled: true,
   },
   build: {
     target: 'esnext',

@@ -27,6 +27,21 @@ const Conversion = sequelize.define('Conversion', {
     allowNull: true,
     comment: 'Order ID for duplicate prevention'
   },
+  click_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'clicks',
+      key: 'id'
+    },
+    comment: 'Link to the click that led to this conversion'
+  },
+  event_type: {
+    type: DataTypes.ENUM('lead', 'sale'),
+    allowNull: false,
+    defaultValue: 'sale',
+    comment: 'lead = button click (intent), sale = confirmed purchase'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -46,6 +61,12 @@ const Conversion = sequelize.define('Conversion', {
     },
     {
       fields: ['order_id']
+    },
+    {
+      fields: ['click_id']
+    },
+    {
+      fields: ['event_type']
     }
   ]
 });

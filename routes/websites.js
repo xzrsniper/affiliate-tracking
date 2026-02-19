@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { checkTrackerInstallation } from '../utils/trackerCheck.js';
@@ -68,7 +69,7 @@ router.post('/', async (req, res, next) => {
  */
 router.put('/:id', async (req, res, next) => {
   try {
-    const { name, domain, is_connected } = req.body;
+    const { name, domain, is_connected, conversion_urls, price_selector, static_price, purchase_button_selector } = req.body;
 
     const website = await Website.findOne({
       where: {
@@ -93,6 +94,20 @@ router.put('/:id', async (req, res, next) => {
         // Якщо domain видалено, скидаємо статус
         website.is_connected = false;
       }
+    }
+    if (conversion_urls !== undefined) {
+      website.conversion_urls = Array.isArray(conversion_urls)
+        ? JSON.stringify(conversion_urls)
+        : (typeof conversion_urls === 'string' ? conversion_urls : null);
+    }
+    if (price_selector !== undefined) {
+      website.price_selector = price_selector || null;
+    }
+    if (static_price !== undefined) {
+      website.static_price = static_price == null || static_price === '' ? null : parseFloat(static_price);
+    }
+    if (purchase_button_selector !== undefined) {
+      website.purchase_button_selector = purchase_button_selector || null;
     }
     // Статус is_connected можна встановити ТІЛЬКИ через автоматичну перевірку
     // Ручне встановлення статусу заборонено - тільки через /api/websites/:id/check
@@ -140,6 +155,40 @@ router.get('/:id/check', async (req, res, next) => {
       is_connected: isConnected,
       domain: website.domain
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/websites/:id/configure-session
+ * Generate a short-lived token for the Visual Event Mapper.
+ * pixel.js uses this token to authenticate when saving selectors.
+ */
+router.post('/:id/configure-session', async (req, res, next) => {
+  try {
+    const website = await Website.findOne({
+      where: { id: req.params.id, user_id: req.user.id }
+    });
+
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    if (!website.domain) {
+      return res.status(400).json({ error: 'Website domain is required for configuration' });
+    }
+
+    const token = jwt.sign(
+      { websiteId: website.id, userId: req.user.id, purpose: 'configure' },
+      process.env.JWT_SECRET,
+      { expiresIn: '10m' }
+    );
+
+    const protocol = website.domain.startsWith('localhost') ? 'http' : 'https';
+    const configUrl = `${protocol}://${website.domain}?lehko_mode=configure&token=${token}`;
+
+    res.json({ success: true, token, configUrl, websiteId: website.id });
   } catch (error) {
     next(error);
   }

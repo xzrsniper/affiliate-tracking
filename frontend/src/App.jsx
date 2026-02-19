@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -11,69 +12,97 @@ import Success from './pages/Success.jsx';
 import Setup from './pages/Setup.jsx';
 import HomeNew from './pages/HomeNew.jsx';
 
+// Component to redirect pixel.js to API endpoint
+function PixelJsRedirect() {
+  const location = useLocation();
+  const queryString = location.search || '';
+  
+  useEffect(() => {
+    window.location.replace(`/api/track/pixel.js${queryString}`);
+  }, [queryString]);
+  
+  return null;
+}
+
 function AppRoutes() {
-  const { user, loading } = useAuth();
-  const authenticated = !!user;
+  let user = null;
+  let loading = true;
+  let authenticated = false;
+
+  try {
+    const auth = useAuth();
+    user = auth?.user || null;
+    loading = auth?.loading !== undefined ? auth.loading : false;
+    authenticated = !!user;
+  } catch (error) {
+    console.error('❌ Error in AppRoutes:', error);
+    loading = false;
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500">Loading...</div>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
       </div>
     );
   }
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={<Home />}
-      />
-      <Route
-        path="/home-new"
-        element={<HomeNew />}
-      />
-      <Route
-        path="/login"
-        element={authenticated ? <Navigate to="/dashboard" replace /> : <Login />}
-      />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute requireAdmin={true}>
-            <Admin />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/setup"
-        element={
-          <ProtectedRoute>
-            <Setup />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/success"
-        element={<Success />}
-      />
-    </Routes>
+        {/* Route for pixel.js - redirects to API endpoint */}
+        <Route
+          path="/pixel.js"
+          element={<PixelJsRedirect />}
+        />
+        <Route
+          path="/"
+          element={<Home />}
+        />
+        <Route
+          path="/home-new"
+          element={<HomeNew />}
+        />
+        <Route
+          path="/login"
+          element={authenticated ? <Navigate to="/dashboard" replace /> : <Login />}
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/setup"
+          element={
+            <ProtectedRoute>
+              <Setup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/success"
+          element={<Success />}
+        />
+      </Routes>
   );
 }
 

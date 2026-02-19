@@ -47,23 +47,14 @@ app.use(cookieParser()); // Enable cookie parsing for conversion tracking
 // Trust proxy for accurate IP detection (if behind reverse proxy)
 app.set('trust proxy', true);
 
-// Serve tracker.js files with proper CORS headers to avoid ORB blocking
-app.get('/tracker.js', (req, res) => {
+// Serve pixel.js tracker with proper CORS headers to avoid ORB blocking
+app.get('/pixel.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  res.sendFile(path.join(__dirname, 'public', 'tracker.js'));
-});
-
-app.get('/tracker-v2.js', (req, res) => {
-  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  res.sendFile(path.join(__dirname, 'public', 'tracker-v2.js'));
+  res.sendFile(path.join(__dirname, 'public', 'pixel.js'));
 });
 
 // Serve static files (for other static files)
@@ -107,10 +98,20 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+// Serve frontend in production (after all API routes)
+if (process.env.NODE_ENV === 'production') {
+  const frontendPath = path.join(__dirname, 'frontend', 'dist');
+  app.use(express.static(frontendPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+} else {
+  // In development, Vite handles frontend
+  // 404 handler for API routes only
+  app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+  });
+}
 
 // Start server
 const startServer = async () => {

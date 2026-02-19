@@ -29,11 +29,16 @@ export default function Home() {
   
   try {
     const themeContext = useTheme();
-    theme = themeContext.theme;
-    toggleTheme = themeContext.toggleTheme;
+    if (themeContext) {
+      theme = themeContext.theme || 'light';
+      toggleTheme = themeContext.toggleTheme || (() => {});
+    }
     console.log('✅ Theme context loaded:', theme);
   } catch (error) {
     console.error('❌ Error loading theme:', error);
+    // Fallback to light theme
+    theme = 'light';
+    toggleTheme = () => {};
   }
 
   useEffect(() => {

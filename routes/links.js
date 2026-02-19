@@ -146,7 +146,10 @@ router.get('/my-links', async (req, res, next) => {
       const [conversionStats] = await sequelize.query(`
         SELECT 
           COUNT(*) as conversions,
-          COALESCE(SUM(order_value), 0) as total_revenue
+          COALESCE(SUM(order_value), 0) as total_revenue,
+          SUM(CASE WHEN event_type = 'lead' THEN 1 ELSE 0 END) as leads,
+          SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN 1 ELSE 0 END) as sales,
+          COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue
         FROM conversions
         WHERE link_id = ?
       `, {
@@ -158,6 +161,9 @@ router.get('/my-links', async (req, res, next) => {
       const uniqueClicks = parseInt(clickStats?.unique_clicks || 0);
       const totalConversions = parseInt(conversionStats?.conversions || 0);
       const totalRevenue = parseFloat(conversionStats?.total_revenue || 0);
+      const totalLeads = parseInt(conversionStats?.leads || 0);
+      const totalSales = parseInt(conversionStats?.sales || 0);
+      const salesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
 
       const domain = extractDomain(link.original_url);
       const isCodeConnected = await isCodeConnectedForLink(req.user.id, domain);
@@ -176,7 +182,10 @@ router.get('/my-links', async (req, res, next) => {
           unique_clicks: uniqueClicks,
           total_clicks: totalClicks,
           conversions: totalConversions,
-          total_revenue: parseFloat(totalRevenue.toFixed(2))
+          leads: totalLeads,
+          sales: totalSales,
+          total_revenue: parseFloat(totalRevenue.toFixed(2)),
+          sales_revenue: parseFloat(salesRevenue.toFixed(2))
         }
       };
     }));
