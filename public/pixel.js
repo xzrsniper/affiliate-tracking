@@ -296,14 +296,6 @@
     return /\/(cart|basket|koszyk|korzin)(\/|$|\?)/i.test(path) || /^\/cart(\/|$|\?)/i.test(path);
   }
 
-  // Сторінка оформлення/оплати (фінальна кнопка «Оформити замовлення» — саме тут рахуємо 1 лід).
-  function isOrderFormPage() {
-    var path = location.pathname || '';
-    if (isCartPage()) return false;
-    return /\/(checkout|order|payment|oplata|pay|oformlennya|zamovlennya)(\/|$|\?)/i.test(path) ||
-      /checkout|order|payment|oplata/i.test(path);
-  }
-
   // ── 7. Success Page Detection ─────────────────────────────────────────
   // Не вважати success: checkout, cart, сторінка оформлення/оплати (це ще не подяка)
   var CHECKOUT_URL_RE = /checkout|cart|basket|korzin|koszyk|oplata|payment|\/pay\/|order\/?$|zamovlennya|oformlennya|checkout/i;
@@ -475,7 +467,10 @@
   }
 
   // ── 11. Click Handler ─────────────────────────────────────────────────
-  // Лід тільки по кнопці «Оформити замовлення» на сторінці оформлення/оплати (друга кнопка). Кошик або попап кошика — не лід.
+  // Лід по кнопці «Оформити замовлення». Не рахуємо на сторінці кошика (там лише перехід). Макс 1 лід за 30 с — щоб не дублювати на 2-й кнопці.
+  var lastLeadClickAt = 0;
+  var LEAD_DEBOUNCE_MS = 30000;
+
   function onDocClick(e) {
     var target = e.target;
     var btn = null;
@@ -489,12 +484,14 @@
       if (clickable && isCheckoutButton(clickable)) btn = clickable;
     }
 
-    if (btn && !isCartPage() && isOrderFormPage()) {
-      var price = extractPrice(btn);
-      sendEvent('lead', 0, null);
-      storePendingSale(price);
-      startConfirmationWatcher(price);
-    }
+    if (!btn || isCartPage()) return;
+    var now = Date.now();
+    if (now - lastLeadClickAt < LEAD_DEBOUNCE_MS) return;
+    lastLeadClickAt = now;
+    var price = extractPrice(btn);
+    sendEvent('lead', 0, null);
+    storePendingSale(price);
+    startConfirmationWatcher(price);
   }
 
   // ── 12. SPA URL-Change Watcher ────────────────────────────────────────
