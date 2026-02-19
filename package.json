@@ -18,6 +18,7 @@
     "db:add-google-id": "node scripts/add-google-id-field.js",
     "db:add-websites": "node scripts/add-websites-table.js",
     "db:add-click-id": "node scripts/add-click-id-and-button-selector.js",
+    "db:add-event-type": "node scripts/add-event-type-field.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"

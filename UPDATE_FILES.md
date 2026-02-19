@@ -124,6 +124,15 @@
    echo "✅ Оновлення завершено!"
    ```
 
+   **Якщо після оновлення з’явилась помилка "Unknown column 'event_type' in 'field list'":**
+   
+   Потрібно один раз виконати міграцію бази даних (додає колонку `event_type` в таблицю конверсій):
+   ```bash
+   cd ~/affiliate-tracking   # або ваш шлях до проєкту
+   npm run db:add-event-type
+   ```
+   Після успішного виконання перезапустіть API: `pm2 restart affiliate-tracking-api`
+
    ```bash
    chmod +x update.sh
    ```
