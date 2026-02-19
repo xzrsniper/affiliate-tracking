@@ -1010,24 +1010,22 @@ window.__lehkoConfig = {
                     </p>
                   </div>
 
-                  {/* Visual Mapper buttons */}
-                  <div className="flex gap-2">
+                  {/* Visual Mapper + Код для консолі — у стовпчик, щоб обидві кнопки завжди видно на хостингу */}
+                  <div className="flex flex-col gap-2">
                     <button
                       type="button"
                       onClick={() => handleConfigureVisualMapper(editingWebsite)}
                       disabled={configuringId === editingWebsite?.id}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors disabled:opacity-50 text-sm"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors disabled:opacity-50 text-sm"
                     >
                       <MousePointerClick className="w-4 h-4" />
-                      <span>{configuringId === editingWebsite?.id ? 'Очікую...' : 'Visual Mapper'}</span>
+                      <span>{configuringId === editingWebsite?.id ? 'Очікую...' : 'Visual Mapper — відкрити сайт'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={async () => {
                         try {
                           const res = await api.post(`/api/websites/${editingWebsite.id}/configure-session`);
-                          const { token } = res.data;
-                          // Find the short code from the configUrl
                           const configUrl = res.data.configUrl || '';
                           const codeMatch = configUrl.match(/lehko_cfg=([^&]+)/);
                           const code = codeMatch ? codeMatch[1] : '';
@@ -1040,15 +1038,15 @@ window.__lehkoConfig = {
                           alert(err.response?.data?.error || 'Помилка');
                         }
                       }}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm"
                       title="Скопіювати код для вставки в консоль браузера на сайті клієнта"
                     >
                       <Code className="w-4 h-4" />
-                      <span>Код для консолі</span>
+                      <span>Код для консолі — скопіювати (F12 → Console)</span>
                     </button>
                   </div>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
-                    <strong>Visual Mapper</strong> — відкриє сайт автоматично. <strong>Код для консолі</strong> — якщо сайт не відкривається: скопіюйте код, відкрийте сайт вручну, F12 → Console → вставте код.
+                    <strong>Visual Mapper</strong> відкриє сайт у новій вкладці. <strong>Код для консолі</strong> — якщо не відкривається: скопіюйте код, на сайті клієнта F12 → Console → вставте код.
                   </p>
                 </div>
 
