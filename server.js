@@ -79,6 +79,13 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Public config (для фронту: Google Client ID тощо) — щоб продакшн не залежав від VITE_* при білді
+app.get('/api/config/public', (req, res) => {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID_PUBLIC || process.env.VITE_GOOGLE_CLIENT_ID || '';
+  console.log('📤 GET /api/config/public - GOOGLE_CLIENT_ID_PUBLIC:', googleClientId ? googleClientId.substring(0, 20) + '...' : '(not set)');
+  res.json({ googleClientId });
+});
+
 // Tracking redirect route (must be before API routes)
 app.use('/track', redirectRoutes);
 

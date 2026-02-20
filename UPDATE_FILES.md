@@ -180,6 +180,29 @@
    ./update.sh
    ```
 
+### Після git pull + npm run build нічого не змінилось на сайті
+
+Можливі причини:
+
+**А) Різні папки проєкту.** Ви заходите по SSH як **root** і робите `cd ~/affiliate-tracking` → це **/root/affiliate-tracking**. А в nginx вказано `root /home/ergoa/affiliate-tracking/frontend/dist` — тобто nginx бере файли з папки користувача **ergoa**, а не root. Білд у /root/... ніколи не потрапляє на сайт.
+
+**Рішення:** після білду копіювати dist із поточної папки в ту, звідки читає nginx:
+   ```bash
+   # Після git pull і npm run build (у вашій поточній папці проєкту):
+   sudo cp -r /root/affiliate-tracking/frontend/dist/* /home/ergoa/affiliate-tracking/frontend/dist/
+   ```
+   Якщо ви працюєте в `/home/ergoa/affiliate-tracking`, то білд уже в потрібному місці — копіювати не потрібно.
+
+**Б) nginx root вказує на інший каталог** (наприклад `/var/www/lehko.space`). Тоді після білду копіюйте:
+   ```bash
+   sudo cp -r frontend/dist/* /шлях/з/nginx/root/
+   ```
+   Шлях дізнатися: `grep -E "^\s*root\s+" /etc/nginx/sites-enabled/affiliate-tracking`
+
+3. У браузері **жорстке оновлення**: Ctrl+Shift+R.
+
+4. Перевірка: **https://ваш-домен/console-code** — сторінка «Код для консолі»; у Налаштуваннях сайту в шапці модалки — кнопка «Код для консолі».
+
 ---
 
 ## Спосіб 3: Автоматичний деплой через скрипт
@@ -610,6 +633,53 @@ location = /console-code {
 ```
 
 Після змін: `sudo nginx -t && sudo systemctl reload nginx`. Потім відкрийте знову **https://ваш-домен/console-code** — має відкритися сторінка з вибором сайту та кнопками «Отримати код» / «Скопіювати в буфер». Спочатку увійдіть у LehkoTrack на головній сторінці. Код для консолі дійсний 10 хвилин.
+
+---
+
+## Сервер створює новий index-....js, а підгружається старий
+
+**Причина:** Браузер або nginx кешує **index.html**. У ньому прописано посилання на старий `index-СтарийХеш.js`, тому підвантажується старий бандл.
+
+**Що зробити:**
+
+1. **Заборона кешу для index.html в nginx** — у конфіг сайту (перед `location /`) додайте:
+   ```nginx
+   location = /index.html {
+       add_header Cache-Control "no-cache, no-store, must-revalidate";
+       add_header Pragma "no-cache";
+       add_header Expires "0";
+   }
+   ```
+   Далі: `sudo nginx -t && sudo systemctl reload nginx`.
+
+2. **При деплої спочатку видаляти старі assets** — щоб старі `index-*.js` не лишалися в папці. На сервері після `npm run build`:
+   ```bash
+   # При копіюванні в папку nginx (приклад для ergoa):
+   sudo rm -rf /home/ergoa/affiliate-tracking/frontend/dist/assets /home/ergoa/affiliate-tracking/frontend/dist/index.html
+   sudo cp -r /root/affiliate-tracking/frontend/dist/* /home/ergoa/affiliate-tracking/frontend/dist/
+   ```
+   Або використати `deploy-frontend.sh /home/ergoa/affiliate-tracking/frontend/dist` — скрипт сам видаляє старий assets і копіює новий білд.
+
+3. У браузері **жорстке оновлення**: Ctrl+Shift+R (або очистити кеш для сайту).
+
+---
+
+## Пропала можливість входу через Google
+
+**Можливі причини:**
+
+1. **У Google Cloud Console не додано продакшн-домен.**  
+   Відкрийте [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → ваш OAuth 2.0 Client ID (Web client). У **Authorized JavaScript origins** мають бути:
+   - `https://ваш-домен` (наприклад `https://lehko.space`)
+   - для локальної розробки: `http://localhost:5173`  
+   У **Authorized redirect URIs** — якщо використовуєтесь — додайте потрібний redirect (наприклад `https://ваш-домен/login` або те, що використовує ваш фронт).  
+   Після змін збережіть; зміни можуть застосуватися не одразу.
+
+2. **На продакшні не задано VITE_GOOGLE_CLIENT_ID.**  
+   У папці `frontend` має бути `.env` з рядком `VITE_GOOGLE_CLIENT_ID=ваш_клієнт_ід.apps.googleusercontent.com`. Після зміни .env потрібно знову зібрати фронт: `npm run build`, і викласти новий білд.
+
+3. **Cookies / SameSite.**  
+   Якщо фронт і API на одному домені (наприклад lehko.space), перевірте, що в браузері не блокується третій сторони cookies для вашого домену і що після редіректу з Google ви повертаєтесь на той самий домен.
 
 ---
 

@@ -4,15 +4,17 @@ import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import Logo from '../components/Logo.jsx';
 
-// Google OAuth Client ID - замініть на ваш Client ID з Google Cloud Console
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
+const ENV_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 export default function Login() {
-  console.log('🔐 Login component rendering...');
-  
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  // Спершу з env; якщо порожній — підтягуємо з /api/config/public (щоб продакшн працював без VITE_* при білді)
+  const [resolvedGoogleClientId, setResolvedGoogleClientId] = useState(() => {
+    const id = (ENV_GOOGLE_CLIENT_ID || '').trim();
+    return id && id !== 'YOUR_GOOGLE_CLIENT_ID' ? id : '';
+  });
   
   const [formData, setFormData] = useState({
     email: '',
@@ -23,6 +25,7 @@ export default function Login() {
   const [isRegister, setIsRegister] = useState(searchParams.get('register') === 'true');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
+  const [publicConfigFetched, setPublicConfigFetched] = useState(false);
 
   // Використовуємо ref для зберігання актуальних значень
   const loginRef = useRef(login);
@@ -33,6 +36,32 @@ export default function Login() {
     loginRef.current = login;
     navigateRef.current = navigate;
   }, [login, navigate]);
+
+  // Якщо в білді немає VITE_GOOGLE_CLIENT_ID — беремо з бекенду (GOOGLE_CLIENT_ID_PUBLIC на сервері)
+  useEffect(() => {
+    if (publicConfigFetched || resolvedGoogleClientId) return;
+    let cancelled = false;
+    console.log('🔍 Fetching Google Client ID from /api/config/public...');
+    api.get('/api/config/public')
+      .then((res) => {
+        if (cancelled) return;
+        const id = (res.data?.googleClientId || '').trim();
+        console.log('📥 Received from /api/config/public:', { googleClientId: id ? id.substring(0, 20) + '...' : '(empty)' });
+        if (id) {
+          setResolvedGoogleClientId(id);
+          console.log('✅ Google Client ID resolved:', id.substring(0, 20) + '...');
+        } else {
+          console.warn('⚠️ Google Client ID is empty in /api/config/public response');
+        }
+      })
+      .catch((err) => {
+        console.error('❌ Failed to fetch Google Client ID from /api/config/public:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setPublicConfigFetched(true);
+      });
+    return () => { cancelled = true; };
+  }, [publicConfigFetched, resolvedGoogleClientId]);
 
   // ВИЗНАЧАЄМО handleGoogleSignIn ПЕРШИМ, щоб він був доступний в useEffect
   const handleGoogleSignIn = useCallback(async (response) => {
@@ -67,7 +96,7 @@ export default function Login() {
   // Initialize Google Sign-In when script is loaded
   useEffect(() => {
     try {
-      if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID') {
+      if (resolvedGoogleClientId) {
         // Просто перевіряємо, чи скрипт завантажений
         const checkGoogleLoaded = () => {
           if (window.google && window.google.accounts) {
@@ -105,11 +134,15 @@ export default function Login() {
     } catch (error) {
       console.error('Error in Google Sign-In useEffect:', error);
     }
-  }, [GOOGLE_CLIENT_ID, googleScriptLoaded]);
+  }, [resolvedGoogleClientId, googleScriptLoaded]);
 
   const handleGoogleButtonClick = () => {
-    if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
-      setError('Google OAuth is not configured. Please set VITE_GOOGLE_CLIENT_ID in your .env file.');
+    if (!resolvedGoogleClientId) {
+      if (!publicConfigFetched) {
+        setError('Завантаження налаштувань Google... Зачекайте кілька секунд.');
+        return;
+      }
+      setError('Google OAuth не налаштовано. Додайте GOOGLE_CLIENT_ID_PUBLIC у .env на сервері або VITE_GOOGLE_CLIENT_ID при збірці.');
       return;
     }
 
@@ -124,7 +157,7 @@ export default function Login() {
       // Використовуємо OAuth2 redirect flow замість popup
       // Це працює навіть якщо popup заблокований
       const client = window.google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
+        client_id: resolvedGoogleClientId,
         scope: 'email profile openid',
         callback: async (tokenResponse) => {
           try {
@@ -259,9 +292,6 @@ export default function Login() {
     }
   };
 
-  // Перевірка, чи компонент рендериться
-  console.log('🔐 Login component rendering, GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID?.substring(0, 20) + '...');
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -355,11 +385,11 @@ export default function Login() {
             <div className="flex-1 border-t border-slate-200 dark:border-slate-700"></div>
           </div>
 
-          {/* Google Sign In Button - показується тільки якщо налаштовано */}
-          {GOOGLE_CLIENT_ID && GOOGLE_CLIENT_ID !== 'YOUR_GOOGLE_CLIENT_ID' && (
+          {/* Google Sign In Button - показується якщо налаштовано або під час завантаження */}
+          {(resolvedGoogleClientId || !publicConfigFetched) && (
             <button
               onClick={handleGoogleButtonClick}
-              disabled={googleLoading}
+              disabled={googleLoading || !resolvedGoogleClientId}
               className="w-full flex items-center justify-center space-x-3 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 hover:border-slate-300 dark:hover:border-slate-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -380,7 +410,15 @@ export default function Login() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              <span>{googleLoading ? 'Signing in...' : 'Continue with Google'}</span>
+              <span>
+                {googleLoading 
+                  ? 'Signing in...' 
+                  : !resolvedGoogleClientId && !publicConfigFetched
+                  ? 'Loading...'
+                  : !resolvedGoogleClientId
+                  ? 'Google OAuth not configured'
+                  : 'Continue with Google'}
+              </span>
             </button>
           )}
 

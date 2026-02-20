@@ -161,7 +161,10 @@ NODE_ENV=production
 # Admin Configuration
 ADMIN_EMAIL=admin@lehko.space
 
-# Google OAuth (опціонально)
+# Google OAuth: для входу через Google на продакшні
+# GOOGLE_CLIENT_ID_PUBLIC — фронт підхоплює з /api/config/public (можна не задавати VITE_GOOGLE_CLIENT_ID при білді)
+GOOGLE_CLIENT_ID_PUBLIC=ваш_клієнт_ід.apps.googleusercontent.com
+# (опціонально для інших цілей)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
@@ -256,6 +259,13 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # index.html — не кешувати, щоб браузер завжди брав новий index.html (з новим index-....js)
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        add_header Expires "0";
     }
 
     # Frontend routes
