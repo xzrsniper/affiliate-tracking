@@ -594,14 +594,22 @@ sudo nginx -t && sudo systemctl reload nginx
 
 Після цього кнопка «Код для консолі» та інші останні зміни інтерфейсу мають з’явитися на хостингу.
 
-**Якщо кнопки в інтерфейсі все одно немає** — використовуйте окрему сторінку на бекенді (вона не залежить від версії фронту):
+**Якщо кнопки в інтерфейсі все одно немає** — використовуйте окрему сторінку на бекенді: **https://ваш-домен/console-code**.
 
-- Відкрийте в браузері: **https://ваш-домен/console-code** (наприклад `https://lehko.space/console-code`).
-- Спочатку увійдіть у LehkoTrack на головній сторінці (той самий домен).
-- На сторінці /console-code оберіть сайт зі списку, натисніть «Отримати код», потім «Скопіювати в буфер».
-- На сайті клієнта: F12 → Console → вставте код → Enter. Код дійсний 10 хвилин.
+**Якщо при відкритті /console-code з’являється помилка «No routes matched location "/console-code"»** — nginx віддає фронт (index.html) замість того, щоб передати запит на Node. Потрібно **проксувати /console-code на бекенд**. У конфіг nginx для вашого домену додайте (перед блоком `location /`):
 
-Ця сторінка віддається бекендом (Node), тому працює навіть якщо на хостингу старий зібраний фронт.
+```nginx
+location = /console-code {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Після змін: `sudo nginx -t && sudo systemctl reload nginx`. Потім відкрийте знову **https://ваш-домен/console-code** — має відкритися сторінка з вибором сайту та кнопками «Отримати код» / «Скопіювати в буфер». Спочатку увійдіть у LehkoTrack на головній сторінці. Код для консолі дійсний 10 хвилин.
 
 ---
 

@@ -248,6 +248,16 @@ server {
     root /home/ergoa/affiliate-tracking/frontend/dist;
     index index.html;
 
+    # Сторінка «Код для консолі» — на Node, не на фронт
+    location = /console-code {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # Frontend routes
     location / {
         try_files $uri $uri/ /index.html;
