@@ -91,6 +91,88 @@ app.use('/api/websites', websiteRoutes);
 app.use('/api/page-content', pageContentRoutes);
 app.use('/api/page-structure', pageStructureRoutes);
 
+// Сторінка «Код для консолі» — працює на бекенді, не залежить від версії фронту на хостингу
+app.get('/console-code', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  const base = (req.protocol + '://' + req.get('host')).replace(/\/$/, '');
+  res.send(`<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LehkoTrack — Код для консолі</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 2rem auto; padding: 0 1rem; background: #1e293b; color: #e2e8f0; }
+    h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+    p { margin: 0.5rem 0; font-size: 0.9rem; color: #94a3b8; }
+    select, button, textarea { width: 100%; padding: 0.6rem 0.75rem; margin: 0.5rem 0; border-radius: 8px; font-size: 0.95rem; }
+    select, textarea { background: #334155; color: #e2e8f0; border: 1px solid #475569; }
+    button { background: #f59e0b; color: #1e293b; border: none; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.secondary { background: #475569; color: #e2e8f0; margin-top: 0.25rem; }
+    textarea { min-height: 80px; resize: vertical; }
+    .ok { color: #4ade80; }
+    .err { color: #f87171; }
+    a { color: #f59e0b; }
+  </style>
+</head>
+<body>
+  <h1>Код для консолі (Visual Mapper)</h1>
+  <p>Оберіть сайт і натисніть «Отримати код». Потім на сайті клієнта: F12 → Console → вставте код → Enter. Код дійсний 10 хв.</p>
+  <p>Якщо списку немає — <a href="${base}/">увійдіть у LehkoTrack</a>, потім поверніться сюди.</p>
+  <select id="site" style="margin-bottom:0.5rem"></select>
+  <button id="btnGet">Отримати код</button>
+  <textarea id="out" placeholder="Тут з'явиться код після натискання «Отримати код»" readonly></textarea>
+  <button id="btnCopy" class="secondary" disabled>Скопіювати в буфер</button>
+  <p id="msg"></p>
+  <script>
+    const base = ${JSON.stringify(base)};
+    const select = document.getElementById('site');
+    const out = document.getElementById('out');
+    const btnGet = document.getElementById('btnGet');
+    const btnCopy = document.getElementById('btnCopy');
+    const msg = document.getElementById('msg');
+    function show(m, isErr) { msg.textContent = m; msg.className = isErr ? 'err' : 'ok'; }
+    fetch(base + '/api/websites', { credentials: 'include' }).then(r => {
+      if (r.status === 401) { show('Увійдіть у LehkoTrack на головній сторінці, потім оновіть цю сторінку.', true); return []; }
+      return r.json();
+    }).then(data => {
+      const list = (data && data.websites) || [];
+      if (list.length === 0 && !data.error) show('Сайтів не знайдено. Додайте сайт у Налаштування.', true);
+      select.innerHTML = list.map(w => '<option value="' + w.id + '">' + (w.name || w.domain || w.id) + '</option>').join('');
+    }).catch(() => show('Помилка завантаження. Перевірте, що ви увійшли.', true));
+    btnGet.onclick = function() {
+      const id = select.value;
+      if (!id) { show('Оберіть сайт', true); return; }
+      btnGet.disabled = true;
+      show('Завантаження…');
+      fetch(base + '/api/websites/' + id + '/configure-session', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } })
+        .then(r => r.json())
+        .then(d => {
+          if (d.error || !d.configUrl) { show(d.error || 'Помилка'); btnGet.disabled = false; return; }
+          const codeMatch = d.configUrl.match(/lehko_cfg=([^&]+)/);
+          const code = codeMatch ? codeMatch[1] : '';
+          if (!code) { show('Помилка формату посилання'); btnGet.disabled = false; return; }
+          const mapperUrl = base + '/api/track/mapper/' + code;
+          const snippet = "var s=document.createElement('script');s.src='" + mapperUrl + "';document.head.appendChild(s);";
+          out.value = snippet;
+          show('Код готовий. Натисніть «Скопіювати в буфер».');
+          btnCopy.disabled = false;
+          btnGet.disabled = false;
+        })
+        .catch(() => { show('Помилка мережі'); btnGet.disabled = false; });
+    };
+    btnCopy.onclick = function() {
+      if (!out.value) return;
+      navigator.clipboard.writeText(out.value).then(() => show('Скопійовано!')).catch(() => show('Не вдалося скопіювати', true));
+    };
+  </script>
+</body>
+</html>`);
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
