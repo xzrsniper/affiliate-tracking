@@ -11,6 +11,7 @@ import Settings from './pages/Settings.jsx';
 import Success from './pages/Success.jsx';
 import Setup from './pages/Setup.jsx';
 import HomeNew from './pages/HomeNew.jsx';
+import ConsoleCode from './pages/ConsoleCode.jsx';
 
 // Component to redirect pixel.js to API endpoint
 function PixelJsRedirect() {
@@ -95,6 +96,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <Setup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/console-code"
+          element={
+            <ProtectedRoute>
+              <ConsoleCode />
             </ProtectedRoute>
           }
         />
