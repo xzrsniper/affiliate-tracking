@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.2 — GTM: один лід, sale тільки на сторінці подяки
+ * LehkoTrack Pixel v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
  *
@@ -10,6 +10,7 @@
  *   4. Detects purchase/checkout buttons → sends "lead"
  *   5. Deferred conversion: if user returns after purchase → sale detected
  *   6. Works even if installed only on ONE page (cookies + URL decoration)
+ *   7. Extracts price from: URL params, GTM dataLayer, JSON-LD, meta tags, global vars, DOM scan
  */
 (function () {
   'use strict';
@@ -224,23 +225,176 @@
   function extractOrderFromUrl() {
     var p = new URLSearchParams(location.search);
     var total = p.get('total') || p.get('amount') || p.get('sum') ||
-                p.get('order_value') || p.get('price') || p.get('value');
+                p.get('order_value') || p.get('price') || p.get('value') ||
+                p.get('order_total') || p.get('grand_total') || p.get('revenue') ||
+                p.get('transaction_total') || p.get('suma') || p.get('сума');
     var orderId = p.get('order') || p.get('order_id') || p.get('orderId') ||
-                  p.get('order_number') || p.get('orderNumber');
+                  p.get('order_number') || p.get('orderNumber') || p.get('transaction_id') ||
+                  p.get('transactionId') || p.get('id') || p.get('order_key');
+    // Also check URL hash fragment (some SPAs use #order=123&total=500)
+    if (!total || !orderId) {
+      try {
+        var hashParams = new URLSearchParams(location.hash.replace(/^#\/?/, ''));
+        if (!total) total = hashParams.get('total') || hashParams.get('amount') || hashParams.get('order_value');
+        if (!orderId) orderId = hashParams.get('order_id') || hashParams.get('order');
+      } catch (e) { /* */ }
+    }
     return { total: total ? parseFloat(total) : 0, orderId: orderId || null };
   }
 
-  // ── 4b. Full-page price scan (for success/thank-you pages) ────────────
+  // ── 4b. Extract price from GTM dataLayer (WooCommerce, Shopify, GA4 ecommerce) ──
+  function extractFromDataLayer() {
+    try {
+      var dl = window.dataLayer;
+      if (!dl || !Array.isArray(dl)) return 0;
+      // Scan dataLayer in reverse (latest events first)
+      for (var i = dl.length - 1; i >= 0; i--) {
+        var entry = dl[i];
+        if (!entry) continue;
+        // GA4 ecommerce purchase event
+        if (entry.event === 'purchase' && entry.ecommerce) {
+          var v = parseFloat(entry.ecommerce.value || entry.ecommerce.revenue || entry.ecommerce.total || 0);
+          if (v > 0) { console.log('[LehkoTrack] Price from dataLayer GA4 purchase:', v); return v; }
+        }
+        // UA / GTM ecommerce
+        if (entry.ecommerce && entry.ecommerce.purchase && entry.ecommerce.purchase.actionField) {
+          var v = parseFloat(entry.ecommerce.purchase.actionField.revenue || entry.ecommerce.purchase.actionField.value || 0);
+          if (v > 0) { console.log('[LehkoTrack] Price from dataLayer UA purchase:', v); return v; }
+        }
+        // Generic transaction event
+        if (entry.transactionTotal) {
+          var v = parseFloat(entry.transactionTotal);
+          if (v > 0) { console.log('[LehkoTrack] Price from dataLayer transactionTotal:', v); return v; }
+        }
+        if (entry.event === 'transaction' || entry.event === 'purchase' || entry.event === 'order_complete') {
+          var v = parseFloat(entry.value || entry.revenue || entry.total || entry.order_total || entry.amount || 0);
+          if (v > 0) { console.log('[LehkoTrack] Price from dataLayer event:', entry.event, v); return v; }
+        }
+        // WooCommerce specific
+        if (entry.event === 'gtm4wp.orderCompletedEEC') {
+          var ecom = entry.ecommerce || {};
+          var purch = ecom.purchase || {};
+          var af = purch.actionField || {};
+          var v = parseFloat(af.revenue || af.value || 0);
+          if (v > 0) { console.log('[LehkoTrack] Price from WooCommerce dataLayer:', v); return v; }
+        }
+      }
+    } catch (e) { /* */ }
+    return 0;
+  }
+
+  // ── 4c. Extract price from JSON-LD structured data (schema.org) ────────
+  function extractFromJsonLd() {
+    try {
+      var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (var i = 0; i < scripts.length; i++) {
+        var data = JSON.parse(scripts[i].textContent);
+        // Handle @graph arrays
+        var items = Array.isArray(data) ? data : (data['@graph'] || [data]);
+        for (var j = 0; j < items.length; j++) {
+          var item = items[j];
+          if (!item) continue;
+          var type = item['@type'] || '';
+          if (/Order|Invoice|Receipt/i.test(type)) {
+            var v = parseFloat(item.totalPrice || item.price || item.priceCurrency && item.totalPaymentDue && item.totalPaymentDue.value || 0);
+            if (v > 0) { console.log('[LehkoTrack] Price from JSON-LD:', v); return v; }
+          }
+          if (/Product|Offer/i.test(type)) {
+            var offers = item.offers || item;
+            if (offers.price) {
+              var v = parseFloat(offers.price);
+              if (v > 0) { console.log('[LehkoTrack] Price from JSON-LD Product:', v); return v; }
+            }
+          }
+        }
+      }
+    } catch (e) { /* */ }
+    return 0;
+  }
+
+  // ── 4d. Extract price from global JS variables (common e-commerce patterns) ──
+  function extractFromGlobalVars() {
+    try {
+      // WooCommerce, Shopify, and custom integrations often expose order data
+      var sources = [
+        window.wc_order_data,
+        window.Shopify && window.Shopify.checkout,
+        window.__order__,
+        window.orderData,
+        window.order_data,
+        window.checkoutData,
+        window.__CHECKOUT_DATA__,
+        window.TRACKER_CONFIG
+      ];
+      for (var i = 0; i < sources.length; i++) {
+        var src = sources[i];
+        if (!src || typeof src !== 'object') continue;
+        var v = parseFloat(src.total || src.total_price || src.order_total || src.amount ||
+                           src.revenue || src.value || src.ORDER_VALUE || src.grand_total ||
+                           src.subtotal_price || src.price || 0);
+        if (v > 0) { console.log('[LehkoTrack] Price from global var:', v); return v; }
+      }
+      // Shopify checkout in cents
+      if (window.Shopify && window.Shopify.checkout && window.Shopify.checkout.total_price) {
+        var shopifyVal = parseFloat(window.Shopify.checkout.total_price);
+        // Shopify sometimes returns price in cents (e.g. "4999" for $49.99)
+        if (shopifyVal > 0) {
+          if (shopifyVal > 100000) shopifyVal = shopifyVal / 100; // likely cents
+          console.log('[LehkoTrack] Price from Shopify checkout:', shopifyVal);
+          return shopifyVal;
+        }
+      }
+    } catch (e) { /* */ }
+    return 0;
+  }
+
+  // ── 4e. Extract price from meta tags ──────────────────────────────────
+  function extractFromMeta() {
+    try {
+      var selectors = [
+        'meta[property="product:price:amount"]',
+        'meta[property="og:price:amount"]',
+        'meta[name="order-total"]',
+        'meta[name="order_total"]',
+        'meta[name="amount"]',
+        'meta[name="order-value"]'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var el = document.querySelector(selectors[i]);
+        if (el) {
+          var v = parseFloat(el.getAttribute('content'));
+          if (v > 0) { console.log('[LehkoTrack] Price from meta tag:', selectors[i], v); return v; }
+        }
+      }
+    } catch (e) { /* */ }
+    return 0;
+  }
+
+  // ── 4f. Full-page price scan (for success/thank-you pages) ────────────
   // When priceSelector/staticPrice are NOT configured, scan the DOM for order total
   function extractPriceFromPage() {
+    // Try structured data sources first (most reliable)
+    var dlPrice = extractFromDataLayer();
+    if (dlPrice > 0) return dlPrice;
+
+    var jsonLdPrice = extractFromJsonLd();
+    if (jsonLdPrice > 0) return jsonLdPrice;
+
+    var globalPrice = extractFromGlobalVars();
+    if (globalPrice > 0) return globalPrice;
+
+    var metaPrice = extractFromMeta();
+    if (metaPrice > 0) return metaPrice;
+
+    // Fallback: scan the DOM
     var body = document.body;
     if (!body) return 0;
 
-    var TOTAL_RE = /total|сума|разом|підсумок|итого|всего|до сплати|к оплате|вартість|стоимость|замовлення на суму|заказ на сумму|order\s*amount|order\s*total|grand\s*total/i;
-    var PRICE_RE = /[\u20B4$\u20AC£\u20BD]|грн|uah|usd|eur|руб/i;
+    var TOTAL_RE = /total|сума|разом|підсумок|итого|всего|до сплати|к оплате|вартість|стоимость|замовлення на суму|заказ на сумму|order\s*amount|order\s*total|grand\s*total|amount\s*due|amount\s*paid|сплачено|оплачено/i;
+    var PRICE_RE = /[\u20B4$\u20AC£\u20BD]|грн|uah|usd|eur|руб|zł|pln/i;
 
-    // Strategy 1: find price near "total/sum" labels
-    var candidates = body.querySelectorAll('td, th, span, p, div, li, dt, dd, strong, b, small, h1, h2, h3, h4, h5, h6, label, tr');
+    // Strategy 1: find element with "total" label + sibling/adjacent price element
+    var candidates = body.querySelectorAll('td, th, span, p, div, li, dt, dd, strong, b, small, h1, h2, h3, h4, h5, h6, label, tr, .order-total, .woocommerce-order-overview, .total, [class*="total"], [class*="price"], [class*="amount"], [class*="sum"]');
     for (var i = 0; i < candidates.length; i++) {
       var el = candidates[i];
       if (el.children.length > 10) continue;
@@ -249,6 +403,35 @@
       if (TOTAL_RE.test(text) && /\d/.test(text)) {
         var val = parsePrice(text);
         if (val > 0) return val;
+      }
+    }
+
+    // Strategy 1b: "total" label in one element, price in adjacent sibling
+    var labels = body.querySelectorAll('td, th, span, p, div, dt, label, strong, b');
+    for (var i = 0; i < labels.length; i++) {
+      var lbl = labels[i];
+      var lblText = (lbl.textContent || '').trim();
+      if (lblText.length < 3 || lblText.length > 60) continue;
+      if (!TOTAL_RE.test(lblText)) continue;
+      // Check next sibling element
+      var sibling = lbl.nextElementSibling;
+      if (sibling) {
+        var sibText = (sibling.textContent || '').trim();
+        if (sibText.length > 0 && sibText.length < 80) {
+          var val = parsePrice(sibText);
+          if (val > 0) return val;
+        }
+      }
+      // Check parent's next sibling (for table rows: <td>Сума</td><td>500 грн</td>)
+      if (lbl.parentElement) {
+        var parentSibling = lbl.parentElement.nextElementSibling;
+        if (parentSibling) {
+          var psText = (parentSibling.textContent || '').trim();
+          if (psText.length > 0 && psText.length < 80) {
+            var val = parsePrice(psText);
+            if (val > 0) return val;
+          }
+        }
       }
     }
 
@@ -265,8 +448,8 @@
     }
 
     // Strategy 3: regex scan of visible body text for price patterns
-    var bodyText = (body.innerText || '').substring(0, 5000);
-    var priceMatch = bodyText.match(/(?:сума|total|разом|итого|всего|до сплати|к оплате)[^\d]{0,30}?([\d][\d\s.,]*\d)/i);
+    var bodyText = (body.innerText || '').substring(0, 8000);
+    var priceMatch = bodyText.match(/(?:сума|total|разом|итого|всего|до сплати|к оплате|amount|оплачено|сплачено)[^\d]{0,30}?([\d][\d\s.,]*\d)/i);
     if (priceMatch) {
       var val = parsePrice(priceMatch[1]);
       if (val > 0) return val;
@@ -319,9 +502,17 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       keepalive: true
-    }).catch(function () {});
+    }).catch(function (err) {
+      console.error('[LehkoTrack] Помилка відправки конверсії:', err.message || err);
+    });
 
     console.log('[LehkoTrack]', eventType.toUpperCase(), '| value:', value, '| orderId:', orderId, '| ref:', ref);
+    if (eventType === 'sale' && (!value || value === 0)) {
+      console.warn('[LehkoTrack] ⚠️ Sale відправлено з ціною 0. Використайте один із способів:',
+        '\n• Налаштуйте "Селектор ціни" або "Фіксована ціна" в адмінці LehkoTrack',
+        '\n• Додайте ?total=500 до URL сторінки подяки',
+        '\n• Викличте: window.LehkoTrack.trackPurchase({ amount: 500, orderId: "123" })');
+    }
   }
 
   // ── 6. Button Detection ───────────────────────────────────────────────
@@ -373,15 +564,70 @@
     return false;
   }
 
+  // ── 7b. Success by DOM text (fallback when URL doesn't match) ────────
+  function isSuccessPageByContent() {
+    try {
+      var bodyText = (document.body.innerText || '').substring(0, 5000);
+      if (SUCCESS_TEXT_RE.test(bodyText)) return true;
+    } catch (e) { /* */ }
+    return false;
+  }
+
   // ── 8. On-Load Success Detection ──────────────────────────────────────
   // If THIS page is a success/thank-you page → send sale immediately.
   // Dedup is handled by sendEvent (orderId-based or 3s anti-double-click).
   function checkSuccessOnLoad() {
-    if (!isSuccessPage()) return;
+    var urlSuccess = isSuccessPage();
+    var textSuccess = !urlSuccess && isSuccessPageByContent();
+
+    if (!urlSuccess && !textSuccess) return;
     var ref = getRef();
     if (!ref) return;
 
+    console.log('[LehkoTrack] Success page detected via', urlSuccess ? 'URL' : 'DOM text', ':', location.pathname);
+
     var urlOrder = extractOrderFromUrl();
+
+    // Try to extract order ID and price from dataLayer (GTM / WooCommerce / Shopify)
+    var dataLayerOrderId = null;
+    var dataLayerPrice = 0;
+    try {
+      var dl = window.dataLayer;
+      if (dl && Array.isArray(dl)) {
+        for (var i = dl.length - 1; i >= 0; i--) {
+          var entry = dl[i];
+          if (!entry) continue;
+          // GA4 purchase
+          if (entry.event === 'purchase' && entry.ecommerce) {
+            dataLayerPrice = parseFloat(entry.ecommerce.value || entry.ecommerce.revenue || entry.ecommerce.total || 0) || 0;
+            dataLayerOrderId = entry.ecommerce.transaction_id || entry.ecommerce.order_id || null;
+            if (dataLayerPrice > 0) break;
+          }
+          // UA purchase
+          if (entry.ecommerce && entry.ecommerce.purchase && entry.ecommerce.purchase.actionField) {
+            var af = entry.ecommerce.purchase.actionField;
+            dataLayerPrice = parseFloat(af.revenue || af.value || 0) || 0;
+            dataLayerOrderId = af.id || null;
+            if (dataLayerPrice > 0) break;
+          }
+          // WooCommerce GTM4WP
+          if (entry.event === 'gtm4wp.orderCompletedEEC') {
+            var ecom = entry.ecommerce || {};
+            var purch = ecom.purchase || {};
+            var wooAf = purch.actionField || {};
+            dataLayerPrice = parseFloat(wooAf.revenue || wooAf.value || 0) || 0;
+            dataLayerOrderId = wooAf.id || null;
+            if (dataLayerPrice > 0) break;
+          }
+          // Generic transaction
+          if (entry.transactionTotal) {
+            dataLayerPrice = parseFloat(entry.transactionTotal) || 0;
+            dataLayerOrderId = entry.transactionId || null;
+            if (dataLayerPrice > 0) break;
+          }
+        }
+      }
+    } catch (e) { /* */ }
 
     // Also check pending sale price from localStorage (stored when buy button was clicked)
     var pendingPrice = 0;
@@ -395,12 +641,24 @@
       }
     } catch (e) { /* */ }
 
-    var price = urlOrder.total || extractPrice(null) || pendingPrice || extractPriceFromPage() || 0;
+    // Priority: URL params > dataLayer > configured selector/static > pending from button click > full page scan
+    var price = urlOrder.total || dataLayerPrice || extractPrice(null) || pendingPrice || extractPriceFromPage() || 0;
+    var orderId = urlOrder.orderId || dataLayerOrderId || null;
 
-    sendEvent('sale', price, urlOrder.orderId);
+    if (price === 0) {
+      console.warn('[LehkoTrack] ⚠️ Sale відправляється з ціною 0! Ціну не вдалося витягнути автоматично.',
+        '\nМожливі рішення:',
+        '\n1. Налаштуйте "Селектор ціни" або "Статична ціна" в адмінці LehkoTrack',
+        '\n2. Додайте параметр "total" або "amount" до URL сторінки подяки',
+        '\n3. Використайте API: window.LehkoTrack.trackPurchase({ amount: 500, orderId: "ORDER-123" })',
+        '\n4. Переконайтесь що GTM dataLayer має подію purchase з value');
+    }
+
+    sendEvent('sale', price, orderId);
 
     ls('lehko_pending_sale', null);
-    console.log('[LehkoTrack] Success page detected:', location.pathname, '| price:', price, '| order:', urlOrder.orderId);
+    console.log('[LehkoTrack] Sale sent | price:', price, '| orderId:', orderId, '| source:',
+      urlOrder.total ? 'URL' : dataLayerPrice ? 'dataLayer' : pendingPrice ? 'pendingSale' : price > 0 ? 'DOM' : 'none');
   }
 
   // ── 9. Deferred Conversion ────────────────────────────────────────────
@@ -462,7 +720,7 @@
 
     function fireSale(detectedPrice, detectedOrderId) {
       cleanup();
-      var finalPrice = detectedPrice || price || extractPrice(null) || extractPriceFromPage();
+      var finalPrice = detectedPrice || price || extractFromDataLayer() || extractPrice(null) || extractPriceFromPage();
       sendEvent('sale', finalPrice, detectedOrderId || null);
       ls('lehko_pending_sale', null);
       console.log('[LehkoTrack] Watcher confirmed sale:', finalPrice, detectedOrderId);
@@ -566,7 +824,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.2', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.3', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -813,12 +1071,49 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '4.2',
+    version: '4.3',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,
     getClickId: getClickId
   };
+
+  // ── 16. dataLayer.push() listener ─────────────────────────────────────
+  // Intercept future dataLayer pushes: if a purchase event is pushed after page load,
+  // automatically send a sale with the correct price (common in SPAs / delayed GTM events)
+  function hookDataLayer() {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      var origPush = window.dataLayer.push;
+      window.dataLayer.push = function () {
+        var result = origPush.apply(this, arguments);
+        for (var i = 0; i < arguments.length; i++) {
+          var entry = arguments[i];
+          if (!entry || typeof entry !== 'object') continue;
+          var price = 0, orderId = null;
+          if (entry.event === 'purchase' && entry.ecommerce) {
+            price = parseFloat(entry.ecommerce.value || entry.ecommerce.revenue || entry.ecommerce.total || 0) || 0;
+            orderId = entry.ecommerce.transaction_id || entry.ecommerce.order_id || null;
+          } else if (entry.ecommerce && entry.ecommerce.purchase && entry.ecommerce.purchase.actionField) {
+            var af = entry.ecommerce.purchase.actionField;
+            price = parseFloat(af.revenue || af.value || 0) || 0;
+            orderId = af.id || null;
+          } else if (entry.event === 'gtm4wp.orderCompletedEEC') {
+            var ecom = entry.ecommerce || {};
+            var purch = ecom.purchase || {};
+            var wooAf = purch.actionField || {};
+            price = parseFloat(wooAf.revenue || wooAf.value || 0) || 0;
+            orderId = wooAf.id || null;
+          }
+          if (price > 0 && getRef()) {
+            console.log('[LehkoTrack] dataLayer purchase intercepted: price', price, 'orderId', orderId);
+            sendEvent('sale', price, orderId);
+          }
+        }
+        return result;
+      };
+    } catch (e) { /* */ }
+  }
 
   // ── INIT ──────────────────────────────────────────────────────────────
   if (isConfigMode()) {
@@ -831,6 +1126,7 @@
     // Клік — завжди, навіть якщо config не завантажився
     document.addEventListener('click', onDocClick, true);
     watchUrlChanges();
+    hookDataLayer();
 
     // checkSuccessOnLoad ТІЛЬКИ після завантаження конфігу — щоб staticPrice/priceSelector були доступні
     // Інакше sale відправляється з price=0, а потім dedup блокує повторну спробу з правильною ціною
