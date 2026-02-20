@@ -183,7 +183,7 @@ router.post('/:id/configure-session', async (req, res, next) => {
     const token = jwt.sign(
       { websiteId: website.id, userId: req.user.id, purpose: 'configure' },
       process.env.JWT_SECRET,
-      { expiresIn: '10m' }
+      { expiresIn: '30m' }
     );
 
     const shortCode = storeConfigCode(token);

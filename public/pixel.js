@@ -721,8 +721,22 @@
       toolbar.innerHTML = '<div style="padding:12px;text-align:center">\u23F3 \u0417\u0431\u0435\u0440\u0456\u0433\u0430\u044e...</div>';
       fetch(BASE_URL + '/api/track/save-selector', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: token, selector: savedBtn, priceSelector: savedPrice }) })
-        .then(function (r) { return r.json(); })
-        .then(function (d) { toolbar.innerHTML = d.success ? '<div style="padding:12px;text-align:center">\u2705 \u041a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e!</div>' : '<div style="color:#f87171;padding:8px">\u274C ' + esc(d.error) + '</div>'; if (d.success) setTimeout(cleanupConfig, 3000); })
+        .then(function (r) {
+          if (r.status === 401) {
+            toolbar.innerHTML = '<div style="color:#f87171;padding:8px">\u274C \u0422\u043e\u043a\u0435\u043d \u0437\u0430\u043a\u0456\u043d\u0447\u0438\u0432\u0441\u044f (30 \u0445\u0432). \u0417\u0433\u0435\u043d\u0435\u0440\u0443\u0439\u0442\u0435 \u043d\u043e\u0432\u0438\u0439 \u043a\u043e\u0434 \u0432 \u0430\u0434\u043c\u0456\u043d\u0446\u0456.</div>';
+            return null;
+          }
+          return r.json();
+        })
+        .then(function (d) {
+          if (!d) return;
+          if (d.success) {
+            toolbar.innerHTML = '<div style="padding:12px;text-align:center">\u2705 \u041a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e!</div>';
+            setTimeout(cleanupConfig, 3000);
+          } else {
+            toolbar.innerHTML = '<div style="color:#f87171;padding:8px">\u274C ' + esc(d.error || 'Unknown error') + '</div>';
+          }
+        })
         .catch(function () { toolbar.innerHTML = '<div style="color:#f87171;padding:8px">\u274C \u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043d\u044f</div>'; });
     }
 
