@@ -337,7 +337,20 @@
     if (!ref) return;
 
     var urlOrder = extractOrderFromUrl();
-    var price = urlOrder.total || extractPrice(null) || (cfg.staticPrice > 0 ? cfg.staticPrice : 0);
+
+    // Also check pending sale price from localStorage (stored when buy button was clicked)
+    var pendingPrice = 0;
+    try {
+      var raw = ls('lehko_pending_sale');
+      if (raw) {
+        var pending = JSON.parse(raw);
+        if (pending && pending.price > 0 && Date.now() - pending.timestamp < 30 * 60 * 1000) {
+          pendingPrice = pending.price;
+        }
+      }
+    } catch (e) { /* */ }
+
+    var price = urlOrder.total || extractPrice(null) || pendingPrice || (cfg.staticPrice > 0 ? cfg.staticPrice : 0);
 
     sendEvent('sale', price, urlOrder.orderId);
 
@@ -770,17 +783,23 @@
   } else {
     captureAndPersist();
 
-    // Клік і перевірка success — завжди, навіть якщо config не завантажився (щоб нічого не ламалось)
+    // Клік — завжди, навіть якщо config не завантажився
     document.addEventListener('click', onDocClick, true);
-    checkSuccessOnLoad();
     watchUrlChanges();
 
+    // checkSuccessOnLoad ТІЛЬКИ після завантаження конфігу — щоб staticPrice/priceSelector були доступні
+    // Інакше sale відправляється з price=0, а потім dedup блокує повторну спробу з правильною ціною
     fetchConfig().then(function () {
       decorateAllLinks();
       checkDeferredConversion();
       checkSuccessOnLoad();
       watchUrlChanges();
-    }).catch(function () {});
+    }).catch(function () {
+      // Config не завантажився — все одно перевіряємо success page (ціна буде з URL або pending sale)
+      decorateAllLinks();
+      checkDeferredConversion();
+      checkSuccessOnLoad();
+    });
 
     verify();
     setInterval(verify, 5 * 60 * 1000);
