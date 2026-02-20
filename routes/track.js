@@ -574,7 +574,8 @@ router.get('/view/:code', async (req, res, next) => {
  */
 router.post('/conversion', async (req, res, next) => {
   const unique_code = req.body.unique_code || req.body.code || req.query.code;
-  const order_value = req.body.order_value || req.body.value || req.body.amount || req.body.total || req.query.value;
+  // Use ?? instead of || so that numeric 0 is not lost (0 is falsy with ||)
+  const order_value = req.body.order_value ?? req.body.value ?? req.body.amount ?? req.body.total ?? req.query.value;
   const visitor_id = req.body.visitor_id || req.body.visitorId || req.headers['x-visitor-id'];
   const order_id = req.body.order_id || req.body.orderId || req.body.order_number;
   const click_id = req.body.click_id || req.body.clickId || null;
@@ -616,9 +617,16 @@ router.post('/conversion', async (req, res, next) => {
         
         // Remove common currency symbols and formatting
         cleaned = cleaned
-          .replace(/[^\d.,-]/g, '') // Remove everything except digits, dots, commas, minus
-          .replace(/,/g, '') // Remove commas (thousand separators)
-          .replace(/^-/, ''); // Remove leading minus (negative prices not supported)
+          .replace(/[^\d.,-]/g, ''); // Remove everything except digits, dots, commas, minus
+        
+        // Handle comma as decimal separator (e.g. "1499,50" → "1499.50")
+        // If there's exactly one comma and no dots, and 1-2 digits after comma → it's a decimal
+        if (/^\d+,\d{1,2}$/.test(cleaned)) {
+          cleaned = cleaned.replace(',', '.');
+        } else {
+          cleaned = cleaned.replace(/,/g, ''); // Remove commas (thousand separators)
+        }
+        cleaned = cleaned.replace(/^-/, ''); // Remove leading minus (negative prices not supported)
         
         parsedOrderValue = parseFloat(cleaned) || 0;
         

@@ -230,6 +230,51 @@
     return { total: total ? parseFloat(total) : 0, orderId: orderId || null };
   }
 
+  // ── 4b. Full-page price scan (for success/thank-you pages) ────────────
+  // When priceSelector/staticPrice are NOT configured, scan the DOM for order total
+  function extractPriceFromPage() {
+    var body = document.body;
+    if (!body) return 0;
+
+    var TOTAL_RE = /total|сума|разом|підсумок|итого|всего|до сплати|к оплате|вартість|стоимость|замовлення на суму|заказ на сумму|order\s*amount|order\s*total|grand\s*total/i;
+    var PRICE_RE = /[\u20B4$\u20AC£\u20BD]|грн|uah|usd|eur|руб/i;
+
+    // Strategy 1: find price near "total/sum" labels
+    var candidates = body.querySelectorAll('td, th, span, p, div, li, dt, dd, strong, b, small, h1, h2, h3, h4, h5, h6, label, tr');
+    for (var i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      if (el.children.length > 10) continue;
+      var text = (el.textContent || '').trim();
+      if (text.length < 3 || text.length > 300) continue;
+      if (TOTAL_RE.test(text) && /\d/.test(text)) {
+        var val = parsePrice(text);
+        if (val > 0) return val;
+      }
+    }
+
+    // Strategy 2: any prominent element with currency symbol
+    for (var i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      if (el.children.length > 3) continue;
+      var text = (el.textContent || '').trim();
+      if (text.length < 2 || text.length > 80) continue;
+      if (PRICE_RE.test(text)) {
+        var val = parsePrice(text);
+        if (val > 0) return val;
+      }
+    }
+
+    // Strategy 3: regex scan of visible body text for price patterns
+    var bodyText = (body.innerText || '').substring(0, 5000);
+    var priceMatch = bodyText.match(/(?:сума|total|разом|итого|всего|до сплати|к оплате)[^\d]{0,30}?([\d][\d\s.,]*\d)/i);
+    if (priceMatch) {
+      var val = parsePrice(priceMatch[1]);
+      if (val > 0) return val;
+    }
+
+    return 0;
+  }
+
   // ── 5. Event Sender ────────────────────────────────────────────────────
   // Dedup rules:
   //   - With orderId: block same orderId permanently (prevents reload/back)
@@ -350,7 +395,7 @@
       }
     } catch (e) { /* */ }
 
-    var price = urlOrder.total || extractPrice(null) || pendingPrice || (cfg.staticPrice > 0 ? cfg.staticPrice : 0);
+    var price = urlOrder.total || extractPrice(null) || pendingPrice || extractPriceFromPage() || 0;
 
     sendEvent('sale', price, urlOrder.orderId);
 
@@ -417,7 +462,7 @@
 
     function fireSale(detectedPrice, detectedOrderId) {
       cleanup();
-      var finalPrice = detectedPrice || price || extractPrice(null);
+      var finalPrice = detectedPrice || price || extractPrice(null) || extractPriceFromPage();
       sendEvent('sale', finalPrice, detectedOrderId || null);
       ls('lehko_pending_sale', null);
       console.log('[LehkoTrack] Watcher confirmed sale:', finalPrice, detectedOrderId);
