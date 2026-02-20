@@ -514,15 +514,18 @@
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
   function isConfigMode() {
     var params = new URLSearchParams(location.search);
-    // Support both: full token or short code
-    return (params.get('lehko_mode') === 'configure' && params.get('token')) || params.get('lehko_cfg');
+    // Support: full token in URL, short code in URL, or sessionStorage (persists across page navigation)
+    if ((params.get('lehko_mode') === 'configure' && params.get('token')) || params.get('lehko_cfg')) return true;
+    try { return !!sessionStorage.getItem('lehko_mapper_token'); } catch (e) { return false; }
   }
 
   function resolveConfigToken(cb) {
     var params = new URLSearchParams(location.search);
     // Legacy: full token in URL
     if (params.get('lehko_mode') === 'configure' && params.get('token')) {
-      cb(params.get('token'));
+      var t = params.get('token');
+      try { sessionStorage.setItem('lehko_mapper_token', t); } catch (e) {}
+      cb(t);
       return;
     }
     // New: short code → fetch full token from server
@@ -532,13 +535,20 @@
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (d.success && d.token) {
+            try { sessionStorage.setItem('lehko_mapper_token', d.token); } catch (e) {}
             cb(d.token);
           } else {
             console.warn('[LehkoTrack] Config code expired or invalid');
           }
         })
         .catch(function () { console.warn('[LehkoTrack] Failed to resolve config code'); });
+      return;
     }
+    // Fallback: token stored in sessionStorage from previous page
+    try {
+      var saved = sessionStorage.getItem('lehko_mapper_token');
+      if (saved) { cb(saved); return; }
+    } catch (e) {}
   }
 
   function startConfigMode(token) {
@@ -720,6 +730,8 @@
       document.removeEventListener('mousemove', onMove, true); document.removeEventListener('click', onClick, true);
       document.querySelectorAll('.lehko-highlight,.lehko-selected').forEach(function (el) { el.classList.remove('lehko-highlight', 'lehko-selected'); });
       [overlay, tooltip, toolbar, style].forEach(function (el) { if (el) el.remove(); });
+      // Clear sessionStorage so mapper won't load on next navigation
+      try { sessionStorage.removeItem('lehko_mapper_token'); } catch (e) {}
     }
 
     document.addEventListener('mousemove', onMove, true);

@@ -83,6 +83,9 @@ router.get('/mapper/:code', (req, res) => {
   window.__lehkoConfig.siteId = window.__lehkoConfig.siteId || '${decoded.websiteId}';
   window.__lehkoConfig.baseUrl = '${serverOrigin}';
 
+  // Save token to sessionStorage so mapper persists across page navigations
+  try { sessionStorage.setItem('lehko_mapper_token', '${token}'); } catch (e) {}
+
   // Inject URL params so pixel.js detects config mode
   var url = new URL(location.href);
   url.searchParams.set('lehko_mode', 'configure');
