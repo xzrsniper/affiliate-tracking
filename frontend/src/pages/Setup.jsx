@@ -154,6 +154,23 @@ export default function Setup() {
     return /^(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(domain.replace(/^https?:\/\//i, ''));
   };
 
+  const handleCopyConsoleCode = useCallback(async (website) => {
+    if (!website?.id) return;
+    try {
+      const res = await api.post(`/api/websites/${website.id}/configure-session`);
+      const configUrl = res.data.configUrl || '';
+      const codeMatch = configUrl.match(/lehko_cfg=([^&]+)/);
+      const code = codeMatch ? codeMatch[1] : '';
+      if (!code) { alert('Помилка генерації коду'); return; }
+      const mapperUrl = `${API_BASE}/api/track/mapper/${code}`;
+      const snippet = `var s=document.createElement('script');s.src='${mapperUrl}';document.head.appendChild(s);`;
+      await navigator.clipboard.writeText(snippet);
+      alert('Код скопійовано! 🎯\n\n1. Відкрийте сайт клієнта\n2. F12 → Console\n3. Вставте код (Ctrl+V) → Enter\n4. Оберіть кнопку ліду. Код дійсний 10 хв.');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Помилка');
+    }
+  }, [API_BASE]);
+
   const handleConfigureVisualMapper = useCallback(async (website) => {
     if (!website.domain) {
       alert('Спочатку вкажіть домен сайту.');
@@ -931,14 +948,24 @@ window.__lehkoConfig = {
         {editingWebsite && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 className="text-xl font-bold text-slate-800 dark:text-white">Налаштування: {editingWebsite.name}</h3>
-                <button
-                  onClick={() => setEditingWebsite(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyConsoleCode(editingWebsite)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60"
+                  >
+                    <Code className="w-4 h-4" />
+                    <span>Код для консолі</span>
+                  </button>
+                  <button
+                    onClick={() => setEditingWebsite(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               <form onSubmit={handleSaveWebsite} className="space-y-4">
                 <div>
@@ -1010,8 +1037,17 @@ window.__lehkoConfig = {
                     </p>
                   </div>
 
-                  {/* Visual Mapper + Код для консолі — завжди обидві кнопки (локально і на хостингу) */}
-                  <div className="flex flex-col gap-2" data-console-btn="1">
+                  {/* Код для консолі — першим; потім Visual Mapper */}
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyConsoleCode(editingWebsite)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm"
+                      title="Скопіювати код для консолі (F12 → Console)"
+                    >
+                      <Code className="w-4 h-4" />
+                      <span>Код для консолі — скопіювати (F12 → Console)</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleConfigureVisualMapper(editingWebsite)}
@@ -1021,35 +1057,9 @@ window.__lehkoConfig = {
                       <MousePointerClick className="w-4 h-4" />
                       <span>{configuringId === editingWebsite?.id ? 'Очікую...' : 'Visual Mapper — відкрити сайт'}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await api.post(`/api/websites/${editingWebsite.id}/configure-session`);
-                          const configUrl = res.data.configUrl || '';
-                          const codeMatch = configUrl.match(/lehko_cfg=([^&]+)/);
-                          const code = codeMatch ? codeMatch[1] : '';
-                          if (!code) { alert('Помилка генерації коду'); return; }
-                          const mapperUrl = `${API_BASE}/api/track/mapper/${code}`;
-                          const snippet = `var s=document.createElement('script');s.src='${mapperUrl}';document.head.appendChild(s);`;
-                          await navigator.clipboard.writeText(snippet);
-                          alert('Код скопійовано! 🎯\n\nІнструкція:\n1. Відкрийте сайт клієнта в браузері\n2. Перейдіть на сторінку з потрібною кнопкою\n3. Натисніть F12 → Console\n4. Вставте код (Ctrl+V) → Enter\n5. З\'явиться панель — оберіть кнопку ліду\n\nКод дійсний 10 хвилин.');
-                        } catch (err) {
-                          alert(err.response?.data?.error || 'Помилка');
-                        }
-                      }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm"
-                      title="Скопіювати код для вставки в консоль браузера на сайті клієнта"
-                    >
-                      <Code className="w-4 h-4" />
-                      <span>Код для консолі — скопіювати (F12 → Console)</span>
-                    </button>
                   </div>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
                     <strong>Visual Mapper</strong> відкриє сайт у новій вкладці. <strong>Код для консолі</strong> — якщо не відкривається: скопіюйте код, на сайті клієнта F12 → Console → вставте код.
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    На хостингу немає кнопки «Код для консолі»? Перезберіть фронт: <code className="bg-white/50 dark:bg-slate-600/50 px-1 rounded">cd frontend && npm run build</code>, потім завантажте вміст <code className="bg-white/50 dark:bg-slate-600/50 px-1 rounded">dist/</code> на хостинг і зробіть жорстке оновлення (Ctrl+Shift+R).
                   </p>
                 </div>
 
