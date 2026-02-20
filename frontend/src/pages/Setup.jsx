@@ -1010,8 +1010,8 @@ window.__lehkoConfig = {
                     </p>
                   </div>
 
-                  {/* Visual Mapper + Код для консолі — у стовпчик, щоб обидві кнопки завжди видно на хостингу */}
-                  <div className="flex flex-col gap-2">
+                  {/* Visual Mapper + Код для консолі — завжди обидві кнопки (локально і на хостингу) */}
+                  <div className="flex flex-col gap-2" data-console-btn="1">
                     <button
                       type="button"
                       onClick={() => handleConfigureVisualMapper(editingWebsite)}
@@ -1047,6 +1047,9 @@ window.__lehkoConfig = {
                   </div>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
                     <strong>Visual Mapper</strong> відкриє сайт у новій вкладці. <strong>Код для консолі</strong> — якщо не відкривається: скопіюйте код, на сайті клієнта F12 → Console → вставте код.
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    На хостингу немає кнопки «Код для консолі»? Перезберіть фронт: <code className="bg-white/50 dark:bg-slate-600/50 px-1 rounded">cd frontend && npm run build</code>, потім завантажте вміст <code className="bg-white/50 dark:bg-slate-600/50 px-1 rounded">dist/</code> на хостинг і зробіть жорстке оновлення (Ctrl+Shift+R).
                   </p>
                 </div>
 
