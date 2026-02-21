@@ -7,7 +7,7 @@
  *   1. Captures ref & click_id from URL → stores in localStorage + cookies
  *   2. Decorates ALL internal links so ref/click_id follow the user across pages
  *   3. On ANY page load: checks if it's a success page → sends "sale"
- *   4. Detects purchase/checkout buttons → sends "lead"
+ *   4. Detects purchase button click → sends "lead" (ONLY if button configured via Visual Mapper)
  *   5. Deferred conversion: if user returns after purchase → sale detected
  *   6. Works even if installed only on ONE page (cookies + URL decoration)
  *   7. Extracts price from: URL params, GTM dataLayer, JSON-LD, meta tags, global vars, DOM scan
@@ -515,19 +515,8 @@
     }
   }
 
-  // ── 6. Button Detection ───────────────────────────────────────────────
-  var PURCHASE_RE = /купити|купить|замовити|заказать|оформити замовлення|оформить заказ|оплатити|оплатить|придбати|checkout|pay now|buy now|place order|confirm order|підтвердити|complete purchase|оформити покупку|submit order/i;
-  var CART_RE = /кошик|корзин|cart|wishlist|обране|favorite|порівн|compar|додати в кошик|добавить в корзину|add to cart/i;
-
-  function isPurchaseButton(el) {
-    if (!el || !el.tagName) return false;
-    var text = (el.textContent || '').trim();
-    if (text.length > 80) return false;
-    var val = (el.getAttribute('value') || '').trim();
-    var combined = text + ' ' + val;
-    if (CART_RE.test(combined)) return false;
-    return PURCHASE_RE.test(combined);
-  }
+  // ── 6. (Removed) Generic button detection removed ─────────────────
+  // Leads now fire ONLY via purchaseButtonSelector set through Visual Mapper.
 
   // ── 7. Success Page Detection ─────────────────────────────────────────
   // Не вважати success: checkout, cart, сторінка оформлення/оплати (це ще не подяка)
@@ -780,20 +769,13 @@
   }
 
   // ── 11. Click Handler ─────────────────────────────────────────────────
-  // If purchaseButtonSelector is configured for this site → ONLY that button triggers a lead.
-  // If NOT configured → fall back to generic regex detection (PURCHASE_RE / CART_RE).
+  // Lead спрацьовує ТІЛЬКИ якщо purchaseButtonSelector налаштовано через Visual Mapper.
+  // Без налаштованого селектора — ліди не відправляються автоматично.
   function onDocClick(e) {
-    var target = e.target;
-    var btn = null;
+    if (!cfg.purchaseButtonSelector) return;
 
-    if (cfg.purchaseButtonSelector) {
-      // Strict mode: only the exact configured selector counts
-      btn = target.closest(cfg.purchaseButtonSelector);
-    } else {
-      // Fallback: generic heuristic when no selector is configured
-      var clickable = target.closest('button, a, input[type="submit"], [role="button"], .btn, [class*="btn"], [class*="button"]');
-      if (clickable && isPurchaseButton(clickable)) btn = clickable;
-    }
+    var target = e.target;
+    var btn = target.closest(cfg.purchaseButtonSelector);
 
     if (btn) {
       var price = extractPrice(btn);
