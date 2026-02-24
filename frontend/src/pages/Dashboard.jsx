@@ -45,13 +45,12 @@ export default function Dashboard() {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null); // Track which link is being deleted
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [lastUpdated, setLastUpdated] = useState(null); // Track last update time
-  const hasFetchedRef = useRef(false); // Track if data was ever loaded
+  const [hasFetched, setHasFetched] = useState(true); // Data loads automatically
   const isMountedRef = useRef(false); // Track if component is mounted
 
   // Auto-fetch links on mount
   useEffect(() => {
     isMountedRef.current = true;
-    hasFetchedRef.current = true;
     fetchLinks(true);
     return () => {
       isMountedRef.current = false;
@@ -526,20 +525,7 @@ export default function Dashboard() {
       )}
 
       {/* Links Table */}
-      {!hasFetchedRef.current ? (
-        <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700">
-          <p className="text-slate-500 dark:text-slate-400 mb-4">Натисніть кнопку "Оновити" щоб завантажити посилання</p>
-          <button
-            onClick={() => {
-              hasFetchedRef.current = true;
-              fetchLinks(true);
-            }}
-            className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
-          >
-            Завантажити посилання
-          </button>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="text-center py-12">
           <p className="text-slate-500">Loading links...</p>
         </div>
