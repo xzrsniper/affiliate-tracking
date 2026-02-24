@@ -1079,7 +1079,9 @@ window.__lehkoConfig = {
                   </div>
                 </div>
 
-                  {/* Код для консолі — першим; потім Visual Mapper */}
+                {/* Код для консолі — першим; потім Visual Mapper */}
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Visual Mapper / Консоль</label>
                   <div className="flex flex-col gap-2">
                     <button
                       type="button"
