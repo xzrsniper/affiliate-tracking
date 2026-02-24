@@ -135,7 +135,7 @@ export default function Layout({ children }) {
         <div className="p-8 relative">
           {/* Contacts Button - Top Right */}
           <a
-            href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`}
+            href="https://t.me/hodunkooo"
             target="_blank"
             rel="noopener noreferrer"
             className="absolute top-8 right-8 flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 z-10"
