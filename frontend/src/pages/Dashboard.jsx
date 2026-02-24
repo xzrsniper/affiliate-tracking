@@ -213,7 +213,7 @@ export default function Dashboard() {
   const totalCarts = links.reduce((sum, link) => sum + (link.stats?.carts || 0), 0);
   const salesRevenue = links.reduce((sum, link) => sum + (link.stats?.sales_revenue ?? 0), 0);
 
-  const convRate = totalClicks > 0 ? ((totalSales / totalClicks) * 100).toFixed(1) : 0;
+  const convRate = uniqueClicks > 0 ? (((totalLeads + totalSales) / uniqueClicks) * 100).toFixed(1) : 0;
 
   const canCreateMoreLinks = links.length < (user?.link_limit || 3);
   const currentDate = new Date().toLocaleDateString('uk-UA', {
@@ -724,7 +724,7 @@ export default function Dashboard() {
                     const leads = link.stats?.leads || 0;
                     const sales = link.stats?.sales || 0;
                     const revenue = link.stats?.sales_revenue ?? 0;
-                    const cr = clicks > 0 ? ((sales / clicks) * 100).toFixed(1) : '0.0';
+                    const cr = unique > 0 ? (((leads + sales) / unique) * 100).toFixed(1) : '0.0';
 
                     return (
                       <React.Fragment key={link.id}>
