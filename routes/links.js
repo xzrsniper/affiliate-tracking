@@ -115,6 +115,43 @@ router.post('/create', async (req, res, next) => {
 });
 
 /**
+ * GET /api/links/clicks-chart
+ * Get time-series click data for the chart (last 7 days, hourly)
+ */
+router.get('/clicks-chart', async (req, res, next) => {
+  try {
+    // Get all link IDs for this user
+    const userLinks = await Link.findAll({
+      where: { user_id: req.user.id },
+      attributes: ['id']
+    });
+    const linkIds = userLinks.map(l => l.id);
+
+    if (linkIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Get hourly click data for last 7 days
+    const [rows] = await sequelize.query(`
+      SELECT 
+        DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') as time_bucket,
+        COUNT(*) as clicks,
+        COUNT(DISTINCT visitor_fingerprint) as unique_clicks
+      FROM clicks
+      WHERE link_id IN (?) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      GROUP BY time_bucket
+      ORDER BY time_bucket ASC
+    `, {
+      replacements: [linkIds]
+    });
+
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/links/my-links
  * Get all links belonging to the logged-in user
  * Includes count of clicks/conversions using Sequelize includes
