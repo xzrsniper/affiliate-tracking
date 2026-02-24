@@ -876,19 +876,24 @@
       while (el && el !== document.body) {
         var seg = el.tagName.toLowerCase();
         if (el.id) { path.unshift('#' + CSS.escape(el.id)); break; }
+        var hasClasses = false;
         if (el.className && typeof el.className === 'string') {
           var cls = el.className.trim().split(/\s+/).filter(function (c) {
             return c && !c.startsWith('lehko-');
           });
-          if (cls.length) seg += '.' + cls.map(CSS.escape).join('.');
+          if (cls.length) { seg += '.' + cls.map(CSS.escape).join('.'); hasClasses = true; }
         }
-        var parent = el.parentElement;
-        if (parent) {
-          var siblings = Array.from(parent.children).filter(function (c) { return c.tagName === el.tagName; });
-          if (siblings.length > 1) seg += ':nth-of-type(' + (siblings.indexOf(el) + 1) + ')';
+        // Only add :nth-of-type when element has NO classes/id — otherwise
+        // keep the selector generic so it matches ALL similar elements (e.g. all "Add to cart" buttons)
+        if (!hasClasses) {
+          var parent = el.parentElement;
+          if (parent) {
+            var siblings = Array.from(parent.children).filter(function (c) { return c.tagName === el.tagName; });
+            if (siblings.length > 1) seg += ':nth-of-type(' + (siblings.indexOf(el) + 1) + ')';
+          }
         }
         path.unshift(seg);
-        el = parent;
+        el = el.parentElement;
       }
       return path.join(' > ');
     }
