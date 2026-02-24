@@ -51,6 +51,8 @@ export default function Dashboard() {
   const [expandedLinkId, setExpandedLinkId] = useState(null); // Track which link is expanded
   const [searchQuery, setSearchQuery] = useState(''); // Search/filter links
   const [sourceFilter, setSourceFilter] = useState(''); // Filter by source type
+  const [sortColumn, setSortColumn] = useState(''); // Sort column key
+  const [sortDirection, setSortDirection] = useState('desc'); // 'asc' | 'desc'
   const [updating, setUpdating] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null); // Track which link is being deleted
   const [successMessage, setSuccessMessage] = useState(''); // Success message
@@ -711,18 +713,49 @@ export default function Dashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-violet-700 bg-gradient-to-r from-violet-600 to-indigo-600">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-8"></th>
-                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Посилання</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Кліки</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Унікальні</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Кошик</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Ліди</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Продажі</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">CR%</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Дохід</th>
-                  <th className="text-center px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-16">Дії</th>
-                </tr>
+                {(() => {
+                  const SortTh = ({ col, children, align = 'right', extra = '' }) => {
+                    const active = sortColumn === col;
+                    return (
+                      <th
+                        className={`${align === 'left' ? 'text-left' : 'text-right'} px-3 py-2.5 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-white/10 transition-colors whitespace-nowrap ${extra} ${active ? 'text-white' : 'text-white/80'}`}
+                        onClick={() => {
+                          if (active) {
+                            setSortDirection(d => d === 'desc' ? 'asc' : 'desc');
+                          } else {
+                            setSortColumn(col);
+                            setSortDirection('desc');
+                          }
+                        }}
+                      >
+                        <span className={`inline-flex items-center ${align === 'right' ? 'justify-end' : 'justify-start'} gap-0.5`}>
+                          {children}
+                          {active ? (
+                            sortDirection === 'desc'
+                              ? <ChevronDown className="w-3 h-3" />
+                              : <ChevronUp className="w-3 h-3" />
+                          ) : (
+                            <ChevronDown className="w-3 h-3 opacity-30" />
+                          )}
+                        </span>
+                      </th>
+                    );
+                  };
+                  return (
+                    <tr className="border-b border-violet-700 bg-gradient-to-r from-violet-600 to-indigo-600">
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-8"></th>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Посилання</th>
+                      <SortTh col="clicks">Кліки</SortTh>
+                      <SortTh col="unique">Унікальні</SortTh>
+                      <SortTh col="carts">Кошик</SortTh>
+                      <SortTh col="leads">Ліди</SortTh>
+                      <SortTh col="sales">Продажі</SortTh>
+                      <SortTh col="cr">CR%</SortTh>
+                      <SortTh col="revenue">Дохід</SortTh>
+                      <th className="text-center px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-16">Дії</th>
+                    </tr>
+                  );
+                })()}
               </thead>
               <tbody>
                 {links
@@ -744,6 +777,27 @@ export default function Dashboard() {
                       (link.unique_code || '').toLowerCase().includes(q) ||
                       (link.source_type || '').toLowerCase().includes(q)
                     );
+                  })
+                  .sort((a, b) => {
+                    if (!sortColumn) return 0;
+                    const getVal = (link) => {
+                      const s = link.stats || {};
+                      switch (sortColumn) {
+                        case 'clicks': return s.total_clicks || 0;
+                        case 'unique': return s.unique_clicks || 0;
+                        case 'carts': return s.carts || 0;
+                        case 'leads': return s.leads || 0;
+                        case 'sales': return s.sales || 0;
+                        case 'revenue': return s.sales_revenue ?? 0;
+                        case 'cr': {
+                          const u = s.unique_clicks || 0;
+                          return u > 0 ? ((s.leads || 0) + (s.sales || 0)) / u * 100 : 0;
+                        }
+                        default: return 0;
+                      }
+                    };
+                    const va = getVal(a), vb = getVal(b);
+                    return sortDirection === 'desc' ? vb - va : va - vb;
                   })
                   .map((link) => {
                     const clicks = link.stats?.total_clicks || 0;
