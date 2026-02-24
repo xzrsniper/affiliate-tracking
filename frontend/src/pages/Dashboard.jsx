@@ -692,17 +692,17 @@ export default function Dashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-750">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-8"></th>
-                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Посилання</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Кліки</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Унікальні</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Кошик</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ліди</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Продажі</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CR%</th>
-                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Дохід</th>
-                  <th className="text-center px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-16">Дії</th>
+                <tr className="border-b border-violet-700 bg-gradient-to-r from-violet-600 to-indigo-600">
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-8"></th>
+                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Посилання</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Кліки</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Унікальні</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Кошик</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Ліди</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Продажі</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">CR%</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Дохід</th>
+                  <th className="text-center px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-16">Дії</th>
                 </tr>
               </thead>
               <tbody>
