@@ -48,10 +48,11 @@ export default function Dashboard() {
   const hasFetchedRef = useRef(false); // Track if data was ever loaded
   const isMountedRef = useRef(false); // Track if component is mounted
 
-  // COMPLETELY DISABLED - No automatic fetching
-  // Data loads only when user clicks "Оновити" button
+  // Auto-fetch links on mount
   useEffect(() => {
     isMountedRef.current = true;
+    hasFetchedRef.current = true;
+    fetchLinks(true);
     return () => {
       isMountedRef.current = false;
     };
