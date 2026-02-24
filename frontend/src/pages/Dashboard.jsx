@@ -210,14 +210,14 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         <StatCard
           icon={MousePointerClick}
-          label="Кліків"
+          label="Всього кліків"
           value={totalClicks.toLocaleString()}
           bgColor="bg-blue-100"
           iconColor="text-blue-600"
         />
         <StatCard
           icon={Users}
-          label="Унікальних"
+          label="Унікальні кліки"
           value={uniqueClicks.toLocaleString()}
           bgColor="bg-purple-100"
           iconColor="text-purple-600"
@@ -559,8 +559,8 @@ export default function Dashboard() {
             {/* Table header */}
             <div className="hidden md:grid md:grid-cols-12 gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <div className="col-span-4">Посилання</div>
-              <div className="col-span-1 text-center">Кліки</div>
-              <div className="col-span-1 text-center">Унік.</div>
+              <div className="col-span-1 text-center">Всього кліків</div>
+              <div className="col-span-1 text-center">Унікальні кліки</div>
               <div className="col-span-1 text-center">Ліди</div>
               <div className="col-span-1 text-center">Продажі</div>
               <div className="col-span-2 text-center">Дохід</div>
@@ -602,11 +602,11 @@ export default function Dashboard() {
 
                   {/* Stats - mobile: inline, desktop: columns */}
                   <div className="md:col-span-1 text-center">
-                    <span className="md:hidden text-xs text-slate-400">Кліки: </span>
+                    <span className="md:hidden text-xs text-slate-400">Всього кліків: </span>
                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{link.stats?.total_clicks || 0}</span>
                   </div>
                   <div className="md:col-span-1 text-center">
-                    <span className="md:hidden text-xs text-slate-400">Унік: </span>
+                    <span className="md:hidden text-xs text-slate-400">Унікальні кліки: </span>
                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{link.stats?.unique_clicks || 0}</span>
                   </div>
                   <div className="md:col-span-1 text-center">
