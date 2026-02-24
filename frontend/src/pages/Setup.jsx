@@ -11,7 +11,7 @@ export default function Setup() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newWebsite, setNewWebsite] = useState({ name: '', domain: '' });
   const [editingWebsite, setEditingWebsite] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', domain: '', conversion_urls: [], price_selector: '', static_price: '', purchase_button_selector: '' });
+  const [editForm, setEditForm] = useState({ name: '', domain: '', conversion_urls: [], price_selector: '', static_price: '', purchase_button_selector: '', cart_button_selector: '' });
   const [showCodeModal, setShowCodeModal] = useState(null);
   const [checkingId, setCheckingId] = useState(null);
   const [configuringId, setConfiguringId] = useState(null);
@@ -123,7 +123,8 @@ export default function Setup() {
       conversion_urls: urls,
       price_selector: website.price_selector || '',
       static_price: website.static_price != null ? String(website.static_price) : '',
-      purchase_button_selector: website.purchase_button_selector || ''
+      purchase_button_selector: website.purchase_button_selector || '',
+      cart_button_selector: website.cart_button_selector || ''
     });
     setEditingWebsite(website);
   };
@@ -138,7 +139,8 @@ export default function Setup() {
         conversion_urls: editForm.conversion_urls,
         price_selector: editForm.price_selector || null,
         static_price: editForm.static_price === '' ? null : parseFloat(editForm.static_price),
-        purchase_button_selector: editForm.purchase_button_selector || null
+        purchase_button_selector: editForm.purchase_button_selector || null,
+        cart_button_selector: editForm.cart_button_selector || null
       });
       setEditingWebsite(null);
       fetchWebsites();
@@ -199,12 +201,15 @@ export default function Setup() {
         try {
           const check = await api.get('/api/websites');
           const updated = (check.data.websites || []).find(w => w.id === website.id);
-          if (updated && updated.purchase_button_selector) {
+          if (updated && (updated.purchase_button_selector || updated.cart_button_selector)) {
             clearInterval(pollRef.current);
             pollRef.current = null;
             setConfiguringId(null);
             setWebsites(prev => prev.map(w => w.id === website.id ? { ...w, ...updated } : w));
-            alert(`Кнопку ліду налаштовано: ${updated.purchase_button_selector}`);
+            const parts = [];
+            if (updated.purchase_button_selector) parts.push(`Кнопка ліду: ${updated.purchase_button_selector}`);
+            if (updated.cart_button_selector) parts.push(`Кнопка корзини: ${updated.cart_button_selector}`);
+            alert(parts.join('\n'));
           }
         } catch (e) { /* keep polling */ }
       }, 3000);
@@ -736,13 +741,13 @@ window.__lehkoConfig = {
                               onClick={() => handleConfigureVisualMapper(website)}
                               disabled={configuringId === website.id}
                               className={`p-2 rounded-lg transition-colors ${
-                                website.purchase_button_selector
+                                (website.purchase_button_selector || website.cart_button_selector)
                                   ? 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30'
                                   : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30'
                               } ${configuringId === website.id ? 'animate-pulse' : ''}`}
-                              title={website.purchase_button_selector
-                                ? `Кнопка ліду: ${website.purchase_button_selector} (клікніть щоб змінити)`
-                                : 'Налаштувати кнопку ліду (Visual Mapper)'
+                              title={(website.purchase_button_selector || website.cart_button_selector)
+                                ? `${website.purchase_button_selector ? 'Лід: ' + website.purchase_button_selector : ''}${website.cart_button_selector ? (website.purchase_button_selector ? ' | ' : '') + 'Кошик: ' + website.cart_button_selector : ''} (клікніть щоб змінити)`
+                                : 'Налаштувати кнопки (Visual Mapper)'
                               }
                             >
                               <MousePointerClick className="w-5 h-5" />
@@ -1036,6 +1041,43 @@ window.__lehkoConfig = {
                       Як знайти: відкрийте сайт → ПКМ на кнопку → «Перевірити» → скопіюйте class або id елемента.
                     </p>
                   </div>
+                </div>
+
+                {/* Cart Button Selector */}
+                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Кнопка корзини (додати в кошик)</label>
+                  {editForm.cart_button_selector ? (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-green-600 dark:text-green-400 text-sm">&#10004;</span>
+                      <code className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-600 rounded text-sm font-mono text-slate-700 dark:text-slate-300 truncate">
+                        {editForm.cart_button_selector}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => setEditForm(f => ({ ...f, cart_button_selector: '' }))}
+                        className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                        title="Скинути"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Не налаштовано. Оберіть кнопку через Visual Mapper або вкажіть CSS-селектор вручну.</p>
+                  )}
+                  <div className="mb-1">
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">CSS-селектор кнопки (вручну)</label>
+                    <input
+                      type="text"
+                      value={editForm.cart_button_selector || ''}
+                      onChange={(e) => setEditForm(f => ({ ...f, cart_button_selector: e.target.value }))}
+                      placeholder="Напр. .add-to-cart, #btn-cart, button.cart-btn"
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm font-mono"
+                    />
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                      Кнопка «Додати в кошик» — кожен клік рахується як подія «Кошик».
+                    </p>
+                  </div>
+                </div>
 
                   {/* Код для консолі — першим; потім Visual Mapper */}
                   <div className="flex flex-col gap-2">

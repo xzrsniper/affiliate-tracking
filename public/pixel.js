@@ -171,6 +171,7 @@
   // ── 3. Server Config ──────────────────────────────────────────────────
   var cfg = {
     purchaseButtonSelector: null,
+    cartButtonSelector: null,
     priceSelector: null,
     staticPrice: null,
     conversionUrls: []
@@ -182,6 +183,7 @@
       .then(function (d) {
         if (d.success) {
           cfg.purchaseButtonSelector = d.purchaseButtonSelector || null;
+          cfg.cartButtonSelector = d.cartButtonSelector || null;
           cfg.priceSelector = d.priceSelector || null;
           cfg.staticPrice = d.staticPrice != null ? Number(d.staticPrice) : null;
           cfg.conversionUrls = d.conversionUrls || [];
@@ -770,11 +772,23 @@
 
   // ── 11. Click Handler ─────────────────────────────────────────────────
   // Lead спрацьовує ТІЛЬКИ якщо purchaseButtonSelector налаштовано через Visual Mapper.
-  // Без налаштованого селектора — ліди не відправляються автоматично.
+  // Cart спрацьовує ТІЛЬКИ якщо cartButtonSelector налаштовано через Visual Mapper.
+  // Без налаштованого селектора — ліди/корзини не відправляються автоматично.
   function onDocClick(e) {
+    var target = e.target;
+
+    // Check cart button first
+    if (cfg.cartButtonSelector) {
+      var cartBtn = target.closest(cfg.cartButtonSelector);
+      if (cartBtn) {
+        sendEvent('cart', 0, null);
+        return;
+      }
+    }
+
+    // Then check purchase/lead button
     if (!cfg.purchaseButtonSelector) return;
 
-    var target = e.target;
     var btn = target.closest(cfg.purchaseButtonSelector);
 
     if (btn) {
@@ -852,9 +866,9 @@
   function startConfigMode(token) {
     // Two modes: 'navigate' (browse the site freely) and 'select' (pick elements)
     var mode = 'navigate';       // 'navigate' | 'select'
-    var selecting = 'button';    // what we're selecting: 'button' | 'price'
+    var selecting = 'button';    // what we're selecting: 'button' | 'cart' | 'price'
     var overlay, tooltip, toolbar, highlighted;
-    var savedBtn = null, savedPrice = null;
+    var savedBtn = null, savedCart = null, savedPrice = null;
 
     function buildSelector(el) {
       if (el.id) return '#' + CSS.escape(el.id);
@@ -935,16 +949,18 @@
       var isNav = mode === 'navigate';
       var modeBadge = isNav
         ? '<span class="lehko-mode-badge lehko-mode-nav">\u{1F310} \u041d\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044f</span>'
-        : '<span class="lehko-mode-badge lehko-mode-sel">\u{1F3AF} \u0412\u0438\u0431\u0456\u0440 ' + (selecting === 'button' ? '\u043a\u043d\u043e\u043f\u043a\u0438' : '\u0446\u0456\u043d\u0438') + '</span>';
+        : '<span class="lehko-mode-badge lehko-mode-sel">\u{1F3AF} \u0412\u0438\u0431\u0456\u0440 ' + (selecting === 'button' ? '\u043a\u043d\u043e\u043f\u043a\u0438 \u043b\u0456\u0434\u0443' : selecting === 'cart' ? '\u043a\u043d\u043e\u043f\u043a\u0438 \u043a\u043e\u0440\u0437\u0438\u043d\u0438' : '\u0446\u0456\u043d\u0438') + '</span>';
 
       var bl = savedBtn ? '<span style="color:#34d399">\u2714</span> ' + esc(savedBtn) : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
+      var cl = savedCart ? '<span style="color:#34d399">\u2714</span> ' + esc(savedCart) : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
       var pl = savedPrice ? '<span style="color:#34d399">\u2714</span> ' + esc(savedPrice) : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
 
       var hint = '';
       if (isNav) {
-        hint = '<div style="font-size:12px;color:#94a3b8;margin-top:4px">\u041a\u043b\u0456\u043a\u0430\u0439\u0442\u0435 \u043f\u043e \u0441\u0430\u0439\u0442\u0443 \u0432\u0456\u043b\u044c\u043d\u043e: \u0432\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0439\u0442\u0435 \u043a\u043e\u0448\u0438\u043a, \u043f\u0435\u0440\u0435\u0445\u043e\u0434\u044c\u0442\u0435 \u043d\u0430 \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0438, \u0434\u043e\u0434\u0430\u0432\u0430\u0439\u0442\u0435 \u0442\u043e\u0432\u0430\u0440\u0438.<br/>\u041a\u043e\u043b\u0438 \u043f\u043e\u0431\u0430\u0447\u0438\u0442\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0443 \u043a\u043d\u043e\u043f\u043a\u0443 \u2014 \u043d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c &laquo;\u{1F3AF} \u041e\u0431\u0440\u0430\u0442\u0438 \u043a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443&raquo;.</div>';
+        hint = '<div style="font-size:12px;color:#94a3b8;margin-top:4px">\u041a\u043b\u0456\u043a\u0430\u0439\u0442\u0435 \u043f\u043e \u0441\u0430\u0439\u0442\u0443 \u0432\u0456\u043b\u044c\u043d\u043e: \u0432\u0456\u0434\u043a\u0440\u0438\u0432\u0430\u0439\u0442\u0435 \u043a\u043e\u0448\u0438\u043a, \u043f\u0435\u0440\u0435\u0445\u043e\u0434\u044c\u0442\u0435 \u043d\u0430 \u0441\u0442\u043e\u0440\u0456\u043d\u043a\u0438, \u0434\u043e\u0434\u0430\u0432\u0430\u0439\u0442\u0435 \u0442\u043e\u0432\u0430\u0440\u0438.<br/>\u041a\u043e\u043b\u0438 \u043f\u043e\u0431\u0430\u0447\u0438\u0442\u0435 \u043f\u043e\u0442\u0440\u0456\u0431\u043d\u0443 \u043a\u043d\u043e\u043f\u043a\u0443 \u2014 \u043e\u0431\u0435\u0440\u0456\u0442\u044c \u0432\u0456\u0434\u043f\u043e\u0432\u0456\u0434\u043d\u0438\u0439 \u0440\u0435\u0436\u0438\u043c.</div>';
       } else {
-        hint = '<div style="font-size:12px;color:#fbbf24;margin-top:4px">\u041d\u0430\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 ' + (selecting === 'button' ? '\u043a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443' : '\u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u0446\u0456\u043d\u0438') + ' \u0456 \u043a\u043b\u0456\u043a\u043d\u0456\u0442\u044c. \u041a\u043b\u0456\u043a\u0438 \u043f\u043e \u0441\u0430\u0439\u0442\u0443 \u0437\u0430\u0431\u043b\u043e\u043a\u043e\u0432\u0430\u043d\u0456.</div>';
+        var selLabel = selecting === 'button' ? '\u043a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443' : selecting === 'cart' ? '\u043a\u043d\u043e\u043f\u043a\u0443 \u043a\u043e\u0440\u0437\u0438\u043d\u0438' : '\u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u0446\u0456\u043d\u0438';
+        hint = '<div style="font-size:12px;color:#fbbf24;margin-top:4px">\u041d\u0430\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u0443\u0440\u0441\u043e\u0440 \u043d\u0430 ' + selLabel + ' \u0456 \u043a\u043b\u0456\u043a\u043d\u0456\u0442\u044c. \u041a\u043b\u0456\u043a\u0438 \u043f\u043e \u0441\u0430\u0439\u0442\u0443 \u0437\u0430\u0431\u043b\u043e\u043a\u043e\u0432\u0430\u043d\u0456.</div>';
       }
 
       toolbar.innerHTML =
@@ -954,15 +970,17 @@
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">' +
           '<div style="font-size:12px">\u041a\u043d\u043e\u043f\u043a\u0430 \u043b\u0456\u0434\u0443: ' + bl + '</div>' +
+          '<div style="font-size:12px">\u041a\u043d\u043e\u043f\u043a\u0430 \u043a\u043e\u0440\u0437\u0438\u043d\u0438: ' + cl + '</div>' +
           '<div style="font-size:12px">\u0421\u0435\u043b\u0435\u043a\u0442\u043e\u0440 \u0446\u0456\u043d\u0438: ' + pl + '</div>' +
         '</div>' +
         '<div style="display:flex;flex-direction:column;gap:6px">' +
           (isNav
             ? '<button class="lehko-btn-select" data-a="sel-btn">\u{1F3AF} \u041e\u0431\u0440\u0430\u0442\u0438 \u043a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443</button>' +
+              '<button class="lehko-btn-secondary" style="background:#f97316;color:#fff" data-a="sel-cart">\u{1F6D2} \u041e\u0431\u0440\u0430\u0442\u0438 \u043a\u043d\u043e\u043f\u043a\u0443 \u043a\u043e\u0440\u0437\u0438\u043d\u0438</button>' +
               '<button class="lehko-btn-secondary" data-a="sel-price">\u{1F3AF} \u041e\u0431\u0440\u0430\u0442\u0438 \u0435\u043b\u0435\u043c\u0435\u043d\u0442 \u0446\u0456\u043d\u0438</button>'
             : '<button class="lehko-btn-nav" data-a="nav">\u{1F310} \u041d\u0430\u0437\u0430\u0434 \u0434\u043e \u043d\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u0457</button>'
           ) +
-          (savedBtn ? '<button class="lehko-btn-done" data-a="save">\u2714 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438</button>' : '') +
+          (savedBtn || savedCart ? '<button class="lehko-btn-done" data-a="save">\u2714 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438</button>' : '') +
           '<button class="lehko-btn-secondary" data-a="cancel">\u2716 \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438</button>' +
         '</div>';
 
@@ -971,6 +989,7 @@
           ev.stopPropagation();
           var a = b.getAttribute('data-a');
           if (a === 'sel-btn') switchMode('select', 'button');
+          else if (a === 'sel-cart') switchMode('select', 'cart');
           else if (a === 'sel-price') switchMode('select', 'price');
           else if (a === 'nav') switchMode('navigate');
           else if (a === 'save') save();
@@ -1006,6 +1025,9 @@
       if (selecting === 'button') {
         if (savedBtn) try { document.querySelector(savedBtn).classList.remove('lehko-selected'); } catch (x) {}
         savedBtn = sel;
+      } else if (selecting === 'cart') {
+        if (savedCart) try { document.querySelector(savedCart).classList.remove('lehko-selected'); } catch (x) {}
+        savedCart = sel;
       } else {
         if (savedPrice) try { document.querySelector(savedPrice).classList.remove('lehko-selected'); } catch (x) {}
         savedPrice = sel;
@@ -1015,10 +1037,10 @@
     }
 
     function save() {
-      if (!savedBtn) return;
+      if (!savedBtn && !savedCart) return;
       toolbar.innerHTML = '<div style="padding:12px;text-align:center">\u23F3 \u0417\u0431\u0435\u0440\u0456\u0433\u0430\u044e...</div>';
       fetch(BASE_URL + '/api/track/save-selector', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token, selector: savedBtn, priceSelector: savedPrice }) })
+        body: JSON.stringify({ token: token, selector: savedBtn || '', priceSelector: savedPrice, cartSelector: savedCart }) })
         .then(function (r) {
           if (r.status === 401) {
             toolbar.innerHTML = '<div style="color:#f87171;padding:8px">\u274C \u0422\u043e\u043a\u0435\u043d \u0437\u0430\u043a\u0456\u043d\u0447\u0438\u0432\u0441\u044f (30 \u0445\u0432). \u0417\u0433\u0435\u043d\u0435\u0440\u0443\u0439\u0442\u0435 \u043d\u043e\u0432\u0438\u0439 \u043a\u043e\u0434 \u0432 \u0430\u0434\u043c\u0456\u043d\u0446\u0456.</div>';
@@ -1029,7 +1051,7 @@
         .then(function (d) {
           if (!d) return;
           if (d.success) {
-            toolbar.innerHTML = '<div style="padding:12px;text-align:center">\u2705 \u041a\u043d\u043e\u043f\u043a\u0443 \u043b\u0456\u0434\u0443 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e!</div>';
+            toolbar.innerHTML = '<div style="padding:12px;text-align:center">\u2705 \u041d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e!</div>';
             setTimeout(cleanupConfig, 3000);
           } else {
             toolbar.innerHTML = '<div style="color:#f87171;padding:8px">\u274C ' + esc(d.error || 'Unknown error') + '</div>';

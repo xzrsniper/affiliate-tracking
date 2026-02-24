@@ -70,7 +70,7 @@ router.post('/', async (req, res, next) => {
  */
 router.put('/:id', async (req, res, next) => {
   try {
-    const { name, domain, is_connected, conversion_urls, price_selector, static_price, purchase_button_selector } = req.body;
+    const { name, domain, is_connected, conversion_urls, price_selector, static_price, purchase_button_selector, cart_button_selector } = req.body;
 
     const website = await Website.findOne({
       where: {
@@ -109,6 +109,9 @@ router.put('/:id', async (req, res, next) => {
     }
     if (purchase_button_selector !== undefined) {
       website.purchase_button_selector = purchase_button_selector || null;
+    }
+    if (cart_button_selector !== undefined) {
+      website.cart_button_selector = cart_button_selector || null;
     }
     // Статус is_connected можна встановити ТІЛЬКИ через автоматичну перевірку
     // Ручне встановлення статусу заборонено - тільки через /api/websites/:id/check

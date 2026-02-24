@@ -144,14 +144,15 @@ router.get('/config', async (req, res, next) => {
         purchaseButtonSelectors: null
       });
     }
-    const website = await Website.findByPk(siteId, { attributes: ['id', 'conversion_urls', 'price_selector', 'static_price', 'purchase_button_selector'] });
+    const website = await Website.findByPk(siteId, { attributes: ['id', 'conversion_urls', 'price_selector', 'static_price', 'purchase_button_selector', 'cart_button_selector'] });
     if (!website) {
       return res.json({
         success: true,
         conversionUrls: [],
         priceSelector: null,
         staticPrice: null,
-        purchaseButtonSelector: null
+        purchaseButtonSelector: null,
+        cartButtonSelector: null
       });
     }
     let conversionUrls = [];
@@ -166,7 +167,8 @@ router.get('/config', async (req, res, next) => {
       conversionUrls,
       priceSelector: website.price_selector || null,
       staticPrice: website.static_price != null ? parseFloat(website.static_price) : null,
-      purchaseButtonSelector: website.purchase_button_selector || null
+      purchaseButtonSelector: website.purchase_button_selector || null,
+      cartButtonSelector: website.cart_button_selector || null
     });
   } catch (error) {
     next(error);
@@ -178,14 +180,14 @@ router.get('/config', async (req, res, next) => {
  * Called by pixel.js in configuration mode (Visual Event Mapper).
  * Validates the short-lived configure token and saves CSS selectors to the website.
  *
- * Body: { token, selector, priceSelector? }
+ * Body: { token, selector, priceSelector?, cartSelector? }
  */
 router.post('/save-selector', async (req, res, next) => {
   try {
-    const { token, selector, priceSelector } = req.body;
+    const { token, selector, priceSelector, cartSelector } = req.body;
 
-    if (!token || !selector) {
-      return res.status(400).json({ error: 'token and selector are required' });
+    if (!token || (!selector && !cartSelector)) {
+      return res.status(400).json({ error: 'token and at least one selector are required' });
     }
 
     let decoded;
@@ -204,9 +206,14 @@ router.post('/save-selector', async (req, res, next) => {
       return res.status(404).json({ error: 'Website not found' });
     }
 
-    website.purchase_button_selector = selector;
+    if (selector !== undefined) {
+      website.purchase_button_selector = selector || null;
+    }
     if (priceSelector !== undefined) {
       website.price_selector = priceSelector || null;
+    }
+    if (cartSelector !== undefined) {
+      website.cart_button_selector = cartSelector || null;
     }
     await website.save();
 
@@ -214,7 +221,8 @@ router.post('/save-selector', async (req, res, next) => {
       websiteId: website.id,
       domain: website.domain,
       buttonSelector: selector,
-      priceSelector: priceSelector || null
+      priceSelector: priceSelector || null,
+      cartSelector: cartSelector || null
     });
 
     res.json({ success: true, message: 'Selectors saved successfully' });
@@ -579,7 +587,7 @@ router.post('/conversion', async (req, res, next) => {
   const visitor_id = req.body.visitor_id || req.body.visitorId || req.headers['x-visitor-id'];
   const order_id = req.body.order_id || req.body.orderId || req.body.order_number;
   const click_id = req.body.click_id || req.body.clickId || null;
-  const event_type = (req.body.event_type === 'lead' || req.body.event_type === 'sale') ? req.body.event_type : 'sale';
+  const event_type = (req.body.event_type === 'lead' || req.body.event_type === 'sale' || req.body.event_type === 'cart') ? req.body.event_type : 'sale';
 
   console.log('[Conversion] POST received', {
     unique_code: unique_code || '(missing)',
@@ -963,7 +971,7 @@ router.get('/conversion', async (req, res, next) => {
   try {
     const code = req.query.code || req.query.ref;
     const { value, visitor_id, order_id } = req.query;
-    const event_type = (req.query.event_type === 'lead' || req.query.event_type === 'sale') ? req.query.event_type : 'sale';
+    const event_type = (req.query.event_type === 'lead' || req.query.event_type === 'sale' || req.query.event_type === 'cart') ? req.query.event_type : 'sale';
 
     if (!code) {
       // Return 1x1 transparent pixel for image tracking

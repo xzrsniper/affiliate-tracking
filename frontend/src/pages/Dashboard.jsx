@@ -27,7 +27,8 @@ import {
   Target,
   ChevronDown,
   ChevronUp,
-  Search
+  Search,
+  ShoppingCart
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -209,6 +210,7 @@ export default function Dashboard() {
   const uniqueClicks = links.reduce((sum, link) => sum + (link.stats?.unique_clicks || 0), 0);
   const totalLeads = links.reduce((sum, link) => sum + (link.stats?.leads || 0), 0);
   const totalSales = links.reduce((sum, link) => sum + (link.stats?.sales || 0), 0);
+  const totalCarts = links.reduce((sum, link) => sum + (link.stats?.carts || 0), 0);
   const salesRevenue = links.reduce((sum, link) => sum + (link.stats?.sales_revenue ?? 0), 0);
 
   const convRate = totalClicks > 0 ? ((totalSales / totalClicks) * 100).toFixed(1) : 0;
@@ -232,7 +234,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <StatCard
           icon={MousePointerClick}
           label="Всього кліків"
@@ -246,6 +248,13 @@ export default function Dashboard() {
           value={uniqueClicks.toLocaleString()}
           bgColor="bg-purple-100"
           iconColor="text-purple-600"
+        />
+        <StatCard
+          icon={ShoppingCart}
+          label="Кошик"
+          value={totalCarts.toLocaleString()}
+          bgColor="bg-orange-100"
+          iconColor="text-orange-600"
         />
         <StatCard
           icon={Target}
@@ -688,6 +697,7 @@ export default function Dashboard() {
                   <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Посилання</th>
                   <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Кліки</th>
                   <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Унікальні</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Кошик</th>
                   <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ліди</th>
                   <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Продажі</th>
                   <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CR%</th>
@@ -710,6 +720,7 @@ export default function Dashboard() {
                   .map((link) => {
                     const clicks = link.stats?.total_clicks || 0;
                     const unique = link.stats?.unique_clicks || 0;
+                    const carts = link.stats?.carts || 0;
                     const leads = link.stats?.leads || 0;
                     const sales = link.stats?.sales || 0;
                     const revenue = link.stats?.sales_revenue ?? 0;
@@ -748,6 +759,8 @@ export default function Dashboard() {
                           <td className="px-3 py-2.5 text-right font-mono text-slate-700 dark:text-slate-200 tabular-nums">{clicks.toLocaleString()}</td>
                           {/* Unique */}
                           <td className="px-3 py-2.5 text-right font-mono text-slate-700 dark:text-slate-200 tabular-nums">{unique.toLocaleString()}</td>
+                          {/* Cart */}
+                          <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${carts > 0 ? 'text-orange-600 dark:text-orange-400 font-semibold' : 'text-slate-400 dark:text-slate-500'}`}>{carts}</td>
                           {/* Leads */}
                           <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${leads > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-slate-400 dark:text-slate-500'}`}>{leads}</td>
                           {/* Sales */}
@@ -791,7 +804,7 @@ export default function Dashboard() {
                         {/* Expanded row */}
                         {expandedLinkId === link.id && (
                           <tr className="bg-slate-50/80 dark:bg-slate-700/20">
-                            <td colSpan={9} className="px-4 py-3">
+                            <td colSpan={10} className="px-4 py-3">
                               <div className="space-y-3">
                                 {/* Tracking URL */}
                                 <div className="flex items-center gap-2">
@@ -900,6 +913,7 @@ export default function Dashboard() {
                   <td className="px-3 py-2.5 text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider">Всього</td>
                   <td className="px-3 py-2.5 text-right font-mono text-slate-800 dark:text-white tabular-nums">{totalClicks.toLocaleString()}</td>
                   <td className="px-3 py-2.5 text-right font-mono text-slate-800 dark:text-white tabular-nums">{uniqueClicks.toLocaleString()}</td>
+                  <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${totalCarts > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500'}`}>{totalCarts}</td>
                   <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${totalLeads > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}`}>{totalLeads}</td>
                   <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${totalSales > 0 ? 'text-green-600 dark:text-green-400' : 'text-slate-500'}`}>{totalSales}</td>
                   <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${parseFloat(convRate) > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}>{convRate}%</td>

@@ -186,6 +186,7 @@ router.get('/my-links', async (req, res, next) => {
           COALESCE(SUM(order_value), 0) as total_revenue,
           SUM(CASE WHEN event_type = 'lead' THEN 1 ELSE 0 END) as leads,
           SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN 1 ELSE 0 END) as sales,
+          SUM(CASE WHEN event_type = 'cart' THEN 1 ELSE 0 END) as carts,
           COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue
         FROM conversions
         WHERE link_id = ?
@@ -200,6 +201,7 @@ router.get('/my-links', async (req, res, next) => {
       const totalRevenue = parseFloat(conversionStats?.total_revenue || 0);
       const totalLeads = parseInt(conversionStats?.leads || 0);
       const totalSales = parseInt(conversionStats?.sales || 0);
+      const totalCarts = parseInt(conversionStats?.carts || 0);
       const salesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
 
       const domain = extractDomain(link.original_url);
@@ -221,6 +223,7 @@ router.get('/my-links', async (req, res, next) => {
           conversions: totalConversions,
           leads: totalLeads,
           sales: totalSales,
+          carts: totalCarts,
           total_revenue: parseFloat(totalRevenue.toFixed(2)),
           sales_revenue: parseFloat(salesRevenue.toFixed(2))
         }

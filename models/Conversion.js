@@ -37,10 +37,10 @@ const Conversion = sequelize.define('Conversion', {
     comment: 'Link to the click that led to this conversion'
   },
   event_type: {
-    type: DataTypes.ENUM('lead', 'sale'),
+    type: DataTypes.ENUM('lead', 'sale', 'cart'),
     allowNull: false,
     defaultValue: 'sale',
-    comment: 'lead = button click (intent), sale = confirmed purchase'
+    comment: 'lead = button click (intent), sale = confirmed purchase, cart = add to cart'
   },
   created_at: {
     type: DataTypes.DATE,

@@ -52,6 +52,11 @@ const Website = sequelize.define('Website', {
     allowNull: true,
     comment: 'CSS selector for purchase button (Visual Event Mapper)'
   },
+  cart_button_selector: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: 'CSS selector for add-to-cart button (Visual Event Mapper)'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,
