@@ -50,6 +50,7 @@ export default function Dashboard() {
   const [editForm, setEditForm] = useState({ original_url: '', name: '', source_type: '' });
   const [expandedLinkId, setExpandedLinkId] = useState(null); // Track which link is expanded
   const [searchQuery, setSearchQuery] = useState(''); // Search/filter links
+  const [sourceFilter, setSourceFilter] = useState(''); // Filter by source type
   const [updating, setUpdating] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null); // Track which link is being deleted
   const [successMessage, setSuccessMessage] = useState(''); // Success message
@@ -676,15 +677,33 @@ export default function Dashboard() {
                 {links.length} {links.length === 1 ? 'посилання' : links.length < 5 ? 'посилання' : 'посилань'}
               </span>
             </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Пошук..."
-                className="pl-8 pr-3 py-1.5 w-48 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
-              />
+            <div className="flex items-center space-x-2">
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-white focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
+              >
+                <option value="">Всі джерела</option>
+                <option value="social_media">Соцмережі</option>
+                <option value="email_marketing">E-mail маркетинг</option>
+                <option value="bloggers_influencers">Блогери / інфлюенсери</option>
+                <option value="search_ads">Пошукова реклама</option>
+                <option value="seo_traffic">SEO-трафік</option>
+                <option value="messengers">Месенджери</option>
+                <option value="own_website">Власний сайт / лендинг</option>
+                <option value="other">Інше</option>
+                <option value="_none">Без джерела</option>
+              </select>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Пошук..."
+                  className="pl-8 pr-3 py-1.5 w-48 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
+                />
+              </div>
             </div>
           </div>
 
@@ -708,6 +727,15 @@ export default function Dashboard() {
               <tbody>
                 {links
                   .filter(link => {
+                    // Source type filter
+                    if (sourceFilter) {
+                      if (sourceFilter === '_none') {
+                        if (link.source_type) return false;
+                      } else {
+                        if (link.source_type !== sourceFilter) return false;
+                      }
+                    }
+                    // Text search
                     if (!searchQuery.trim()) return true;
                     const q = searchQuery.toLowerCase();
                     return (
