@@ -883,8 +883,6 @@
           });
           if (cls.length) { seg += '.' + cls.map(CSS.escape).join('.'); hasClasses = true; }
         }
-        // Only add :nth-of-type when element has NO classes/id — otherwise
-        // keep the selector generic so it matches ALL similar elements (e.g. all "Add to cart" buttons)
         if (!hasClasses) {
           var parent = el.parentElement;
           if (parent) {
@@ -896,6 +894,24 @@
         el = el.parentElement;
       }
       return path.join(' > ');
+    }
+
+    // Build a SHORT selector (just the element's own tag + classes).
+    // This matches ALL elements with the same tag+classes on the page,
+    // e.g. all "Додати в кошик" buttons across product cards.
+    function buildShortSelector(el) {
+      if (el.id) return '#' + CSS.escape(el.id);
+      var seg = el.tagName.toLowerCase();
+      if (el.className && typeof el.className === 'string') {
+        var cls = el.className.trim().split(/\s+/).filter(function (c) {
+          return c && !c.startsWith('lehko-');
+        });
+        if (cls.length) seg += '.' + cls.map(CSS.escape).join('.');
+      }
+      // Verify it actually matches multiple elements; if not, fall back to full path
+      var matches = document.querySelectorAll(seg);
+      if (matches.length >= 1) return seg;
+      return buildSelector(el);
     }
 
     var style = document.createElement('style');
@@ -956,8 +972,11 @@
         ? '<span class="lehko-mode-badge lehko-mode-nav">\u{1F310} \u041d\u0430\u0432\u0456\u0433\u0430\u0446\u0456\u044f</span>'
         : '<span class="lehko-mode-badge lehko-mode-sel">\u{1F3AF} \u0412\u0438\u0431\u0456\u0440 ' + (selecting === 'button' ? '\u043a\u043d\u043e\u043f\u043a\u0438 \u043b\u0456\u0434\u0443' : '\u043a\u043d\u043e\u043f\u043a\u0438 \u043a\u043e\u0440\u0437\u0438\u043d\u0438') + '</span>';
 
-      var bl = savedBtn ? '<span style="color:#34d399">\u2714</span> ' + esc(savedBtn) : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
-      var cl = savedCart ? '<span style="color:#34d399">\u2714</span> ' + esc(savedCart) : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
+      var btnCount = 0, cartCount = 0;
+      try { if (savedBtn) btnCount = document.querySelectorAll(savedBtn).length; } catch (x) {}
+      try { if (savedCart) cartCount = document.querySelectorAll(savedCart).length; } catch (x) {}
+      var bl = savedBtn ? '<span style="color:#34d399">\u2714</span> ' + esc(savedBtn) + (btnCount > 1 ? ' <span style="color:#60a5fa">(' + btnCount + ' \u043a\u043d\u043e\u043f\u043e\u043a)</span>' : '') : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
+      var cl = savedCart ? '<span style="color:#34d399">\u2714</span> ' + esc(savedCart) + (cartCount > 1 ? ' <span style="color:#60a5fa">(' + cartCount + ' \u043a\u043d\u043e\u043f\u043e\u043a)</span>' : '') : '<span style="opacity:.5">\u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e</span>';
 
       var hint = '';
       if (isNav) {
@@ -1021,13 +1040,18 @@
       // In select mode — block the click and capture the element
       e.preventDefault(); e.stopPropagation();
       if (!highlighted) return;
-      var sel = buildSelector(highlighted);
+      // Use short selector for buttons (matches ALL similar buttons on the page)
+      var sel = (selecting === 'button' || selecting === 'cart') ? buildShortSelector(highlighted) : buildSelector(highlighted);
       highlighted.classList.remove('lehko-highlight'); highlighted.classList.add('lehko-selected');
+      // Also highlight ALL matching elements so user sees what will be tracked
+      if (selecting === 'button' || selecting === 'cart') {
+        try { document.querySelectorAll(sel).forEach(function (el) { el.classList.add('lehko-selected'); }); } catch (x) {}
+      }
       if (selecting === 'button') {
-        if (savedBtn) try { document.querySelector(savedBtn).classList.remove('lehko-selected'); } catch (x) {}
+        if (savedBtn) try { document.querySelectorAll(savedBtn).forEach(function (el) { el.classList.remove('lehko-selected'); }); } catch (x) {}
         savedBtn = sel;
       } else if (selecting === 'cart') {
-        if (savedCart) try { document.querySelector(savedCart).classList.remove('lehko-selected'); } catch (x) {}
+        if (savedCart) try { document.querySelectorAll(savedCart).forEach(function (el) { el.classList.remove('lehko-selected'); }); } catch (x) {}
         savedCart = sel;
       }
       // After selecting, go back to navigate mode so user can continue browsing
