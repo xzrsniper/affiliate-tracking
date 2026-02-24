@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
@@ -529,239 +529,266 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Links Table */}
+      {/* Links Table - Keitaro style */}
       {loading ? (
         <div className="text-center py-12">
-          <p className="text-slate-500">Loading links...</p>
+          <div className="inline-block w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Завантаження...</p>
         </div>
       ) : links.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700">
-          <p className="text-slate-500 dark:text-slate-400">No tracking links yet. Create your first one!</p>
+          <p className="text-slate-500 dark:text-slate-400">Поки що немає посилань. Створіть перше!</p>
         </div>
       ) : (
-        <div>
-          {/* Search bar */}
-          {links.length > 3 && (
-            <div className="mb-4 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            <div className="flex items-center space-x-3">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                {links.length} {links.length === 1 ? 'посилання' : links.length < 5 ? 'посилання' : 'посилань'}
+              </span>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Пошук за назвою, URL або кодом..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                placeholder="Пошук..."
+                className="pl-8 pr-3 py-1.5 w-48 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
               />
             </div>
-          )}
+          </div>
 
-          {/* Compact table */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {/* Table header */}
-            <div className="hidden md:grid md:grid-cols-12 gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-600 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              <div className="col-span-4">Посилання</div>
-              <div className="col-span-1 text-center">Всього кліків</div>
-              <div className="col-span-1 text-center">Унікальні кліки</div>
-              <div className="col-span-1 text-center">Ліди</div>
-              <div className="col-span-1 text-center">Продажі</div>
-              <div className="col-span-2 text-center">Дохід</div>
-              <div className="col-span-1 text-center">Статус</div>
-              <div className="col-span-1 text-center">Дії</div>
-            </div>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-750">
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-8"></th>
+                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Посилання</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Кліки</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Унікальні</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ліди</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Продажі</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CR%</th>
+                  <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Дохід</th>
+                  <th className="text-center px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-16">Дії</th>
+                </tr>
+              </thead>
+              <tbody>
+                {links
+                  .filter(link => {
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    return (
+                      (link.name || '').toLowerCase().includes(q) ||
+                      (link.original_url || '').toLowerCase().includes(q) ||
+                      (link.unique_code || '').toLowerCase().includes(q) ||
+                      (link.source_type || '').toLowerCase().includes(q)
+                    );
+                  })
+                  .map((link) => {
+                    const clicks = link.stats?.total_clicks || 0;
+                    const unique = link.stats?.unique_clicks || 0;
+                    const leads = link.stats?.leads || 0;
+                    const sales = link.stats?.sales || 0;
+                    const revenue = link.stats?.sales_revenue ?? 0;
+                    const cr = clicks > 0 ? ((sales / clicks) * 100).toFixed(1) : '0.0';
 
-            {/* Link rows */}
-            {links
-              .filter(link => {
-                if (!searchQuery.trim()) return true;
-                const q = searchQuery.toLowerCase();
-                return (
-                  (link.name || '').toLowerCase().includes(q) ||
-                  (link.original_url || '').toLowerCase().includes(q) ||
-                  (link.unique_code || '').toLowerCase().includes(q) ||
-                  (link.source_type || '').toLowerCase().includes(q)
-                );
-              })
-              .map((link) => (
-              <div key={link.id} className="border-b border-slate-100 dark:border-slate-700 last:border-b-0">
-                {/* Compact row */}
-                <div
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 px-4 py-3 items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-                  onClick={() => setExpandedLinkId(expandedLinkId === link.id ? null : link.id)}
-                >
-                  {/* Name + URL */}
-                  <div className="md:col-span-4 flex items-center space-x-2 min-w-0">
-                    <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform ${expandedLinkId === link.id ? 'rotate-180' : ''}`} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">
-                        {link.name || link.unique_code}
-                      </p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
-                        {link.original_url}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stats - mobile: inline, desktop: columns */}
-                  <div className="md:col-span-1 text-center">
-                    <span className="md:hidden text-xs text-slate-400">Всього кліків: </span>
-                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{link.stats?.total_clicks || 0}</span>
-                  </div>
-                  <div className="md:col-span-1 text-center">
-                    <span className="md:hidden text-xs text-slate-400">Унікальні кліки: </span>
-                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{link.stats?.unique_clicks || 0}</span>
-                  </div>
-                  <div className="md:col-span-1 text-center">
-                    <span className="md:hidden text-xs text-slate-400">Ліди: </span>
-                    <span className="text-sm font-bold text-amber-600 dark:text-amber-400">{link.stats?.leads || 0}</span>
-                  </div>
-                  <div className="md:col-span-1 text-center">
-                    <span className="md:hidden text-xs text-slate-400">Продажі: </span>
-                    <span className="text-sm font-bold text-green-600 dark:text-green-400">{link.stats?.sales || 0}</span>
-                  </div>
-                  <div className="md:col-span-2 text-center">
-                    <span className="md:hidden text-xs text-slate-400">Дохід: </span>
-                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{(link.stats?.sales_revenue ?? 0).toFixed(2)} ₴</span>
-                  </div>
-
-                  {/* Status dot */}
-                  <div className="md:col-span-1 flex justify-center">
-                    <div className={`w-2.5 h-2.5 rounded-full ${link.code_connected ? 'bg-green-500' : 'bg-red-500'}`} title={link.code_connected ? 'Код підключено' : 'Код не підключено'} />
-                  </div>
-
-                  {/* Actions */}
-                  <div className="md:col-span-1 flex justify-center space-x-1" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleEditLink(link)}
-                      className="p-1.5 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/30 rounded-lg transition-colors"
-                      title="Редагувати"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirmId(link.id)}
-                      className="p-1.5 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      title="Видалити"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Expanded details */}
-                {expandedLinkId === link.id && (
-                  <div className="px-4 pb-4 space-y-3 bg-slate-50/50 dark:bg-slate-700/20 border-t border-slate-100 dark:border-slate-700">
-                    {/* Tracking URL */}
-                    <div className="pt-3">
-                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
-                        📎 Tracking URL
-                      </label>
-                      <div className="flex items-center space-x-2">
-                        <code className="flex-1 px-3 py-2 bg-white dark:bg-slate-700 rounded-lg text-sm font-mono text-slate-800 dark:text-slate-200 break-all border border-slate-200 dark:border-slate-600">
-                          {link.tracking_url}
-                        </code>
-                        <button
-                          onClick={() => {
-                            copyToClipboard(link.tracking_url);
-                            setCopiedLinkId(link.id);
-                            setTimeout(() => setCopiedLinkId(null), 2000);
-                          }}
-                          className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
-                            copiedLinkId === link.id
-                              ? 'bg-green-100 text-green-700 border border-green-300'
-                              : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700'
+                    return (
+                      <React.Fragment key={link.id}>
+                        {/* Main row */}
+                        <tr
+                          className={`border-b border-slate-100 dark:border-slate-700/50 cursor-pointer transition-colors ${
+                            expandedLinkId === link.id
+                              ? 'bg-violet-50/50 dark:bg-violet-900/10'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'
                           }`}
+                          onClick={() => setExpandedLinkId(expandedLinkId === link.id ? null : link.id)}
                         >
-                          {copiedLinkId === link.id ? <><Check className="w-3.5 h-3.5" /><span>Скопійовано</span></> : <><Copy className="w-3.5 h-3.5" /><span>Копіювати</span></>}
-                        </button>
-                      </div>
-                    </div>
+                          {/* Status */}
+                          <td className="px-4 py-2.5">
+                            <div className={`w-2 h-2 rounded-full ${link.code_connected ? 'bg-green-500' : 'bg-red-400'}`} title={link.code_connected ? 'Код підключено' : 'Код не підключено'} />
+                          </td>
+                          {/* Name */}
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center space-x-2 min-w-0">
+                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 flex-shrink-0 transition-transform duration-200 ${expandedLinkId === link.id ? 'rotate-180' : ''}`} />
+                              <div className="min-w-0">
+                                <p className="font-medium text-slate-800 dark:text-white truncate max-w-[280px]">
+                                  {link.name || link.unique_code}
+                                </p>
+                                {link.source_type && (
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{getSourceTypeLabel(link.source_type)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          {/* Clicks */}
+                          <td className="px-3 py-2.5 text-right font-mono text-slate-700 dark:text-slate-200 tabular-nums">{clicks.toLocaleString()}</td>
+                          {/* Unique */}
+                          <td className="px-3 py-2.5 text-right font-mono text-slate-700 dark:text-slate-200 tabular-nums">{unique.toLocaleString()}</td>
+                          {/* Leads */}
+                          <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${leads > 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-slate-400 dark:text-slate-500'}`}>{leads}</td>
+                          {/* Sales */}
+                          <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${sales > 0 ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-slate-400 dark:text-slate-500'}`}>{sales}</td>
+                          {/* CR */}
+                          <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${parseFloat(cr) > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>{cr}%</td>
+                          {/* Revenue */}
+                          <td className={`px-3 py-2.5 text-right font-mono tabular-nums whitespace-nowrap ${revenue > 0 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-400 dark:text-slate-500'}`}>{revenue.toFixed(2)} ₴</td>
+                          {/* Actions */}
+                          <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center space-x-0.5">
+                              <button
+                                onClick={() => {
+                                  copyToClipboard(link.tracking_url);
+                                  setCopiedLinkId(link.id);
+                                  setTimeout(() => setCopiedLinkId(null), 2000);
+                                }}
+                                className={`p-1.5 rounded transition-colors ${copiedLinkId === link.id ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30'}`}
+                                title={copiedLinkId === link.id ? 'Скопійовано!' : 'Копіювати tracking URL'}
+                              >
+                                {copiedLinkId === link.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => handleEditLink(link)}
+                                className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 rounded transition-colors"
+                                title="Редагувати"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(link.id)}
+                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                                title="Видалити"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
 
-                    {/* Info row */}
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      {link.source_type && (
-                        <div>
-                          <span className="text-slate-400 dark:text-slate-500">Джерело: </span>
-                          <span className="inline-block px-2 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded text-xs font-medium">
-                            {getSourceTypeLabel(link.source_type)}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-slate-400 dark:text-slate-500">Код: </span>
-                        <code className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs font-mono text-slate-700 dark:text-slate-300">{link.unique_code}</code>
-                      </div>
-                      <div className="flex items-center space-x-1.5">
-                        <div className={`w-2 h-2 rounded-full ${link.code_connected ? 'bg-green-500' : 'bg-red-500'}`} />
-                        {link.code_connected ? (
-                          <span className="text-xs text-green-600 dark:text-green-400">Код підключено</span>
-                        ) : (
-                          <Link to="/setup" className="text-xs text-red-600 dark:text-red-400 hover:underline flex items-center space-x-0.5">
-                            <span>Код не підключено</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </Link>
+                        {/* Expanded row */}
+                        {expandedLinkId === link.id && (
+                          <tr className="bg-slate-50/80 dark:bg-slate-700/20">
+                            <td colSpan={9} className="px-4 py-3">
+                              <div className="space-y-3">
+                                {/* Tracking URL */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Tracking URL:</span>
+                                  <code className="flex-1 px-2.5 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-xs font-mono text-slate-700 dark:text-slate-300 break-all select-all">
+                                    {link.tracking_url}
+                                  </code>
+                                  <button
+                                    onClick={() => {
+                                      copyToClipboard(link.tracking_url);
+                                      setCopiedLinkId(link.id);
+                                      setTimeout(() => setCopiedLinkId(null), 2000);
+                                    }}
+                                    className={`px-2.5 py-1.5 rounded text-xs font-medium transition-all whitespace-nowrap ${
+                                      copiedLinkId === link.id
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                        : 'bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/30 dark:text-violet-400'
+                                    }`}
+                                  >
+                                    {copiedLinkId === link.id ? '✓ Скопійовано' : 'Копіювати'}
+                                  </button>
+                                </div>
+
+                                {/* Meta info */}
+                                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Оригінал: </span>
+                                    <a href={link.original_url} target="_blank" rel="noopener noreferrer" className="text-violet-600 dark:text-violet-400 hover:underline break-all">{link.original_url}</a>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Код: </span>
+                                    <code className="text-slate-600 dark:text-slate-300 font-mono">{link.unique_code}</code>
+                                  </div>
+                                  {link.source_type && (
+                                    <div>
+                                      <span className="text-slate-400">Джерело: </span>
+                                      <span className="text-slate-600 dark:text-slate-300">{getSourceTypeLabel(link.source_type)}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${link.code_connected ? 'bg-green-500' : 'bg-red-400'}`} />
+                                    {link.code_connected ? (
+                                      <span className="text-green-600 dark:text-green-400">Код підключено</span>
+                                    ) : (
+                                      <Link to="/setup" className="text-red-500 dark:text-red-400 hover:underline">Код не підключено →</Link>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Edit Form */}
+                                {editingLinkId === link.id && (
+                                  <div className="bg-white dark:bg-slate-700/50 rounded-lg p-3 border border-slate-200 dark:border-slate-600 mt-2">
+                                    <form onSubmit={(e) => { e.preventDefault(); handleUpdateLink(link.id); }} className="space-y-2.5">
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                                        <input
+                                          type="text"
+                                          value={editForm.name || ''}
+                                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                          placeholder="Назва"
+                                          className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-violet-500"
+                                        />
+                                        <select
+                                          value={editForm.source_type || ''}
+                                          onChange={(e) => setEditForm({ ...editForm, source_type: e.target.value })}
+                                          className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-violet-500"
+                                        >
+                                          <option value="">Тип джерела</option>
+                                          <option value="social_media">Соцмережі</option>
+                                          <option value="email_marketing">E-mail маркетинг</option>
+                                          <option value="bloggers_influencers">Блогери / інфлюенсери</option>
+                                          <option value="search_ads">Пошукова реклама</option>
+                                          <option value="seo_traffic">SEO-трафік</option>
+                                          <option value="messengers">Месенджери</option>
+                                          <option value="own_website">Власний сайт</option>
+                                          <option value="other">Інше</option>
+                                        </select>
+                                        <input
+                                          type="url" required
+                                          value={editForm.original_url}
+                                          onChange={(e) => setEditForm({ ...editForm, original_url: e.target.value })}
+                                          placeholder="https://example.com"
+                                          className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-violet-500"
+                                        />
+                                      </div>
+                                      <div className="flex justify-end gap-2">
+                                        <button type="button" onClick={handleCancelEdit} disabled={updating} className="px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50">Скасувати</button>
+                                        <button type="submit" disabled={updating} className="px-3 py-1.5 text-xs bg-violet-600 text-white font-medium rounded hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1">
+                                          {updating ? 'Збереження...' : <><Save className="w-3 h-3" /><span>Зберегти</span></>}
+                                        </button>
+                                      </div>
+                                    </form>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                      </div>
-                    </div>
-
-                    {/* Original URL */}
-                    <div className="text-sm">
-                      <span className="text-slate-400 dark:text-slate-500">Оригінальний URL: </span>
-                      <a href={link.original_url} target="_blank" rel="noopener noreferrer" className="text-violet-600 dark:text-violet-400 hover:underline break-all">
-                        {link.original_url}
-                      </a>
-                    </div>
-
-                    {/* Edit Form */}
-                    {editingLinkId === link.id && (
-                      <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-4 border border-violet-200 dark:border-violet-800">
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-3">Редагувати посилання</h3>
-                        <form onSubmit={(e) => { e.preventDefault(); handleUpdateLink(link.id); }} className="space-y-3">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <input
-                              type="text"
-                              value={editForm.name || ''}
-                              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                              placeholder="Назва"
-                              className="px-3 py-2 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500"
-                            />
-                            <select
-                              value={editForm.source_type || ''}
-                              onChange={(e) => setEditForm({ ...editForm, source_type: e.target.value })}
-                              className="px-3 py-2 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500"
-                            >
-                              <option value="">Тип джерела</option>
-                              <option value="social_media">Соцмережі</option>
-                              <option value="email_marketing">E-mail маркетинг</option>
-                              <option value="bloggers_influencers">Блогери / інфлюенсери</option>
-                              <option value="search_ads">Пошукова реклама</option>
-                              <option value="seo_traffic">SEO-трафік</option>
-                              <option value="messengers">Месенджери</option>
-                              <option value="own_website">Власний сайт</option>
-                              <option value="other">Інше</option>
-                            </select>
-                            <input
-                              type="url"
-                              required
-                              value={editForm.original_url}
-                              onChange={(e) => setEditForm({ ...editForm, original_url: e.target.value })}
-                              placeholder="https://example.com"
-                              className="px-3 py-2 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500"
-                            />
-                          </div>
-                          <div className="flex justify-end space-x-2">
-                            <button type="button" onClick={handleCancelEdit} disabled={updating} className="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 transition-all disabled:opacity-50">
-                              Скасувати
-                            </button>
-                            <button type="submit" disabled={updating} className="px-4 py-2 text-sm bg-violet-600 text-white font-semibold rounded-lg hover:bg-violet-700 transition-all disabled:opacity-50 flex items-center space-x-1.5">
-                              {updating ? <span>Збереження...</span> : <><Save className="w-4 h-4" /><span>Зберегти</span></>}
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                      </React.Fragment>
+                    );
+                  })}
+              </tbody>
+              {/* Totals row */}
+              <tfoot>
+                <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 font-semibold">
+                  <td className="px-4 py-2.5"></td>
+                  <td className="px-3 py-2.5 text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider">Всього</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-slate-800 dark:text-white tabular-nums">{totalClicks.toLocaleString()}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-slate-800 dark:text-white tabular-nums">{uniqueClicks.toLocaleString()}</td>
+                  <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${totalLeads > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}`}>{totalLeads}</td>
+                  <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${totalSales > 0 ? 'text-green-600 dark:text-green-400' : 'text-slate-500'}`}>{totalSales}</td>
+                  <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${parseFloat(convRate) > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500'}`}>{convRate}%</td>
+                  <td className={`px-3 py-2.5 text-right font-mono tabular-nums whitespace-nowrap ${salesRevenue > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>{salesRevenue.toFixed(2)} ₴</td>
+                  <td className="px-3 py-2.5"></td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
       )}
