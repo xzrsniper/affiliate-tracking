@@ -49,9 +49,10 @@
     } catch (e) { return null; }
   }
 
-  function setCookie(name, val, days) {
+  function setCookie(name, val, minutes) {
     var d = new Date();
-    d.setTime(d.getTime() + (days || 30) * 864e5);
+    var ms = (minutes != null ? minutes : 30) * 60 * 1000;
+    d.setTime(d.getTime() + ms);
     document.cookie = name + '=' + encodeURIComponent(val) +
       ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
   }

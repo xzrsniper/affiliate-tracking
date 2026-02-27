@@ -74,7 +74,7 @@ router.get('/:unique_code', async (req, res, next) => {
       httpOnly: false, // Allow JavaScript access (for flexibility)
       secure: process.env.NODE_ENV === 'production', // HTTPS only in production
       sameSite: 'Lax', // Allow cross-site requests
-      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      maxAge: 30 * 60 * 1000 // 30 minutes
     };
     
     // Get root domain for cookie sharing (if not localhost)
@@ -93,7 +93,7 @@ router.get('/:unique_code', async (req, res, next) => {
       httpOnly: false, // Allow JavaScript access (for flexibility)
       secure: process.env.NODE_ENV === 'production', // HTTPS only in production
       sameSite: 'Lax', // Allow cross-site requests
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 30 * 60 * 1000, // 30 minutes
       path: '/'
     });
 
