@@ -1,10 +1,15 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { User } from '../models/index.js';
 import { generateToken } from '../utils/jwt.js';
 import { authenticate } from '../middleware/auth.js';
+import { sendVerificationEmail, sendPasswordChangeConfirmationEmail } from '../services/email.js';
 
 const router = express.Router();
+
+const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const PASSWORD_CHANGE_TOKEN_TTL_MS = 60 * 60 * 1000;   // 1 hour
 
 // Google OAuth Login
 router.post('/google', async (req, res, next) => {
@@ -149,18 +154,22 @@ router.post('/google', async (req, res, next) => {
         user = await User.findOne({ where: { email: googleUser.email } });
         
         if (user) {
-          // Link Google account to existing user
+          // Link Google account to existing user; treat as verified
           user.google_id = googleUser.sub;
+          user.email_verified = true;
+          user.email_verification_token = null;
+          user.email_verification_expires_at = null;
           await user.save();
         } else {
-          // Create new user
+          // Create new user (Google-verified email)
           user = await User.create({
             email: googleUser.email,
-            password_hash: null, // No password for Google OAuth users
+            password_hash: null,
             google_id: googleUser.sub,
             role: 'user',
             link_limit: 3,
-            is_banned: false
+            is_banned: false,
+            email_verified: true
           });
         }
       }
@@ -190,7 +199,7 @@ router.post('/google', async (req, res, next) => {
   }
 });
 
-// Register
+// Register (email/password) — requires email verification before login
 router.post('/register', async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -203,30 +212,72 @@ router.post('/register', async (req, res, next) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
-    // Hash password
     const password_hash = await bcrypt.hash(password, 10);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
 
-    // Create user
     const user = await User.create({
       email,
       password_hash,
       role: 'user',
-      link_limit: 3, // Default limit
-      is_banned: false
+      link_limit: 3,
+      is_banned: false,
+      email_verified: false,
+      email_verification_token: verificationToken,
+      email_verification_expires_at: expiresAt
     });
 
-    // Generate token
-    const token = generateToken(user.id);
+    const lang = (req.body.lang || req.headers['accept-language'] || '').startsWith('en') ? 'en' : 'uk';
+    const sendResult = await sendVerificationEmail(email, verificationToken, lang);
+
+    if (!sendResult.ok) {
+      console.error('Verification email send failed:', sendResult.error);
+      // Still return success so user exists; they can use resend
+    }
 
     res.status(201).json({
-      message: 'User registered successfully',
-      token,
+      message: 'Check your email to verify your account',
+      needVerification: true,
+      email: user.email
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify email (link from email)
+router.get('/verify-email', async (req, res, next) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required', code: 'MISSING_TOKEN' });
+    }
+
+    const user = await User.findOne({
+      where: { email_verification_token: token }
+    });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired link', code: 'INVALID_TOKEN' });
+    }
+    if (user.email_verification_expires_at && new Date() > user.email_verification_expires_at) {
+      return res.status(400).json({ error: 'Verification link expired', code: 'EXPIRED_TOKEN' });
+    }
+
+    user.email_verified = true;
+    user.email_verification_token = null;
+    user.email_verification_expires_at = null;
+    await user.save();
+
+    const jwt = generateToken(user.id);
+    res.json({
+      success: true,
+      message: 'Email verified',
+      token: jwt,
       user: {
         id: user.id,
         email: user.email,
@@ -235,6 +286,43 @@ router.post('/register', async (req, res, next) => {
         is_banned: user.is_banned
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Resend verification email
+router.post('/resend-verification', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (user.email_verified) {
+      return res.json({ success: true, message: 'Email already verified' });
+    }
+    if (!user.password_hash) {
+      return res.status(400).json({ error: 'Please sign in with Google' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+    user.email_verification_token = verificationToken;
+    user.email_verification_expires_at = expiresAt;
+    await user.save();
+
+    const lang = (req.body.lang || req.headers['accept-language'] || '').startsWith('en') ? 'en' : 'uk';
+    const sendResult = await sendVerificationEmail(email, verificationToken, lang);
+
+    if (!sendResult.ok) {
+      return res.status(500).json({ error: 'Failed to send email. Try again later.' });
+    }
+    res.json({ success: true, message: 'Verification email sent' });
   } catch (error) {
     next(error);
   }
@@ -260,9 +348,15 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Please sign in with Google' });
     }
 
-    // Check if banned
     if (user.is_banned) {
       return res.status(403).json({ error: 'Account is banned' });
+    }
+
+    if (!user.email_verified) {
+      return res.status(403).json({
+        error: 'Please verify your email before signing in',
+        code: 'EMAIL_NOT_VERIFIED'
+      });
     }
 
     // Verify password - ensure password_hash is a string
@@ -303,12 +397,13 @@ router.get('/me', authenticate, async (req, res) => {
       role: req.user.role,
       link_limit: req.user.link_limit,
       is_banned: req.user.is_banned,
+      email_verified: req.user.email_verified,
       created_at: req.user.created_at
     }
   });
 });
 
-// Change password
+// Change password — sends confirmation email; password applies after user clicks link
 router.put('/change-password', authenticate, async (req, res, next) => {
   try {
     const { current_password, new_password } = req.body;
@@ -321,36 +416,78 @@ router.put('/change-password', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'New password must be at least 6 characters' });
     }
 
-    // Get user with password hash
     const user = await User.findByPk(req.user.id);
-
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    // Check if user has a password (not Google OAuth only user)
     if (!user.password_hash) {
       return res.status(400).json({ error: 'Please sign in with Google or set a password first' });
     }
 
-    // Ensure current_password is a string
     const currentPasswordStr = String(current_password || '');
     const passwordHashStr = String(user.password_hash || '');
-
-    // Verify current password
     const isValid = await bcrypt.compare(currentPasswordStr, passwordHashStr);
     if (!isValid) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    // Ensure new_password is a string
     const newPasswordStr = String(new_password || '');
+    const pending_hash = await bcrypt.hash(newPasswordStr, 10);
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + PASSWORD_CHANGE_TOKEN_TTL_MS);
 
-    // Hash new password
-    const password_hash = await bcrypt.hash(newPasswordStr, 10);
+    user.pending_password_hash = pending_hash;
+    user.password_change_token = token;
+    user.password_change_expires_at = expiresAt;
+    await user.save();
 
-    // Update password
-    user.password_hash = password_hash;
+    const lang = (req.body.lang || req.headers['accept-language'] || '').startsWith('en') ? 'en' : 'uk';
+    const sendResult = await sendPasswordChangeConfirmationEmail(user.email, token, lang);
+
+    if (!sendResult.ok) {
+      console.error('Password change confirmation email failed:', sendResult.error);
+      user.pending_password_hash = null;
+      user.password_change_token = null;
+      user.password_change_expires_at = null;
+      await user.save();
+      return res.status(500).json({ error: 'Failed to send confirmation email. Try again later.' });
+    }
+
+    res.json({
+      success: true,
+      needConfirmation: true,
+      message: 'Check your email to confirm the password change'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Confirm password change (link from email)
+router.get('/confirm-password-change', async (req, res, next) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required', code: 'MISSING_TOKEN' });
+    }
+
+    const user = await User.findOne({
+      where: { password_change_token: token }
+    });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired link', code: 'INVALID_TOKEN' });
+    }
+    if (user.password_change_expires_at && new Date() > user.password_change_expires_at) {
+      return res.status(400).json({ error: 'Confirmation link expired', code: 'EXPIRED_TOKEN' });
+    }
+    if (!user.pending_password_hash) {
+      return res.status(400).json({ error: 'Invalid or already used link', code: 'INVALID_TOKEN' });
+    }
+
+    user.password_hash = user.pending_password_hash;
+    user.pending_password_hash = null;
+    user.password_change_token = null;
+    user.password_change_expires_at = null;
     await user.save();
 
     res.json({

@@ -81,8 +81,10 @@ app.get('/health', (req, res) => {
 
 // Public config (для фронту: Google Client ID тощо) — щоб продакшн не залежав від VITE_* при білді
 app.get('/api/config/public', (req, res) => {
-  const googleClientId = process.env.GOOGLE_CLIENT_ID_PUBLIC || process.env.VITE_GOOGLE_CLIENT_ID || '';
-  console.log('📤 GET /api/config/public - GOOGLE_CLIENT_ID_PUBLIC:', googleClientId ? googleClientId.substring(0, 20) + '...' : '(not set)');
+  const googleClientId = (process.env.GOOGLE_CLIENT_ID_PUBLIC || process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('📤 GET /api/config/public - googleClientId:', googleClientId ? googleClientId.substring(0, 24) + '...' : '(not set, Google Login disabled)');
+  }
   res.json({ googleClientId });
 });
 

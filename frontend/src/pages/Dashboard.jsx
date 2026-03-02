@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -32,6 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,20 +68,20 @@ export default function Dashboard() {
   useEffect(() => {
     isMountedRef.current = true;
     fetchLinks(true);
-    fetchChartData();
+    fetchChartData(i18n.language);
     return () => {
       isMountedRef.current = false;
     };
-  }, []);
+  }, [i18n.language]);
 
-  const fetchChartData = async () => {
+  const fetchChartData = async (lang) => {
     try {
       setChartLoading(true);
       const response = await api.get('/api/links/clicks-chart');
       const raw = response.data.data || [];
-      // Format for chart
+      const locale = lang && lang.startsWith('en') ? 'en-US' : 'uk-UA';
       const formatted = raw.map(row => ({
-        time: new Date(row.time_bucket).toLocaleString('uk-UA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        time: new Date(row.time_bucket).toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
         clicks: parseInt(row.clicks || 0),
         unique: parseInt(row.unique_clicks || 0)
       }));
@@ -128,7 +130,7 @@ export default function Dashboard() {
       // Show popup instead of success message
       // createdLink state will show the popup
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося створити посилання');
+      setError(err.response?.data?.error || t('dashboard.errorCreate'));
     } finally {
       setCreating(false);
     }
@@ -165,10 +167,10 @@ export default function Dashboard() {
       
       setEditingLinkId(null);
       setEditForm({ original_url: '', name: '', source_type: '' });
-      setSuccessMessage('Посилання успішно оновлено!');
+      setSuccessMessage(t('dashboard.successUpdate'));
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося оновити посилання');
+      setError(err.response?.data?.error || t('dashboard.errorUpdate'));
     } finally {
       setUpdating(false);
     }
@@ -179,10 +181,10 @@ export default function Dashboard() {
       await api.delete(`/api/links/${id}`);
       setLinks(links.filter((link) => link.id !== id));
       setDeleteConfirmId(null);
-      setSuccessMessage('Посилання успішно видалено!');
+      setSuccessMessage(t('dashboard.successDelete'));
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося видалити посилання');
+      setError(err.response?.data?.error || t('dashboard.errorDelete'));
       setDeleteConfirmId(null);
     }
   };
@@ -193,19 +195,19 @@ export default function Dashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Функція для перекладу типу джерела на українську
   const getSourceTypeLabel = (sourceType) => {
-    const labels = {
-      'social_media': 'Соцмережі',
-      'email_marketing': 'E-mail маркетинг',
-      'bloggers_influencers': 'Блогери / інфлюенсери',
-      'search_ads': 'Пошукова реклама',
-      'seo_traffic': 'SEO-трафік',
-      'messengers': 'Месенджери',
-      'own_website': 'Власний сайт / лендинг',
-      'other': 'Інше'
+    const keyMap = {
+      'social_media': 'dashboard.sourceSocial',
+      'email_marketing': 'dashboard.sourceEmail',
+      'bloggers_influencers': 'dashboard.sourceBloggers',
+      'search_ads': 'dashboard.sourceSearchAds',
+      'seo_traffic': 'dashboard.sourceSeo',
+      'messengers': 'dashboard.sourceMessengers',
+      'own_website': 'dashboard.sourceOwnSite',
+      'other': 'dashboard.sourceOther'
     };
-    return labels[sourceType] || sourceType || 'Не вказано';
+    const key = keyMap[sourceType];
+    return key ? t(key) : (sourceType || t('dashboard.notSpecified'));
   };
 
   // Calculate aggregated stats
@@ -216,10 +218,11 @@ export default function Dashboard() {
   const totalCarts = links.reduce((sum, link) => sum + (link.stats?.carts || 0), 0);
   const salesRevenue = links.reduce((sum, link) => sum + (link.stats?.sales_revenue ?? 0), 0);
 
-  const convRate = uniqueClicks > 0 ? (((totalLeads + totalSales) / uniqueClicks) * 100).toFixed(1) : 0;
+  const convRate = uniqueClicks > 0 ? ((totalSales / uniqueClicks) * 100).toFixed(1) : 0;
 
   const canCreateMoreLinks = links.length < (user?.link_limit || 3);
-  const currentDate = new Date().toLocaleDateString('uk-UA', {
+  const locale = t('dashboard.hello') === 'Hello' ? 'en-US' : 'uk-UA';
+  const currentDate = new Date().toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -231,7 +234,7 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">
-          Hello, {user?.email?.split('@')[0] || 'User'}
+          {t('dashboard.hello')}, {user?.email?.split('@')[0] || 'User'}
         </h1>
         <p className="text-slate-500 dark:text-slate-400">{currentDate}</p>
       </div>
@@ -240,42 +243,42 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <StatCard
           icon={MousePointerClick}
-          label="Всього кліків"
+          label={t('dashboard.totalClicks')}
           value={totalClicks.toLocaleString()}
           bgColor="bg-blue-100"
           iconColor="text-blue-600"
         />
         <StatCard
           icon={Users}
-          label="Унікальні кліки"
+          label={t('dashboard.uniqueClicks')}
           value={uniqueClicks.toLocaleString()}
           bgColor="bg-purple-100"
           iconColor="text-purple-600"
         />
         <StatCard
           icon={ShoppingCart}
-          label="Кошик"
+          label={t('dashboard.cart')}
           value={totalCarts.toLocaleString()}
           bgColor="bg-orange-100"
           iconColor="text-orange-600"
         />
         <StatCard
           icon={Target}
-          label="Ліди (кнопка)"
+          label={t('dashboard.leads')}
           value={totalLeads.toLocaleString()}
           bgColor="bg-amber-100"
           iconColor="text-amber-600"
         />
         <StatCard
           icon={TrendingUp}
-          label="Продажі"
+          label={t('dashboard.sales')}
           value={totalSales.toLocaleString()}
           bgColor="bg-green-100"
           iconColor="text-green-600"
         />
         <StatCard
           icon={DollarSign}
-          label="Дохід"
+          label={t('dashboard.revenue')}
           value={`${salesRevenue.toLocaleString()} ₴`}
           bgColor="bg-emerald-100"
           iconColor="text-emerald-600"
@@ -285,12 +288,12 @@ export default function Dashboard() {
       {/* Clicks Chart - Keitaro style */}
       <div className="mb-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Кліки за останні 7 днів</h3>
+          <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">{t('dashboard.clicksChartTitle')}</h3>
           <button
-            onClick={fetchChartData}
+            onClick={() => fetchChartData(i18n.language)}
             disabled={chartLoading}
             className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 rounded-lg transition-colors"
-            title="Оновити графік"
+            title={t('dashboard.refreshChart')}
           >
             <RefreshCw className={`w-4 h-4 ${chartLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -343,7 +346,7 @@ export default function Dashboard() {
                 iconType="line"
                 formatter={(value) => (
                   <span style={{ color: '#64748b', fontSize: '12px' }}>
-                    {value === 'clicks' ? 'Всього кліків' : 'Унікальні кліки'}
+                    {value === 'clicks' ? t('dashboard.totalClicks') : t('dashboard.uniqueClicks')}
                   </span>
                 )}
               />
@@ -370,8 +373,8 @@ export default function Dashboard() {
         ) : (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400 dark:text-slate-500">
             <TrendingUp className="w-10 h-10 mb-3 opacity-40" />
-            <p className="text-sm">Поки що немає даних для графіку</p>
-            <p className="text-xs mt-1">Графік з'явиться після перших кліків</p>
+            <p className="text-sm">{t('dashboard.noChartData')}</p>
+            <p className="text-xs mt-1">{t('dashboard.chartHint')}</p>
           </div>
         )}
       </div>
@@ -379,12 +382,12 @@ export default function Dashboard() {
       {/* Quick Start Steps */}
       {links.length === 0 && !loading && (
         <div className="mb-8 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-violet-200 dark:border-violet-800">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Як почати відстежувати конверсії</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">{t('dashboard.howToStartTitle')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
-              { step: 1, icon: Code, title: 'Встановіть трекер', desc: '1 рядок коду — решту робить сервіс', link: '/setup', linkText: 'Встановлення' },
-              { step: 2, icon: Plus, title: 'Створіть посилання', desc: 'Унікальний URL для кожної кампанії', action: true },
-              { step: 3, icon: Zap, title: 'Все автоматично', desc: 'Трекер сам знайде кнопки та відстежить продажі' },
+              { step: 1, icon: Code, title: t('dashboard.step1Title'), desc: t('dashboard.step1Desc'), link: '/setup', linkText: t('dashboard.step1Link') },
+              { step: 2, icon: Plus, title: t('dashboard.step2Title'), desc: t('dashboard.step2Desc'), action: true },
+              { step: 3, icon: Zap, title: t('dashboard.step3Title'), desc: t('dashboard.step3Desc') },
             ].map(({ step, icon: Icon, title, desc, link: href, linkText, action }) => (
               <div key={step} className="flex gap-3 items-start">
                 <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">{step}</div>
@@ -401,7 +404,7 @@ export default function Dashboard() {
                   )}
                   {action && (
                     <button onClick={() => setShowCreateForm(true)} className="text-xs text-violet-600 dark:text-violet-400 hover:underline font-medium mt-1">
-                      Створити &rarr;
+                      {t('dashboard.step2Action')} &rarr;
                     </button>
                   )}
                 </div>
@@ -420,13 +423,13 @@ export default function Dashboard() {
               className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold px-6 py-3 rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 flex items-center space-x-2"
             >
               <Plus className="w-5 h-5" />
-              <span>Створити нове посилання</span>
+              <span>{t('dashboard.createLink')}</span>
             </button>
           ) : (
             <div className="flex items-center space-x-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
               <AlertCircle className="w-5 h-5 text-red-600" />
               <span className="text-red-700 font-medium">
-                Ліміт посилань досягнуто ({links.length}/{user?.link_limit})
+                {t('dashboard.linkLimitReached')} ({links.length}/{user?.link_limit})
               </span>
             </div>
           )}
@@ -436,7 +439,7 @@ export default function Dashboard() {
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`}></div>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                Оновлено: {lastUpdated.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {t('dashboard.updated')}: {lastUpdated.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
             </div>
           )}
@@ -444,10 +447,10 @@ export default function Dashboard() {
             onClick={() => fetchLinks(true)}
             disabled={loading}
             className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl transition-colors flex items-center space-x-2 text-sm font-medium disabled:opacity-50"
-            title="Оновити статистику"
+            title={t('dashboard.refreshStats')}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Оновлення...' : 'Оновити'}</span>
+            <span>{loading ? t('common.refreshing') : t('common.refresh')}</span>
           </button>
         </div>
       </div>
@@ -455,43 +458,43 @@ export default function Dashboard() {
       {/* Create Link Form */}
       {showCreateForm && canCreateMoreLinks && (
         <div className="mb-6 bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 border border-slate-200 dark:border-slate-700">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Створити нове tracking посилання</h2>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-4">{t('dashboard.createLinkTitle')}</h2>
           <form onSubmit={handleCreateLink} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Назва посилання <span className="text-slate-400 dark:text-slate-500">(необов'язково)</span>
+                {t('dashboard.linkNameLabel')} <span className="text-slate-400 dark:text-slate-500">{t('dashboard.linkNameOptional')}</span>
               </label>
               <input
                 type="text"
                 value={newLink.name || ''}
                 onChange={(e) => setNewLink({ ...newLink, name: e.target.value })}
-                placeholder="Наприклад: Facebook реклама, Email розсилка тощо"
+                placeholder={t('dashboard.linkNamePlaceholder')}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Тип джерела трафіку <span className="text-slate-400 dark:text-slate-500">(необов'язково)</span>
+                {t('dashboard.sourceTypeLabel')} <span className="text-slate-400 dark:text-slate-500">{t('dashboard.linkNameOptional')}</span>
               </label>
               <select
                 value={newLink.source_type || ''}
                 onChange={(e) => setNewLink({ ...newLink, source_type: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white"
               >
-                <option value="">Виберіть тип джерела</option>
-                <option value="social_media">Соцмережі</option>
-                <option value="email_marketing">E-mail маркетинг</option>
-                <option value="bloggers_influencers">Блогери / інфлюенсери</option>
-                <option value="search_ads">Пошукова реклама (Google, Bing, Yandex)</option>
-                <option value="seo_traffic">SEO-трафік</option>
-                <option value="messengers">Месенджери (Telegram, Viber, WhatsApp)</option>
-                <option value="own_website">Власний сайт / лендинг</option>
-                <option value="other">Інше</option>
+                <option value="">{t('dashboard.selectSourceType')}</option>
+                <option value="social_media">{t('dashboard.sourceSocial')}</option>
+                <option value="email_marketing">{t('dashboard.sourceEmail')}</option>
+                <option value="bloggers_influencers">{t('dashboard.sourceBloggers')}</option>
+                <option value="search_ads">{t('dashboard.sourceSearchAds')}</option>
+                <option value="seo_traffic">{t('dashboard.sourceSeo')}</option>
+                <option value="messengers">{t('dashboard.sourceMessengers')}</option>
+                <option value="own_website">{t('dashboard.sourceOwnSite')}</option>
+                <option value="other">{t('dashboard.sourceOther')}</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Цільовий URL <span className="text-red-500">*</span>
+                {t('dashboard.targetUrlLabel')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="url"
@@ -505,11 +508,11 @@ export default function Dashboard() {
                   }
                   setNewLink({ ...newLink, original_url: url });
                 }}
-                placeholder="https://example.com"
+                placeholder={t('dashboard.targetUrlPlaceholder')}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
               />
               {newLink.original_url && !newLink.original_url.match(/^https?:\/\/(.+\.|localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)/i) && (
-                <p className="mt-1 text-sm text-amber-600">Перевірте правильність URL</p>
+                <p className="mt-1 text-sm text-amber-600">{t('dashboard.checkUrl')}</p>
               )}
             </div>
             <div className="flex justify-end space-x-3">
@@ -521,14 +524,14 @@ export default function Dashboard() {
                 }}
                 className="px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-all"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={creating}
                 className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50"
               >
-                {creating ? 'Створення...' : 'Створити посилання'}
+                {creating ? t('dashboard.creating') : t('dashboard.createLinkBtn')}
               </button>
             </div>
           </form>
@@ -545,8 +548,8 @@ export default function Dashboard() {
                 <Check className="w-6 h-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Tracking Link створено!</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Ваш готовий tracking URL:</p>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('dashboard.linkCreatedTitle')}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard.linkCreatedDesc')}</p>
               </div>
             </div>
             <button
@@ -559,7 +562,7 @@ export default function Dashboard() {
           
           <div className="bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-violet-200 dark:border-violet-800">
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">
-              Tracking URL (готовий до використання)
+              {t('dashboard.trackingUrlLabel')}
             </label>
             <div className="flex items-center space-x-2">
               <code className="flex-1 px-4 py-3 bg-white dark:bg-slate-700 rounded-lg text-sm font-mono text-slate-800 dark:text-slate-200 break-all border border-slate-200 dark:border-slate-600">
@@ -576,12 +579,12 @@ export default function Dashboard() {
                 {copied ? (
                   <>
                     <Check className="w-5 h-5" />
-                    <span>Скопійовано!</span>
+                    <span>{t('common.copied')}</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-5 h-5" />
-                    <span>Копіювати</span>
+                    <span>{t('common.copy')}</span>
                   </>
                 )}
               </button>
@@ -591,20 +594,20 @@ export default function Dashboard() {
           <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
             {createdLink.name && (
               <div>
-                <p className="text-slate-500 dark:text-slate-400 mb-1">Назва:</p>
+                <p className="text-slate-500 dark:text-slate-400 mb-1">{t('dashboard.name')}:</p>
                 <p className="text-slate-800 dark:text-white font-semibold">{createdLink.name}</p>
               </div>
             )}
             {createdLink.source_type && (
               <div>
-                <p className="text-slate-500 dark:text-slate-400 mb-1">Тип джерела:</p>
+                <p className="text-slate-500 dark:text-slate-400 mb-1">{t('dashboard.sourceType')}:</p>
                 <span className="inline-block px-3 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded-lg text-sm font-medium">
                   {getSourceTypeLabel(createdLink.source_type)}
                 </span>
               </div>
             )}
             <div>
-              <p className="text-slate-500 dark:text-slate-400 mb-1">Оригінальний URL:</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-1">{t('dashboard.originalUrl')}:</p>
               <a
                 href={createdLink.original_url}
                 target="_blank"
@@ -615,7 +618,7 @@ export default function Dashboard() {
               </a>
             </div>
             <div>
-              <p className="text-slate-500 dark:text-slate-400 mb-1">Унікальний код:</p>
+              <p className="text-slate-500 dark:text-slate-400 mb-1">{t('dashboard.uniqueCode')}:</p>
               <code className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-slate-800 dark:text-slate-200 font-mono">
                 {createdLink.unique_code}
               </code>
@@ -624,8 +627,7 @@ export default function Dashboard() {
 
           <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <p className="text-sm text-blue-800 dark:text-blue-300">
-              <strong>💡 Порада:</strong> Скопіюйте tracking URL і використовуйте його замість оригінального посилання. 
-              Всі кліки та конверсії будуть автоматично відслідковуватися!
+              <strong>💡</strong> {t('dashboard.tip')}
             </p>
           </div>
           
@@ -633,11 +635,11 @@ export default function Dashboard() {
             <button
               onClick={() => {
                 setCreatedLink(null);
-                fetchLinks(true); // Refresh to get updated stats
+                fetchLinks(true);
               }}
               className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
             >
-              Зрозуміло
+              {t('dashboard.gotIt')}
             </button>
           </div>
         </div>
@@ -664,19 +666,40 @@ export default function Dashboard() {
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Завантаження...</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{t('common.loading')}</p>
         </div>
       ) : links.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700">
-          <p className="text-slate-500 dark:text-slate-400">Поки що немає посилань. Створіть перше!</p>
+          <p className="text-slate-500 dark:text-slate-400">{t('dashboard.noLinks')}</p>
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {(() => {
+            const filteredLinks = links.filter(link => {
+              if (sourceFilter) {
+                if (sourceFilter === '_none') {
+                  if (link.source_type) return false;
+                } else {
+                  if (link.source_type !== sourceFilter) return false;
+                }
+              }
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase();
+              return (
+                (link.name || '').toLowerCase().includes(q) ||
+                (link.original_url || '').toLowerCase().includes(q) ||
+                (link.unique_code || '').toLowerCase().includes(q) ||
+                (link.source_type || '').toLowerCase().includes(q)
+              );
+            });
+            const displayCount = filteredLinks.length;
+            return (
+        <>
           {/* Toolbar */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
             <div className="flex items-center space-x-3">
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                {links.length} {links.length === 1 ? 'посилання' : links.length < 5 ? 'посилання' : 'посилань'}
+                {displayCount === 1 ? t('dashboard.linksCount_one', { count: displayCount }) : displayCount < 5 ? t('dashboard.linksCount_few', { count: displayCount }) : t('dashboard.linksCount_many', { count: displayCount })}
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -685,16 +708,16 @@ export default function Dashboard() {
                 onChange={(e) => setSourceFilter(e.target.value)}
                 className="px-2 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-white focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
               >
-                <option value="">Всі джерела</option>
-                <option value="social_media">Соцмережі</option>
-                <option value="email_marketing">E-mail маркетинг</option>
-                <option value="bloggers_influencers">Блогери / інфлюенсери</option>
-                <option value="search_ads">Пошукова реклама</option>
-                <option value="seo_traffic">SEO-трафік</option>
-                <option value="messengers">Месенджери</option>
-                <option value="own_website">Власний сайт / лендинг</option>
-                <option value="other">Інше</option>
-                <option value="_none">Без джерела</option>
+                <option value="">{t('dashboard.allSources')}</option>
+                <option value="social_media">{t('dashboard.sourceSocial')}</option>
+                <option value="email_marketing">{t('dashboard.sourceEmail')}</option>
+                <option value="bloggers_influencers">{t('dashboard.sourceBloggers')}</option>
+                <option value="search_ads">{t('dashboard.sourceSearchAdsShort')}</option>
+                <option value="seo_traffic">{t('dashboard.sourceSeo')}</option>
+                <option value="messengers">{t('dashboard.sourceMessengers')}</option>
+                <option value="own_website">{t('dashboard.sourceOwnSiteShort')}</option>
+                <option value="other">{t('dashboard.sourceOther')}</option>
+                <option value="_none">{t('dashboard.sourceNone')}</option>
               </select>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -702,7 +725,7 @@ export default function Dashboard() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Пошук..."
+                  placeholder={t('common.search')}
                   className="pl-8 pr-3 py-1.5 w-48 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 />
               </div>
@@ -744,40 +767,21 @@ export default function Dashboard() {
                   return (
                     <tr className="border-b border-violet-700 bg-gradient-to-r from-violet-600 to-indigo-600">
                       <th className="text-left px-4 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-8"></th>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">Посилання</th>
-                      <SortTh col="clicks">Кліки</SortTh>
-                      <SortTh col="unique">Унікальні</SortTh>
-                      <SortTh col="carts">Кошик</SortTh>
-                      <SortTh col="leads">Ліди</SortTh>
-                      <SortTh col="sales">Продажі</SortTh>
-                      <SortTh col="cr">CR%</SortTh>
-                      <SortTh col="revenue">Дохід</SortTh>
-                      <th className="text-center px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-16">Дії</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider">{t('dashboard.tableLink')}</th>
+                      <SortTh col="clicks">{t('dashboard.tableClicks')}</SortTh>
+                      <SortTh col="unique">{t('dashboard.tableUnique')}</SortTh>
+                      <SortTh col="carts">{t('dashboard.tableCart')}</SortTh>
+                      <SortTh col="leads">{t('dashboard.tableLeads')}</SortTh>
+                      <SortTh col="sales">{t('dashboard.tableSales')}</SortTh>
+                      <SortTh col="cr">{t('dashboard.tableCr')}</SortTh>
+                      <SortTh col="revenue">{t('dashboard.tableRevenue')}</SortTh>
+                      <th className="text-center px-3 py-2.5 text-xs font-semibold text-white/80 uppercase tracking-wider w-16">{t('dashboard.tableActions')}</th>
                     </tr>
                   );
                 })()}
               </thead>
               <tbody>
-                {links
-                  .filter(link => {
-                    // Source type filter
-                    if (sourceFilter) {
-                      if (sourceFilter === '_none') {
-                        if (link.source_type) return false;
-                      } else {
-                        if (link.source_type !== sourceFilter) return false;
-                      }
-                    }
-                    // Text search
-                    if (!searchQuery.trim()) return true;
-                    const q = searchQuery.toLowerCase();
-                    return (
-                      (link.name || '').toLowerCase().includes(q) ||
-                      (link.original_url || '').toLowerCase().includes(q) ||
-                      (link.unique_code || '').toLowerCase().includes(q) ||
-                      (link.source_type || '').toLowerCase().includes(q)
-                    );
-                  })
+                {filteredLinks
                   .sort((a, b) => {
                     if (!sortColumn) return 0;
                     const getVal = (link) => {
@@ -791,7 +795,7 @@ export default function Dashboard() {
                         case 'revenue': return s.sales_revenue ?? 0;
                         case 'cr': {
                           const u = s.unique_clicks || 0;
-                          return u > 0 ? ((s.leads || 0) + (s.sales || 0)) / u * 100 : 0;
+                          return u > 0 ? (s.sales || 0) / u * 100 : 0;
                         }
                         default: return 0;
                       }
@@ -806,7 +810,7 @@ export default function Dashboard() {
                     const leads = link.stats?.leads || 0;
                     const sales = link.stats?.sales || 0;
                     const revenue = link.stats?.sales_revenue ?? 0;
-                    const cr = unique > 0 ? (((leads + sales) / unique) * 100).toFixed(1) : '0.0';
+                    const cr = unique > 0 ? ((sales / unique) * 100).toFixed(1) : '0.0';
 
                     return (
                       <React.Fragment key={link.id}>
@@ -821,7 +825,7 @@ export default function Dashboard() {
                         >
                           {/* Status */}
                           <td className="px-4 py-2.5">
-                            <div className={`w-2 h-2 rounded-full ${link.code_connected ? 'bg-green-500' : 'bg-red-400'}`} title={link.code_connected ? 'Код підключено' : 'Код не підключено'} />
+                            <div className={`w-2 h-2 rounded-full ${link.code_connected ? 'bg-green-500' : 'bg-red-400'}`} title={link.code_connected ? t('dashboard.codeConnected') : t('dashboard.codeNotConnected')} />
                           </td>
                           {/* Name */}
                           <td className="px-3 py-2.5">
@@ -861,21 +865,21 @@ export default function Dashboard() {
                                   setTimeout(() => setCopiedLinkId(null), 2000);
                                 }}
                                 className={`p-1.5 rounded transition-colors ${copiedLinkId === link.id ? 'text-green-600 bg-green-50 dark:bg-green-900/30' : 'text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30'}`}
-                                title={copiedLinkId === link.id ? 'Скопійовано!' : 'Копіювати tracking URL'}
+                                title={copiedLinkId === link.id ? t('common.copied') : t('dashboard.copyTrackingUrl')}
                               >
                                 {copiedLinkId === link.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                               </button>
                               <button
-                                onClick={() => handleEditLink(link)}
+                                onClick={(e) => { e.stopPropagation(); handleEditLink(link); }}
                                 className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 rounded transition-colors"
-                                title="Редагувати"
+                                title={t('common.edit')}
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => setDeleteConfirmId(link.id)}
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(link.id); }}
                                 className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-                                title="Видалити"
+                                title={t('common.delete')}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -890,7 +894,7 @@ export default function Dashboard() {
                               <div className="space-y-3">
                                 {/* Tracking URL */}
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Tracking URL:</span>
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">{t('dashboard.trackingUrl')}</span>
                                   <code className="flex-1 px-2.5 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-xs font-mono text-slate-700 dark:text-slate-300 break-all select-all">
                                     {link.tracking_url}
                                   </code>
@@ -906,80 +910,36 @@ export default function Dashboard() {
                                         : 'bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/30 dark:text-violet-400'
                                     }`}
                                   >
-                                    {copiedLinkId === link.id ? '✓ Скопійовано' : 'Копіювати'}
+                                    {copiedLinkId === link.id ? '✓ ' + t('common.copied') : t('common.copy')}
                                   </button>
                                 </div>
 
                                 {/* Meta info */}
                                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
                                   <div>
-                                    <span className="text-slate-400">Оригінал: </span>
+                                    <span className="text-slate-400">{t('dashboard.original')} </span>
                                     <a href={link.original_url} target="_blank" rel="noopener noreferrer" className="text-violet-600 dark:text-violet-400 hover:underline break-all">{link.original_url}</a>
                                   </div>
                                   <div>
-                                    <span className="text-slate-400">Код: </span>
+                                    <span className="text-slate-400">{t('dashboard.code')} </span>
                                     <code className="text-slate-600 dark:text-slate-300 font-mono">{link.unique_code}</code>
                                   </div>
                                   {link.source_type && (
                                     <div>
-                                      <span className="text-slate-400">Джерело: </span>
+                                      <span className="text-slate-400">{t('dashboard.source')} </span>
                                       <span className="text-slate-600 dark:text-slate-300">{getSourceTypeLabel(link.source_type)}</span>
                                     </div>
                                   )}
                                   <div className="flex items-center gap-1">
                                     <div className={`w-1.5 h-1.5 rounded-full ${link.code_connected ? 'bg-green-500' : 'bg-red-400'}`} />
                                     {link.code_connected ? (
-                                      <span className="text-green-600 dark:text-green-400">Код підключено</span>
+                                      <span className="text-green-600 dark:text-green-400">{t('dashboard.codeConnected')}</span>
                                     ) : (
-                                      <Link to="/setup" className="text-red-500 dark:text-red-400 hover:underline">Код не підключено →</Link>
+                                      <Link to="/setup" className="text-red-500 dark:text-red-400 hover:underline">{t('dashboard.codeNotConnected')} →</Link>
                                     )}
                                   </div>
                                 </div>
 
-                                {/* Edit Form */}
-                                {editingLinkId === link.id && (
-                                  <div className="bg-white dark:bg-slate-700/50 rounded-lg p-3 border border-slate-200 dark:border-slate-600 mt-2">
-                                    <form onSubmit={(e) => { e.preventDefault(); handleUpdateLink(link.id); }} className="space-y-2.5">
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                                        <input
-                                          type="text"
-                                          value={editForm.name || ''}
-                                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                          placeholder="Назва"
-                                          className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-violet-500"
-                                        />
-                                        <select
-                                          value={editForm.source_type || ''}
-                                          onChange={(e) => setEditForm({ ...editForm, source_type: e.target.value })}
-                                          className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-violet-500"
-                                        >
-                                          <option value="">Тип джерела</option>
-                                          <option value="social_media">Соцмережі</option>
-                                          <option value="email_marketing">E-mail маркетинг</option>
-                                          <option value="bloggers_influencers">Блогери / інфлюенсери</option>
-                                          <option value="search_ads">Пошукова реклама</option>
-                                          <option value="seo_traffic">SEO-трафік</option>
-                                          <option value="messengers">Месенджери</option>
-                                          <option value="own_website">Власний сайт</option>
-                                          <option value="other">Інше</option>
-                                        </select>
-                                        <input
-                                          type="url" required
-                                          value={editForm.original_url}
-                                          onChange={(e) => setEditForm({ ...editForm, original_url: e.target.value })}
-                                          placeholder="https://example.com"
-                                          className="px-3 py-1.5 bg-white dark:bg-slate-700 rounded border border-slate-200 dark:border-slate-600 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-violet-500"
-                                        />
-                                      </div>
-                                      <div className="flex justify-end gap-2">
-                                        <button type="button" onClick={handleCancelEdit} disabled={updating} className="px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50">Скасувати</button>
-                                        <button type="submit" disabled={updating} className="px-3 py-1.5 text-xs bg-violet-600 text-white font-medium rounded hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1">
-                                          {updating ? 'Збереження...' : <><Save className="w-3 h-3" /><span>Зберегти</span></>}
-                                        </button>
-                                      </div>
-                                    </form>
-                                  </div>
-                                )}
                               </div>
                             </td>
                           </tr>
@@ -992,7 +952,7 @@ export default function Dashboard() {
               <tfoot>
                 <tr className="border-t-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 font-semibold">
                   <td className="px-4 py-2.5"></td>
-                  <td className="px-3 py-2.5 text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider">Всього</td>
+                  <td className="px-3 py-2.5 text-xs uppercase text-slate-500 dark:text-slate-400 tracking-wider">{t('dashboard.total')}</td>
                   <td className="px-3 py-2.5 text-right font-mono text-slate-800 dark:text-white tabular-nums">{totalClicks.toLocaleString()}</td>
                   <td className="px-3 py-2.5 text-right font-mono text-slate-800 dark:text-white tabular-nums">{uniqueClicks.toLocaleString()}</td>
                   <td className={`px-3 py-2.5 text-right font-mono tabular-nums ${totalCarts > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500'}`}>{totalCarts}</td>
@@ -1004,6 +964,72 @@ export default function Dashboard() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Edit Link Modal */}
+      {editingLinkId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleCancelEdit}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white">{t('common.edit')} {t('dashboard.tableLink').toLowerCase()}</h3>
+              <button type="button" onClick={handleCancelEdit} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateLink(editingLinkId); }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('dashboard.name')}</label>
+                <input
+                  type="text"
+                  value={editForm.name || ''}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder={t('dashboard.name')}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('dashboard.sourceType')}</label>
+                <select
+                  value={editForm.source_type || ''}
+                  onChange={(e) => setEditForm({ ...editForm, source_type: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+                >
+                  <option value="">{t('dashboard.sourceType')}</option>
+                  <option value="social_media">{t('dashboard.sourceSocial')}</option>
+                  <option value="email_marketing">{t('dashboard.sourceEmail')}</option>
+                  <option value="bloggers_influencers">{t('dashboard.sourceBloggers')}</option>
+                  <option value="search_ads">{t('dashboard.sourceSearchAdsShort')}</option>
+                  <option value="seo_traffic">{t('dashboard.sourceSeo')}</option>
+                  <option value="messengers">{t('dashboard.sourceMessengers')}</option>
+                  <option value="own_website">{t('dashboard.sourceOwnSiteShort')}</option>
+                  <option value="other">{t('dashboard.sourceOther')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">URL</label>
+                <input
+                  type="url"
+                  required
+                  value={editForm.original_url}
+                  onChange={(e) => setEditForm({ ...editForm, original_url: e.target.value })}
+                  placeholder="https://example.com"
+                  className="w-full px-4 py-2.5 bg-white dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={handleCancelEdit} disabled={updating} className="px-5 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-all">
+                  {t('common.cancel')}
+                </button>
+                <button type="submit" disabled={updating} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center gap-2 transition-all">
+                  {updating ? t('common.refreshing') : <><Save className="w-4 h-4" /><span>{t('common.save')}</span></>}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1017,25 +1043,25 @@ export default function Dashboard() {
                 <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Видалити посилання?</h3>
-                <p className="text-slate-500 dark:text-slate-400">Цю дію неможливо скасувати</p>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white">{t('dashboard.deleteConfirmTitle')}</h3>
+                <p className="text-slate-500 dark:text-slate-400">{t('dashboard.deleteConfirmDesc')}</p>
               </div>
             </div>
             <p className="text-slate-600 dark:text-slate-300 mb-6">
-              Ви впевнені, що хочете видалити це tracking посилання? Усі дані про кліки та конверсії будуть втрачені.
+              {t('dashboard.deleteConfirmText')}
             </p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setDeleteConfirmId(null)}
                 className="px-6 py-3 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
               >
-                Скасувати
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDeleteLink(deleteConfirmId)}
                 className="px-6 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-all"
               >
-                Видалити
+                {t('common.delete')}
               </button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
@@ -10,6 +11,9 @@ import Admin from './pages/Admin.jsx';
 import Settings from './pages/Settings.jsx';
 import Success from './pages/Success.jsx';
 import Setup from './pages/Setup.jsx';
+import Guide from './pages/Guide.jsx';
+import VerifyEmail from './pages/VerifyEmail.jsx';
+import ConfirmPasswordChange from './pages/ConfirmPasswordChange.jsx';
 import HomeNew from './pages/HomeNew.jsx';
 import ConsoleCode from './pages/ConsoleCode.jsx';
 
@@ -26,6 +30,7 @@ function PixelJsRedirect() {
 }
 
 function AppRoutes() {
+  const { t } = useTranslation();
   let user = null;
   let loading = true;
   let authenticated = false;
@@ -43,7 +48,7 @@ function AppRoutes() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-slate-500 dark:text-slate-400">Loading...</div>
+        <div className="text-slate-500 dark:text-slate-400">{t('common.loading')}</div>
       </div>
     );
   }
@@ -60,12 +65,24 @@ function AppRoutes() {
           element={<Home />}
         />
         <Route
+          path="/guide"
+          element={<Guide />}
+        />
+        <Route
           path="/home-new"
           element={<HomeNew />}
         />
         <Route
           path="/login"
           element={authenticated ? <Navigate to="/dashboard" replace /> : <Login />}
+        />
+        <Route
+          path="/verify-email"
+          element={authenticated ? <Navigate to="/dashboard" replace /> : <VerifyEmail />}
+        />
+        <Route
+          path="/confirm-password-change"
+          element={<ConfirmPasswordChange />}
         />
         <Route
           path="/dashboard"

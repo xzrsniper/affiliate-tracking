@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import Logo from '../components/Logo.jsx';
@@ -7,6 +8,7 @@ import Logo from '../components/Logo.jsx';
 const ENV_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 export default function Login() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
@@ -26,6 +28,11 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleScriptLoaded, setGoogleScriptLoaded] = useState(false);
   const [publicConfigFetched, setPublicConfigFetched] = useState(false);
+  const [showCheckEmail, setShowCheckEmail] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [emailNotVerifiedEmail, setEmailNotVerifiedEmail] = useState('');
 
   // Використовуємо ref для зберігання актуальних значень
   const loginRef = useRef(login);
@@ -49,9 +56,7 @@ export default function Login() {
         console.log('📥 Received from /api/config/public:', { googleClientId: id ? id.substring(0, 20) + '...' : '(empty)' });
         if (id) {
           setResolvedGoogleClientId(id);
-          console.log('✅ Google Client ID resolved:', id.substring(0, 20) + '...');
-        } else {
-          console.warn('⚠️ Google Client ID is empty in /api/config/public response');
+          if (import.meta.env.DEV) console.log('✅ Google Client ID resolved from /api/config/public');
         }
       })
       .catch((err) => {
@@ -258,37 +263,58 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setEmailNotVerifiedEmail('');
     setLoading(true);
 
     try {
       const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-      const response = await api.post(endpoint, formData);
+      const response = await api.post(endpoint, {
+        ...formData,
+        lang: i18n.language || undefined
+      });
+
+      if (isRegister && response.data?.needVerification) {
+        setRegisteredEmail(response.data.email || formData.email);
+        setShowCheckEmail(true);
+        setLoading(false);
+        return;
+      }
+
       const { token, user } = response.data;
-
       login(token, user);
-
-      // Redirect to dashboard
-      // Admin panel access is controlled by backend (only owner/client email)
-      // Backend will verify ADMIN_EMAIL before allowing admin access
       navigate('/dashboard');
     } catch (err) {
-      console.error('Login error:', err);
-      console.error('Error response:', err.response);
-      console.error('Error message:', err.message);
-      
-      // More detailed error handling
-      if (err.response) {
-        // Server responded with error
-        setError(err.response?.data?.error || `${isRegister ? 'Registration' : 'Login'} failed. Please try again.`);
+      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        setError(t('login.emailNotVerified'));
+        setEmailNotVerifiedEmail(formData.email);
+      } else if (err.response) {
+        setError(err.response?.data?.error || (isRegister ? t('login.register') : t('login.signIn')) + ' failed.');
       } else if (err.request) {
-        // Request was made but no response received
         setError('Cannot connect to server. Please make sure the backend is running on http://localhost:3000');
       } else {
-        // Something else happened
-        setError(err.message || `${isRegister ? 'Registration' : 'Login'} failed. Please try again.`);
+        setError(err.message || (isRegister ? 'Registration' : 'Login') + ' failed.');
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    const email = registeredEmail || formData.email || emailNotVerifiedEmail;
+    if (!email) return;
+    setResendLoading(true);
+    setResendSuccess(false);
+    setError('');
+    try {
+      await api.post('/api/auth/resend-verification', {
+        email,
+        lang: i18n.language || undefined
+      });
+      setResendSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.error || t('login.resendError'));
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -301,22 +327,67 @@ export default function Login() {
             <Logo size="xl" showText={true} linkTo={null} />
           </div>
           <p className="text-slate-500 dark:text-slate-400">
-            {isRegister ? 'Create your account' : 'Sign in to continue'}
+            {isRegister ? t('login.createYourAccount') : t('login.signInToContinue')}
           </p>
         </div>
 
         {/* Form Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
+          {showCheckEmail ? (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+                {t('login.checkEmailTitle')}
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">
+                {t('login.checkEmailText', { email: registeredEmail })}
+              </p>
+              <p className="text-slate-500 dark:text-slate-500 text-xs">
+                {t('login.checkEmailSpam')}
+              </p>
+              {resendSuccess && (
+                <p className="text-green-600 dark:text-green-400 text-sm">{t('login.resendSuccess')}</p>
+              )}
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="w-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 font-medium py-2 px-4 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900/50 disabled:opacity-50"
+                >
+                  {resendLoading ? t('login.pleaseWait') : t('login.resendVerification')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowCheckEmail(false); setError(''); setResendSuccess(false); }}
+                  className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm font-medium"
+                >
+                  {t('login.backToLogin')}
+                </button>
+              </div>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
-                {error}
+              <div className="space-y-2">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+                {emailNotVerifiedEmail && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resendLoading}
+                    className="text-sm text-violet-600 dark:text-violet-400 hover:underline"
+                  >
+                    {resendLoading ? t('login.pleaseWait') : t('login.resendVerification')}
+                  </button>
+                )}
               </div>
             )}
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Email address
+                {t('login.emailAddress')}
               </label>
               <input
                 id="email"
@@ -333,7 +404,7 @@ export default function Login() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Password
+                {t('login.password')}
               </label>
               <input
                 id="password"
@@ -351,7 +422,7 @@ export default function Login() {
             {isRegister && (
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Confirm Password
+                  {t('login.confirmPasswordLabel')}
                 </label>
                 <input
                   id="confirmPassword"
@@ -371,17 +442,20 @@ export default function Login() {
               className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25"
             >
               {loading
-                ? 'Please wait...'
+                ? t('login.pleaseWait')
                 : isRegister
-                ? 'Create account'
-                : 'Sign in'}
+                ? t('login.createAccount')
+                : t('login.signIn')}
             </button>
           </form>
+          )}
 
-          {/* Divider */}
+          {/* Divider - hide when showing check email */}
+          {!showCheckEmail && (
+          <>
           <div className="mt-6 mb-6 flex items-center">
             <div className="flex-1 border-t border-slate-200 dark:border-slate-700"></div>
-            <span className="px-4 text-sm text-slate-500 dark:text-slate-400">or</span>
+            <span className="px-4 text-sm text-slate-500 dark:text-slate-400">{t('login.or')}</span>
             <div className="flex-1 border-t border-slate-200 dark:border-slate-700"></div>
           </div>
 
@@ -412,12 +486,12 @@ export default function Login() {
               </svg>
               <span>
                 {googleLoading 
-                  ? 'Signing in...' 
+                  ? t('login.signingIn') 
                   : !resolvedGoogleClientId && !publicConfigFetched
-                  ? 'Loading...'
+                  ? t('common.loading')
                   : !resolvedGoogleClientId
-                  ? 'Google OAuth not configured'
-                  : 'Continue with Google'}
+                  ? t('login.googleNotConfigured')
+                  : t('login.continueWithGoogle')}
               </span>
             </button>
           )}
@@ -428,14 +502,17 @@ export default function Login() {
               onClick={() => {
                 setIsRegister(!isRegister);
                 setError('');
+                setEmailNotVerifiedEmail('');
               }}
               className="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
             >
               {isRegister
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Sign up"}
+                ? t('login.hasAccount') + ' ' + t('login.signIn')
+                : t('login.noAccount') + ' ' + t('login.signUp')}
             </button>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>

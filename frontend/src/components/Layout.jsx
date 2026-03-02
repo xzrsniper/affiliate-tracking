@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import {
@@ -10,15 +11,18 @@ import {
   Code,
   Sun,
   Moon,
-  MessageCircle
+  MessageCircle,
+  Globe
 } from 'lucide-react';
 import Logo from './Logo.jsx';
 
 export default function Layout({ children }) {
+  const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const isUk = i18n.language === 'uk';
 
   const handleLogout = () => {
     logout();
@@ -35,32 +39,10 @@ export default function Layout({ children }) {
   const canAccessAdmin = user?.role === 'super_admin';
 
   const navItems = [
-    {
-      path: '/dashboard',
-      icon: LayoutDashboard,
-      label: 'Dashboard'
-    },
-    // Admin link is only shown if user is super_admin
-    // Backend will verify that only the owner (ADMIN_EMAIL) can actually access
-    ...(canAccessAdmin
-      ? [
-          {
-            path: '/admin',
-            icon: Users,
-            label: 'Admin'
-          }
-        ]
-      : []),
-    {
-      path: '/setup',
-      icon: Code,
-      label: 'Setup'
-    },
-    {
-      path: '/settings',
-      icon: Settings,
-      label: 'Settings'
-    }
+    { path: '/dashboard', icon: LayoutDashboard, label: t('layout.dashboard') },
+    ...(canAccessAdmin ? [{ path: '/admin', icon: Users, label: t('layout.admin') }] : []),
+    { path: '/setup', icon: Code, label: t('layout.setup') },
+    { path: '/settings', icon: Settings, label: t('layout.settings') }
   ];
 
   return (
@@ -96,9 +78,17 @@ export default function Layout({ children }) {
           <div className="px-4 py-2 mb-2">
             <p className="text-sm font-medium text-slate-800 dark:text-white">{user?.email}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {user?.role === 'super_admin' ? 'Super Admin' : 'User'}
+              {user?.role === 'super_admin' ? t('layout.superAdmin') : t('layout.user')}
             </p>
           </div>
+          <button
+            onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all mb-2"
+            title={isUk ? 'English' : 'Українська'}
+          >
+            <Globe className="w-5 h-5" />
+            <span>{isUk ? 'EN' : 'УКР'}</span>
+          </button>
           <button
             onClick={toggleTheme}
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all mb-2"
@@ -106,12 +96,12 @@ export default function Layout({ children }) {
             {theme === 'dark' ? (
               <>
                 <Sun className="w-5 h-5" />
-                <span>Світла тема</span>
+                <span>{t('common.lightTheme')}</span>
               </>
             ) : (
               <>
                 <Moon className="w-5 h-5" />
-                <span>Темна тема</span>
+                <span>{t('common.darkTheme')}</span>
               </>
             )}
           </button>
@@ -120,7 +110,7 @@ export default function Layout({ children }) {
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all"
           >
             <LogOut className="w-5 h-5" />
-            <span>Logout</span>
+            <span>{t('common.logout')}</span>
           </button>
           {typeof __BUILD_ID__ !== 'undefined' && (
             <p className="mt-3 px-4 text-[10px] text-slate-400 dark:text-slate-500" title="Новий білд = нове число">
@@ -141,7 +131,7 @@ export default function Layout({ children }) {
             className="absolute top-8 right-8 flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 z-10"
           >
             <MessageCircle className="w-5 h-5" />
-            <span>Контакти</span>
+            <span>{t('common.contacts')}</span>
           </a>
           {children}
         </div>

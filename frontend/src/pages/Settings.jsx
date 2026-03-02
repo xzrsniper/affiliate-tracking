@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../config/api.js';
 import { Settings as SettingsIcon, Lock, Check, X } from 'lucide-react';
 
 export default function Settings() {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
@@ -13,6 +15,7 @@ export default function Settings() {
   });
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordCheckEmail, setPasswordCheckEmail] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
   const handlePasswordChange = (e) => {
@@ -28,33 +31,44 @@ export default function Settings() {
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess('');
+    setPasswordCheckEmail(false);
 
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      setPasswordError('Нові паролі не співпадають');
+      setPasswordError(t('settings.passwordsMismatch'));
       return;
     }
 
     if (passwordForm.new_password.length < 6) {
-      setPasswordError('Пароль має бути мінімум 6 символів');
+      setPasswordError(t('settings.passwordMinLength'));
       return;
     }
 
     setChangingPassword(true);
 
     try {
-      await api.put('/api/auth/change-password', {
+      const res = await api.put('/api/auth/change-password', {
         current_password: passwordForm.current_password,
-        new_password: passwordForm.new_password
+        new_password: passwordForm.new_password,
+        lang: i18n.language || undefined
       });
 
-      setPasswordSuccess('Пароль успішно змінено!');
-      setPasswordForm({
-        current_password: '',
-        new_password: '',
-        confirm_password: ''
-      });
+      if (res.data?.needConfirmation) {
+        setPasswordCheckEmail(true);
+        setPasswordForm({
+          current_password: '',
+          new_password: '',
+          confirm_password: ''
+        });
+      } else {
+        setPasswordSuccess(t('settings.passwordSuccess'));
+        setPasswordForm({
+          current_password: '',
+          new_password: '',
+          confirm_password: ''
+        });
+      }
     } catch (err) {
-      setPasswordError(err.response?.data?.error || 'Не вдалося змінити пароль. Перевірте правильність поточного пароля.');
+      setPasswordError(err.response?.data?.error || t('settings.passwordError'));
     } finally {
       setChangingPassword(false);
     }
@@ -64,8 +78,8 @@ export default function Settings() {
     <Layout>
       <div className="max-w-4xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">Settings</h1>
-          <p className="text-slate-500 dark:text-slate-400">Manage your account settings</p>
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">{t('settings.title')}</h1>
+          <p className="text-slate-500 dark:text-slate-400">{t('settings.subtitle')}</p>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8">
@@ -74,15 +88,15 @@ export default function Settings() {
               <SettingsIcon className="w-6 h-6 text-violet-600 dark:text-violet-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 dark:text-white">Account Information</h2>
-              <p className="text-slate-500 dark:text-slate-400">Your account details</p>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">{t('settings.accountInfo')}</h2>
+              <p className="text-slate-500 dark:text-slate-400">{t('settings.accountDetails')}</p>
             </div>
           </div>
 
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Email
+                {t('settings.email')}
               </label>
               <input
                 type="email"
@@ -94,11 +108,11 @@ export default function Settings() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Role
+                {t('settings.role')}
               </label>
               <input
                 type="text"
-                value={user?.role === 'super_admin' ? 'Super Admin' : 'User'}
+                value={user?.role === 'super_admin' ? t('layout.superAdmin') : t('layout.user')}
                 disabled
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 text-slate-600 dark:text-slate-300 cursor-not-allowed"
               />
@@ -106,7 +120,7 @@ export default function Settings() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Link Limit
+                {t('settings.linkLimit')}
               </label>
               <input
                 type="text"
@@ -125,8 +139,8 @@ export default function Settings() {
               <Lock className="w-6 h-6 text-violet-600 dark:text-violet-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 dark:text-white">Зміна паролю</h2>
-              <p className="text-slate-500 dark:text-slate-400">Оновіть свій пароль для забезпечення безпеки</p>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">{t('settings.changePasswordTitle')}</h2>
+              <p className="text-slate-500 dark:text-slate-400">{t('settings.changePasswordDesc')}</p>
             </div>
           </div>
 
@@ -144,10 +158,18 @@ export default function Settings() {
             </div>
           )}
 
+          {passwordCheckEmail && (
+            <div className="mb-6 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 px-4 py-3 rounded-xl space-y-1">
+              <p className="font-medium">{t('settings.passwordCheckEmailTitle')}</p>
+              <p className="text-sm">{t('settings.passwordCheckEmailText', { email: user?.email || '' })}</p>
+              <p className="text-xs opacity-90">{t('settings.passwordCheckEmailSpam')}</p>
+            </div>
+          )}
+
           <form onSubmit={handleChangePassword} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Поточний пароль <span className="text-red-500">*</span>
+                {t('settings.currentPassword')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="password"
@@ -156,13 +178,13 @@ export default function Settings() {
                 onChange={handlePasswordChange}
                 required
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                placeholder="Введіть поточний пароль"
+                placeholder={t('settings.currentPasswordPlaceholder')}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Новий пароль <span className="text-red-500">*</span>
+                {t('settings.newPassword')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="password"
@@ -172,13 +194,13 @@ export default function Settings() {
                 required
                 minLength={6}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                placeholder="Мінімум 6 символів"
+                placeholder={t('settings.newPasswordPlaceholder')}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Підтвердіть новий пароль <span className="text-red-500">*</span>
+                {t('settings.confirmPassword')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="password"
@@ -188,7 +210,7 @@ export default function Settings() {
                 required
                 minLength={6}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                placeholder="Підтвердіть новий пароль"
+                placeholder={t('settings.confirmPasswordPlaceholder')}
               />
             </div>
 
@@ -200,12 +222,12 @@ export default function Settings() {
               >
                 {changingPassword ? (
                   <>
-                    <span>Збереження...</span>
+                    <span>{t('settings.saving')}</span>
                   </>
                 ) : (
                   <>
                     <Lock className="w-5 h-5" />
-                    <span>Змінити пароль</span>
+                    <span>{t('settings.changePassword')}</span>
                   </>
                 )}
               </button>
