@@ -194,20 +194,33 @@ app.use((err, req, res, next) => {
 // Serve frontend in production (after all API routes)
 if (process.env.NODE_ENV === 'production') {
   const frontendPath = path.join(__dirname, 'frontend', 'dist');
+
+  function noCacheHeaders(res) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+
+  // Головна та index.html — завжди без кешу, щоб браузер підхоплював нові assets
+  app.get('/', (req, res) => {
+    noCacheHeaders(res);
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+  app.get('/index.html', (req, res) => {
+    noCacheHeaders(res);
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+
   app.use(express.static(frontendPath, {
     maxAge: '1h',
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
+        noCacheHeaders(res);
       }
     }
   }));
   app.get('*', (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    noCacheHeaders(res);
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {

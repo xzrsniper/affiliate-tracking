@@ -44,3 +44,10 @@ cd frontend && npm run build && cd ..
 pm2 restart all
 ```
 У браузері: **жорстке оновлення** (Ctrl+Shift+R) або відкрити сайт у вкладці інкогніто.
+
+## 5. Браузер все одно грузить старий білд (index-BCgmwBNu.js з кешу)
+
+- У **Node** для головної сторінки вже стоять заголовки `no-store, no-cache`.
+- Якщо перед Node стоїть **nginx** з `proxy_pass`, додай у відповідь заголовки без кешу — інакше nginx або браузер може кешувати. Приклад: `docs/nginx-no-cache-proxy.conf`.
+- Після зміни nginx: `sudo nginx -t && sudo systemctl reload nginx`.
+- Один раз почисти кеш сайту в браузері: DevTools → Application (Storage) → Clear site data для lehko.space, або відкрий сайт у **режимі інкогніто**.
