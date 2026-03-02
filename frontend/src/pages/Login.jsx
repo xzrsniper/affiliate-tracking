@@ -48,19 +48,18 @@ export default function Login() {
   useEffect(() => {
     if (publicConfigFetched || resolvedGoogleClientId) return;
     let cancelled = false;
-    console.log('🔍 Fetching Google Client ID from /api/config/public...');
+    if (import.meta.env.DEV) console.log('🔍 Fetching Google Client ID from /api/config/public...');
     api.get('/api/config/public')
       .then((res) => {
         if (cancelled) return;
         const id = (res.data?.googleClientId || '').trim();
-        console.log('📥 Received from /api/config/public:', { googleClientId: id ? id.substring(0, 20) + '...' : '(empty)' });
         if (id) {
           setResolvedGoogleClientId(id);
-          if (import.meta.env.DEV) console.log('✅ Google Client ID resolved from /api/config/public');
+          if (import.meta.env.DEV) console.log('✅ Google Client ID resolved');
         }
       })
       .catch((err) => {
-        console.error('❌ Failed to fetch Google Client ID from /api/config/public:', err);
+        if (import.meta.env.DEV) console.error('❌ Failed to fetch Google Client ID:', err);
       })
       .finally(() => {
         if (!cancelled) setPublicConfigFetched(true);
