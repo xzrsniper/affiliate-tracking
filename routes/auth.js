@@ -199,7 +199,8 @@ router.post('/google', async (req, res, next) => {
           email: user.email,
           role: user.role,
           link_limit: user.link_limit,
-          is_banned: user.is_banned
+          is_banned: user.is_banned,
+          has_password: !!user.password_hash
         }
       });
   } catch (error) {
@@ -394,7 +395,8 @@ router.post('/login', async (req, res, next) => {
         email: user.email,
         role: user.role,
         link_limit: user.link_limit,
-        is_banned: user.is_banned
+        is_banned: user.is_banned,
+        has_password: true
       }
     });
   } catch (error) {
@@ -412,9 +414,39 @@ router.get('/me', authenticate, async (req, res) => {
       link_limit: req.user.link_limit,
       is_banned: req.user.is_banned,
       email_verified: req.user.email_verified,
-      created_at: req.user.created_at
+      created_at: req.user.created_at,
+      has_password: !!req.user.password_hash
     }
   });
+});
+
+// Set password for Google-only accounts (no current password required)
+router.put('/set-password', authenticate, async (req, res, next) => {
+  try {
+    const { new_password } = req.body;
+
+    if (!new_password) {
+      return res.status(400).json({ error: 'New password is required' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (user.password_hash) {
+      return res.status(400).json({ error: 'Account already has a password. Use change-password instead.', code: 'USE_CHANGE_PASSWORD' });
+    }
+
+    user.password_hash = await bcrypt.hash(String(new_password), 10);
+    await user.save();
+
+    res.json({ success: true, message: 'Password set successfully' });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Change password — sends confirmation email; password applies after user clicks link

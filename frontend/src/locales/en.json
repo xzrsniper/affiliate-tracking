@@ -260,7 +260,7 @@
     "forgotPasswordError": "Failed to send. Try again later.",
     "errorTitle": "Sign in error",
     "invalidCredentials": "Incorrect email or password.",
-    "useGoogleLogin": "This account was registered via Google. Click \"Continue with Google\".",
+    "useGoogleLogin": "This account has no password set. Sign in via Google and set a password in Settings.",
     "accountBanned": "Your account has been banned. Please contact support."
   },
   "settings": {
@@ -287,7 +287,12 @@
     "passwordError": "Failed to change password. Check that the current password is correct.",
     "passwordCheckEmailTitle": "Check your email",
     "passwordCheckEmailText": "We sent a confirmation link to {{email}}. Open the email and click the link to confirm the password change.",
-    "passwordCheckEmailSpam": "Don't see it? Check your Spam folder."
+    "passwordCheckEmailSpam": "Don't see it? Check your Spam folder.",
+    "setPasswordTitle": "Set a password",
+    "setPasswordDesc": "You signed in via Google. Set a password to also sign in with email and password.",
+    "setPasswordBtn": "Set password",
+    "setPasswordSuccess": "Password set! You can now sign in with email and password.",
+    "setPasswordError": "Failed to set password. Please try again."
   },
   "confirmPasswordChange": {
     "title": "Password change confirmation",
