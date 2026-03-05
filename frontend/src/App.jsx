@@ -14,6 +14,7 @@ import Setup from './pages/Setup.jsx';
 import Guide from './pages/Guide.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
 import ConfirmPasswordChange from './pages/ConfirmPasswordChange.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import HomeNew from './pages/HomeNew.jsx';
 import ConsoleCode from './pages/ConsoleCode.jsx';
 
@@ -83,6 +84,10 @@ function AppRoutes() {
         <Route
           path="/confirm-password-change"
           element={<ConfirmPasswordChange />}
+        />
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
         />
         <Route
           path="/dashboard"

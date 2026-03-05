@@ -153,6 +153,9 @@
     "targetUrlLabel": "Target URL",
     "targetUrlPlaceholder": "https://example.com",
     "checkUrl": "Check URL format",
+    "linkFormatLabel": "Link format",
+    "linkFormatOriginal": "Based on original URL",
+    "linkFormatLehko": "On Lehko domain",
     "createLinkBtn": "Create link",
     "creating": "Creating...",
     "linkCreatedTitle": "Tracking link created!",
@@ -205,7 +208,14 @@
     "deleteConfirmTitle": "Delete link?",
     "deleteConfirmDesc": "This action cannot be undone",
     "deleteConfirmText": "Are you sure you want to delete this tracking link? All click and conversion data will be lost.",
-    "notSpecified": "Not specified"
+    "notSpecified": "Not specified",
+    "snapshotFilter": "Time snapshot",
+    "snapshotDate": "Date",
+    "snapshotHour": "Hour",
+    "snapshotApply": "Show",
+    "snapshotClear": "Reset",
+    "snapshotActive": "Viewing data as of",
+    "snapshotHint": "Select date and hour to see statistics as they were at that point in time"
   },
   "login": {
     "title": "Sign in",
@@ -241,7 +251,14 @@
     "verifyEmailVerifying": "Verifying...",
     "verifyEmailSuccess": "Email verified. Redirecting to dashboard.",
     "verifyEmailInvalid": "Link is invalid or already used.",
-    "verifyEmailExpired": "Link has expired. Go to sign in and click «Resend verification email»."
+    "verifyEmailExpired": "Link has expired. Go to sign in and click «Resend verification email».",
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordTitle": "Password recovery",
+    "forgotPasswordDesc": "Enter the email you used to register. We'll send you a link to set a new password.",
+    "forgotPasswordSend": "Send reset link",
+    "forgotPasswordSuccess": "If an account with this email exists, we sent a password reset link. Check your inbox and Spam folder.",
+    "forgotPasswordError": "Failed to send. Try again later.",
+    "errorTitle": "Sign in error"
   },
   "settings": {
     "title": "Settings",
@@ -276,6 +293,17 @@
     "invalid": "Link is invalid or already used.",
     "expired": "Link has expired. Change your password again in settings.",
     "backToSettings": "Back to settings"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "newPasswordTitle": "Enter your new password",
+    "missingToken": "Invalid link. Please request password recovery again.",
+    "invalid": "Link is invalid or already used.",
+    "expired": "Link has expired. Please request password recovery again.",
+    "error": "Failed to change password. Try again later.",
+    "setPassword": "Set password",
+    "successTitle": "Password changed!",
+    "successDesc": "Your password has been changed successfully. You can now sign in with your new password."
   },
   "setup": {
     "title": "Tracking Setup",

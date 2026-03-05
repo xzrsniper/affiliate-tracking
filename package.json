@@ -22,6 +22,7 @@
     "db:add-event-type": "node scripts/add-event-type-field.js",
     "db:add-email-verification": "node scripts/add-email-verification-fields.js",
     "db:add-password-change": "node scripts/add-password-change-fields.js",
+    "db:add-password-reset": "node scripts/add-password-reset-fields.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"

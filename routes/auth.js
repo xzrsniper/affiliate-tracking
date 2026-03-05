@@ -4,12 +4,13 @@ import crypto from 'crypto';
 import { User } from '../models/index.js';
 import { generateToken } from '../utils/jwt.js';
 import { authenticate } from '../middleware/auth.js';
-import { sendVerificationEmail, sendPasswordChangeConfirmationEmail } from '../services/email.js';
+import { sendVerificationEmail, sendPasswordChangeConfirmationEmail, sendPasswordResetEmail, addSubscriberToSendPulse } from '../services/email.js';
 
 const router = express.Router();
 
 const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const PASSWORD_CHANGE_TOKEN_TTL_MS = 60 * 60 * 1000;   // 1 hour
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000;    // 1 hour
 
 // Google OAuth Login
 router.post('/google', async (req, res, next) => {
@@ -171,6 +172,14 @@ router.post('/google', async (req, res, next) => {
             is_banned: false,
             email_verified: true
           });
+
+          // Add new Google user to SendPulse (non-blocking)
+          addSubscriberToSendPulse(googleUser.email, {
+            registration_date: new Date().toISOString(),
+            auth_method: 'google'
+          }).catch(err => {
+            console.error('SendPulse subscriber add failed (non-blocking):', err);
+          });
         }
       }
 
@@ -239,6 +248,11 @@ router.post('/register', async (req, res, next) => {
       console.error('Verification email send failed:', sendResult.error);
       // Still return success so user exists; they can use resend
     }
+
+    // Add subscriber to SendPulse address book (non-blocking)
+    addSubscriberToSendPulse(email, { registration_date: new Date().toISOString() }).catch(err => {
+      console.error('SendPulse subscriber add failed (non-blocking):', err);
+    });
 
     res.status(201).json({
       message: 'Check your email to verify your account',
@@ -493,6 +507,84 @@ router.get('/confirm-password-change', async (req, res, next) => {
     res.json({
       success: true,
       message: 'Password changed successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Forgot password — sends reset email
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    // Always return success to prevent email enumeration
+    if (!user || !user.password_hash) {
+      return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+
+    user.password_reset_token = resetToken;
+    user.password_reset_expires_at = expiresAt;
+    await user.save();
+
+    const lang = (req.body.lang || req.headers['accept-language'] || '').startsWith('en') ? 'en' : 'uk';
+    const sendResult = await sendPasswordResetEmail(email, resetToken, lang);
+
+    if (!sendResult.ok) {
+      console.error('Password reset email send failed:', sendResult.error);
+    }
+
+    res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Reset password (link from email)
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, new_password } = req.body;
+    if (!token || !new_password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findOne({
+      where: { password_reset_token: token }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired link', code: 'INVALID_TOKEN' });
+    }
+
+    if (user.password_reset_expires_at && new Date() > user.password_reset_expires_at) {
+      return res.status(400).json({ error: 'Reset link expired', code: 'EXPIRED_TOKEN' });
+    }
+
+    const password_hash = await bcrypt.hash(String(new_password), 10);
+    user.password_hash = password_hash;
+    user.password_reset_token = null;
+    user.password_reset_expires_at = null;
+    // Also mark email as verified since user has access to the email
+    user.email_verified = true;
+    user.email_verification_token = null;
+    user.email_verification_expires_at = null;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
     });
   } catch (error) {
     next(error);

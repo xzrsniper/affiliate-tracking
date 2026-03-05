@@ -29,7 +29,8 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  ShoppingCart
+  ShoppingCart,
+  Clock
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -42,7 +43,8 @@ export default function Dashboard() {
   const [newLink, setNewLink] = useState({ 
     original_url: '', 
     name: '', 
-    source_type: '' 
+    source_type: '',
+    link_format: 'original'
   });
   const [creating, setCreating] = useState(false);
   const [createdLink, setCreatedLink] = useState(null); // Store newly created link
@@ -64,6 +66,11 @@ export default function Dashboard() {
   const [chartLoading, setChartLoading] = useState(false);
   const isMountedRef = useRef(false); // Track if component is mounted
 
+  // Snapshot filter state
+  const [snapshotDate, setSnapshotDate] = useState(''); // 'YYYY-MM-DD'
+  const [snapshotHour, setSnapshotHour] = useState(''); // '00'..'23'
+  const [activeSnapshot, setActiveSnapshot] = useState(''); // applied value 'YYYY-MM-DDTHH'
+
   // Auto-fetch links and chart on mount
   useEffect(() => {
     isMountedRef.current = true;
@@ -74,10 +81,11 @@ export default function Dashboard() {
     };
   }, [i18n.language]);
 
-  const fetchChartData = async (lang) => {
+  const fetchChartData = async (lang, snapshot = '') => {
     try {
       setChartLoading(true);
-      const response = await api.get('/api/links/clicks-chart');
+      const params = snapshot ? { snapshot } : {};
+      const response = await api.get('/api/links/clicks-chart', { params });
       const raw = response.data.data || [];
       const locale = lang && lang.startsWith('en') ? 'en-US' : 'uk-UA';
       const formatted = raw.map(row => ({
@@ -93,12 +101,13 @@ export default function Dashboard() {
     }
   };
 
-  const fetchLinks = async (showLoading = true) => {
+  const fetchLinks = async (showLoading = true, snapshot = '') => {
     try {
       if (showLoading) {
         setLoading(true);
       }
-      const response = await api.get('/api/links/my-links');
+      const params = snapshot ? { snapshot } : {};
+      const response = await api.get('/api/links/my-links', { params });
       setLinks(response.data.links || []);
       setLastUpdated(new Date());
     } catch (err) {
@@ -108,6 +117,25 @@ export default function Dashboard() {
         setLoading(false);
       }
     }
+  };
+
+  // Apply snapshot filter
+  const handleApplySnapshot = () => {
+    if (snapshotDate && snapshotHour !== '') {
+      const snap = `${snapshotDate}T${snapshotHour.padStart(2, '0')}`;
+      setActiveSnapshot(snap);
+      fetchLinks(true, snap);
+      fetchChartData(i18n.language, snap);
+    }
+  };
+
+  // Clear snapshot filter
+  const handleClearSnapshot = () => {
+    setSnapshotDate('');
+    setSnapshotHour('');
+    setActiveSnapshot('');
+    fetchLinks(true);
+    fetchChartData(i18n.language);
   };
 
   const handleCreateLink = async (e) => {
@@ -121,10 +149,25 @@ export default function Dashboard() {
       const newLinkData = response.data.link;
       
       // Store the created link to show it
+      // Apply link format choice
+      if (newLink.link_format === 'original') {
+        // Build URL based on original: original_url + ?ref=unique_code
+        try {
+          const url = new URL(newLinkData.original_url);
+          url.searchParams.set('ref', newLinkData.unique_code);
+          newLinkData.tracking_url = url.toString();
+        } catch {
+          const sep = newLinkData.original_url.includes('?') ? '&' : '?';
+          newLinkData.tracking_url = `${newLinkData.original_url}${sep}ref=${newLinkData.unique_code}`;
+        }
+      } else {
+        // Lehko domain short link: lehko.space/r/code
+        newLinkData.tracking_url = newLinkData.tracking_url.replace('/track/', '/r/');
+      }
       setCreatedLink(newLinkData);
       
       setLinks([newLinkData, ...links]);
-      setNewLink({ original_url: '', name: '', source_type: '' });
+      setNewLink({ original_url: '', name: '', source_type: '', link_format: 'original' });
       setShowCreateForm(false);
       // Auto-refresh disabled - user can manually refresh if needed
       // Show popup instead of success message
@@ -239,6 +282,70 @@ export default function Dashboard() {
         <p className="text-slate-500 dark:text-slate-400">{currentDate}</p>
       </div>
 
+      {/* Snapshot (Time Machine) Filter */}
+      <div className="mb-6 bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+            <Clock className="w-4 h-4" />
+            <span className="text-sm font-semibold">{t('dashboard.snapshotFilter')}</span>
+          </div>
+
+          <input
+            type="date"
+            value={snapshotDate}
+            onChange={(e) => setSnapshotDate(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            className="px-3 py-2 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 text-sm text-slate-900 dark:text-white"
+          />
+
+          <select
+            value={snapshotHour}
+            onChange={(e) => setSnapshotHour(e.target.value)}
+            className="px-3 py-2 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 text-sm text-slate-900 dark:text-white"
+          >
+            <option value="">{t('dashboard.snapshotHour')}</option>
+            {Array.from({ length: 24 }, (_, i) => (
+              <option key={i} value={String(i).padStart(2, '0')}>
+                {String(i).padStart(2, '0')}:00
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={handleApplySnapshot}
+            disabled={!snapshotDate || snapshotHour === ''}
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-xl disabled:opacity-40 transition-colors"
+          >
+            {t('dashboard.snapshotApply')}
+          </button>
+
+          {activeSnapshot && (
+            <button
+              onClick={handleClearSnapshot}
+              className="px-4 py-2 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-xl transition-colors"
+            >
+              {t('dashboard.snapshotClear')}
+            </button>
+          )}
+
+          {!activeSnapshot && (
+            <span className="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline">
+              {t('dashboard.snapshotHint')}
+            </span>
+          )}
+        </div>
+
+        {/* Active snapshot indicator */}
+        {activeSnapshot && (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              {t('dashboard.snapshotActive')}: {activeSnapshot.replace('T', ' ')}:00
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <StatCard
@@ -290,7 +397,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">{t('dashboard.clicksChartTitle')}</h3>
           <button
-            onClick={() => fetchChartData(i18n.language)}
+            onClick={() => fetchChartData(i18n.language, activeSnapshot)}
             disabled={chartLoading}
             className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 rounded-lg transition-colors"
             title={t('dashboard.refreshChart')}
@@ -444,7 +551,7 @@ export default function Dashboard() {
             </div>
           )}
           <button
-            onClick={() => fetchLinks(true)}
+            onClick={() => fetchLinks(true, activeSnapshot)}
             disabled={loading}
             className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl transition-colors flex items-center space-x-2 text-sm font-medium disabled:opacity-50"
             title={t('dashboard.refreshStats')}
@@ -515,12 +622,68 @@ export default function Dashboard() {
                 <p className="mt-1 text-sm text-amber-600">{t('dashboard.checkUrl')}</p>
               )}
             </div>
+
+            {/* Link format selection */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                {t('dashboard.linkFormatLabel')}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Original-based format */}
+                <button
+                  type="button"
+                  onClick={() => setNewLink({ ...newLink, link_format: 'original' })}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    newLink.link_format === 'original'
+                      ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
+                      : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      newLink.link_format === 'original' ? 'border-violet-500' : 'border-slate-300 dark:border-slate-500'
+                    }`}>
+                      {newLink.link_format === 'original' && <div className="w-2 h-2 rounded-full bg-violet-500"></div>}
+                    </div>
+                    <span className="text-sm font-semibold text-slate-800 dark:text-white">{t('dashboard.linkFormatOriginal')}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-mono break-all">
+                    {newLink.original_url
+                      ? (() => { try { const u = new URL(newLink.original_url); u.searchParams.set('ref', 'AbCdEfGh'); return u.toString(); } catch { return newLink.original_url + '?ref=AbCdEfGh'; } })()
+                      : 'google.com/tovar1?ref=AbCdEfGh'}
+                  </p>
+                </button>
+
+                {/* Lehko domain format */}
+                <button
+                  type="button"
+                  onClick={() => setNewLink({ ...newLink, link_format: 'lehko' })}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    newLink.link_format === 'lehko'
+                      ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
+                      : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                      newLink.link_format === 'lehko' ? 'border-violet-500' : 'border-slate-300 dark:border-slate-500'
+                    }`}>
+                      {newLink.link_format === 'lehko' && <div className="w-2 h-2 rounded-full bg-violet-500"></div>}
+                    </div>
+                    <span className="text-sm font-semibold text-slate-800 dark:text-white">{t('dashboard.linkFormatLehko')}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-mono break-all">
+                    lehko.space/r/AbCdEfGh
+                  </p>
+                </button>
+              </div>
+            </div>
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={() => {
                   setShowCreateForm(false);
-                  setNewLink({ original_url: '', name: '', source_type: '' });
+                  setNewLink({ original_url: '', name: '', source_type: '', link_format: 'original' });
                 }}
                 className="px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-all"
               >
@@ -635,7 +798,7 @@ export default function Dashboard() {
             <button
               onClick={() => {
                 setCreatedLink(null);
-                fetchLinks(true);
+                fetchLinks(true, activeSnapshot);
               }}
               className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
             >

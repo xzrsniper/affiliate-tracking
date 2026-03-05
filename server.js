@@ -91,6 +91,9 @@ app.get('/api/config/public', (req, res) => {
 // Tracking redirect route (must be before API routes)
 app.use('/track', redirectRoutes);
 
+// Short redirect route (alias for /track - shorter URLs like lehko.space/r/AbCdEfGh)
+app.use('/r', redirectRoutes);
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/track', trackRoutes);

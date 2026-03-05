@@ -117,6 +117,7 @@ router.post('/create', async (req, res, next) => {
 /**
  * GET /api/links/clicks-chart
  * Get time-series click data for the chart (last 7 days, hourly)
+ * Optional query: ?snapshot=YYYY-MM-DDTHH  — show data only up to that hour
  */
 router.get('/clicks-chart', async (req, res, next) => {
   try {
@@ -131,18 +132,35 @@ router.get('/clicks-chart', async (req, res, next) => {
       return res.json({ success: true, data: [] });
     }
 
-    // Get hourly click data for last 7 days
+    // Build snapshot filter
+    const { snapshot } = req.query;
+    let snapshotCondition = '';
+    const replacements = [linkIds];
+
+    if (snapshot) {
+      // snapshot format: "YYYY-MM-DDTHH" e.g. "2026-03-04T14"
+      const snapshotEnd = `${snapshot.replace('T', ' ')}:59:59`;
+      const snapshotStart = new Date(snapshotEnd);
+      snapshotStart.setDate(snapshotStart.getDate() - 7);
+      const startStr = snapshotStart.toISOString().slice(0, 19).replace('T', ' ');
+      snapshotCondition = ' AND created_at >= ? AND created_at <= ?';
+      replacements.push(startStr, snapshotEnd);
+    } else {
+      snapshotCondition = ' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    }
+
+    // Get hourly click data
     const [rows] = await sequelize.query(`
       SELECT 
         DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') as time_bucket,
         COUNT(*) as clicks,
         COUNT(DISTINCT visitor_fingerprint) as unique_clicks
       FROM clicks
-      WHERE link_id IN (?) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+      WHERE link_id IN (?)${snapshotCondition}
       GROUP BY time_bucket
       ORDER BY time_bucket ASC
     `, {
-      replacements: [linkIds]
+      replacements
     });
 
     res.json({ success: true, data: rows });
@@ -155,9 +173,22 @@ router.get('/clicks-chart', async (req, res, next) => {
  * GET /api/links/my-links
  * Get all links belonging to the logged-in user
  * Includes count of clicks/conversions using Sequelize includes
+ * Optional query: ?snapshot=YYYY-MM-DDTHH  — show stats only up to that hour
  */
 router.get('/my-links', async (req, res, next) => {
   try {
+    // Build snapshot filter
+    const { snapshot } = req.query;
+    let snapshotCondition = '';
+    const snapshotReplacements = [];
+
+    if (snapshot) {
+      // snapshot format: "YYYY-MM-DDTHH" e.g. "2026-03-04T14"
+      const snapshotEnd = `${snapshot.replace('T', ' ')}:59:59`;
+      snapshotCondition = ' AND created_at <= ?';
+      snapshotReplacements.push(snapshotEnd);
+    }
+
     // Use raw queries for better performance - aggregate stats directly in SQL
     const links = await Link.findAll({
       where: { user_id: req.user.id },
@@ -174,9 +205,9 @@ router.get('/my-links', async (req, res, next) => {
           COUNT(*) as total_clicks,
           COUNT(DISTINCT visitor_fingerprint) as unique_clicks
         FROM clicks
-        WHERE link_id = ?
+        WHERE link_id = ?${snapshotCondition}
       `, {
-        replacements: [link.id],
+        replacements: [link.id, ...snapshotReplacements],
         type: QueryTypes.SELECT
       });
 
@@ -189,9 +220,9 @@ router.get('/my-links', async (req, res, next) => {
           SUM(CASE WHEN event_type = 'cart' THEN 1 ELSE 0 END) as carts,
           COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue
         FROM conversions
-        WHERE link_id = ?
+        WHERE link_id = ?${snapshotCondition}
       `, {
-        replacements: [link.id],
+        replacements: [link.id, ...snapshotReplacements],
         type: QueryTypes.SELECT
       });
 

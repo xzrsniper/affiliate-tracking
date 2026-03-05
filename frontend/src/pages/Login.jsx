@@ -259,6 +259,13 @@ export default function Login() {
     setError('');
   };
 
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [errorShake, setErrorShake] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -283,18 +290,42 @@ export default function Login() {
       login(token, user);
       navigate('/dashboard');
     } catch (err) {
+      let errorMsg = '';
       if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
-        setError(t('login.emailNotVerified'));
+        errorMsg = t('login.emailNotVerified');
         setEmailNotVerifiedEmail(formData.email);
       } else if (err.response) {
-        setError(err.response?.data?.error || (isRegister ? t('login.register') : t('login.signIn')) + ' failed.');
+        errorMsg = err.response?.data?.error || (isRegister ? t('login.register') : t('login.signIn')) + ' failed.';
       } else if (err.request) {
-        setError('Cannot connect to server. Please make sure the backend is running on http://localhost:3000');
+        errorMsg = 'Cannot connect to server. Please make sure the backend is running on http://localhost:3000';
       } else {
-        setError(err.message || (isRegister ? 'Registration' : 'Login') + ' failed.');
+        errorMsg = err.message || (isRegister ? 'Registration' : 'Login') + ' failed.';
       }
+      setError(errorMsg);
+      // Trigger shake animation
+      setErrorShake(true);
+      setTimeout(() => setErrorShake(false), 600);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSuccess(false);
+    setForgotLoading(true);
+
+    try {
+      await api.post('/api/auth/forgot-password', {
+        email: forgotEmail,
+        lang: i18n.language || undefined
+      });
+      setForgotSuccess(true);
+    } catch (err) {
+      setForgotError(err.response?.data?.error || t('login.forgotPasswordError'));
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -364,12 +395,75 @@ export default function Login() {
                 </button>
               </div>
             </div>
+          ) : showForgotPassword ? (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+                {t('login.forgotPasswordTitle')}
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400 text-sm">
+                {t('login.forgotPasswordDesc')}
+              </p>
+              {forgotSuccess ? (
+                <div className="space-y-4">
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl text-sm">
+                    {t('login.forgotPasswordSuccess')}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgotPassword(false); setForgotSuccess(false); setForgotEmail(''); setForgotError(''); }}
+                    className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm font-medium"
+                  >
+                    {t('login.backToLogin')}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  {forgotError && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
+                      {forgotError}
+                    </div>
+                  )}
+                  <div>
+                    <label htmlFor="forgotEmail" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      {t('login.emailAddress')}
+                    </label>
+                    <input
+                      id="forgotEmail"
+                      type="email"
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                      placeholder="you@example.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25"
+                  >
+                    {forgotLoading ? t('login.pleaseWait') : t('login.forgotPasswordSend')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgotPassword(false); setForgotError(''); setForgotEmail(''); }}
+                    className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm font-medium"
+                  >
+                    {t('login.backToLogin')}
+                  </button>
+                </form>
+              )}
+            </div>
           ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="space-y-2">
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
-                  {error}
+              <div className={`space-y-2 ${errorShake ? 'animate-shake' : ''}`}>
+                <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-4 rounded-xl text-sm flex items-start gap-3">
+                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <div>
+                    <p className="font-semibold">{t('login.errorTitle')}</p>
+                    <p className="mt-1">{error}</p>
+                  </div>
                 </div>
                 {emailNotVerifiedEmail && (
                   <button
@@ -402,9 +496,20 @@ export default function Login() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                {t('login.password')}
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {t('login.password')}
+                </label>
+                {!isRegister && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgotPassword(true); setForgotEmail(formData.email); setError(''); }}
+                    className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+                  >
+                    {t('login.forgotPassword')}
+                  </button>
+                )}
+              </div>
               <input
                 id="password"
                 name="password"
@@ -449,8 +554,8 @@ export default function Login() {
           </form>
           )}
 
-          {/* Divider - hide when showing check email */}
-          {!showCheckEmail && (
+          {/* Divider - hide when showing check email or forgot password */}
+          {!showCheckEmail && !showForgotPassword && (
           <>
           <div className="mt-6 mb-6 flex items-center">
             <div className="flex-1 border-t border-slate-200 dark:border-slate-700"></div>

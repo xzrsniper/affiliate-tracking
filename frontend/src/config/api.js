@@ -39,9 +39,14 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Don't redirect on auth endpoints — let the login page handle its own errors
+      const url = error.config?.url || '';
+      const isAuthEndpoint = /\/api\/auth\/(login|register|forgot-password|reset-password|google)/.test(url);
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
