@@ -258,7 +258,10 @@
     "forgotPasswordSend": "Send reset link",
     "forgotPasswordSuccess": "If an account with this email exists, we sent a password reset link. Check your inbox and Spam folder.",
     "forgotPasswordError": "Failed to send. Try again later.",
-    "errorTitle": "Sign in error"
+    "errorTitle": "Sign in error",
+    "invalidCredentials": "Incorrect email or password.",
+    "useGoogleLogin": "This account was registered via Google. Click \"Continue with Google\".",
+    "accountBanned": "Your account has been banned. Please contact support."
   },
   "settings": {
     "title": "Settings",

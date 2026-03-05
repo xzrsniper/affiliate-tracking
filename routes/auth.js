@@ -354,16 +354,16 @@ router.post('/login', async (req, res, next) => {
     // Find user
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
     }
 
     // Check if user has password (not Google-only user)
     if (!user.password_hash) {
-      return res.status(401).json({ error: 'Please sign in with Google' });
+      return res.status(401).json({ error: 'Please sign in with Google', code: 'USE_GOOGLE_LOGIN' });
     }
 
     if (user.is_banned) {
-      return res.status(403).json({ error: 'Account is banned' });
+      return res.status(403).json({ error: 'Account is banned', code: 'ACCOUNT_BANNED' });
     }
 
     if (!user.email_verified) {
@@ -376,11 +376,11 @@ router.post('/login', async (req, res, next) => {
     // Verify password - ensure password_hash is a string
     const passwordHashStr = String(user.password_hash || '');
     if (!passwordHashStr) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
     }
     const isValid = await bcrypt.compare(String(password), passwordHashStr);
     if (!isValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
     }
 
     // Generate token

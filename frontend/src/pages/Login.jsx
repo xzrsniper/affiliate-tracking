@@ -291,9 +291,16 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       let errorMsg = '';
-      if (err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+      const code = err.response?.data?.code;
+      if (code === 'EMAIL_NOT_VERIFIED') {
         errorMsg = t('login.emailNotVerified');
         setEmailNotVerifiedEmail(formData.email);
+      } else if (code === 'INVALID_CREDENTIALS') {
+        errorMsg = t('login.invalidCredentials');
+      } else if (code === 'USE_GOOGLE_LOGIN') {
+        errorMsg = t('login.useGoogleLogin');
+      } else if (code === 'ACCOUNT_BANNED') {
+        errorMsg = t('login.accountBanned');
       } else if (err.response) {
         errorMsg = err.response?.data?.error || (isRegister ? t('login.register') : t('login.signIn')) + ' failed.';
       } else if (err.request) {
