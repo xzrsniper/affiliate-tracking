@@ -45,7 +45,7 @@ router.use(authenticate);
  */
 router.post('/create', async (req, res, next) => {
   try {
-    const { original_url, name, source_type } = req.body;
+    const { original_url, name, source_type, link_format } = req.body;
 
     if (!original_url) {
       return res.status(400).json({ error: 'original_url is required' });
@@ -57,6 +57,10 @@ router.post('/create', async (req, res, next) => {
     } catch (e) {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
+
+    // Validate link_format
+    const validFormats = ['tracking', 'original'];
+    const resolvedFormat = validFormats.includes(link_format) ? link_format : 'tracking';
 
     // Critical Logic: Check if user has reached link_limit
     const currentLinkCount = await Link.count({ 
@@ -88,8 +92,24 @@ router.post('/create', async (req, res, next) => {
       original_url: original_url,
       name: name || null,
       source_type: source_type || null,
-      unique_code: uniqueCode
+      unique_code: uniqueCode,
+      link_format: resolvedFormat
     });
+
+    // Build tracking_url based on format
+    let trackingUrl;
+    if (resolvedFormat === 'original') {
+      try {
+        const url = new URL(original_url);
+        url.searchParams.set('ref', uniqueCode);
+        trackingUrl = url.toString();
+      } catch {
+        const sep = original_url.includes('?') ? '&' : '?';
+        trackingUrl = `${original_url}${sep}ref=${uniqueCode}`;
+      }
+    } else {
+      trackingUrl = `${req.protocol}://${req.get('host')}/r/${uniqueCode}`;
+    }
 
     res.status(201).json({
       success: true,
@@ -100,7 +120,8 @@ router.post('/create', async (req, res, next) => {
         original_url: link.original_url,
         source_type: link.source_type,
         unique_code: link.unique_code,
-        tracking_url: `${req.protocol}://${req.get('host')}/track/${link.unique_code}`,
+        link_format: link.link_format,
+        tracking_url: trackingUrl,
         created_at: link.created_at
       },
       usage: {
@@ -192,7 +213,7 @@ router.get('/my-links', async (req, res, next) => {
     // Use raw queries for better performance - aggregate stats directly in SQL
     const links = await Link.findAll({
       where: { user_id: req.user.id },
-      attributes: ['id', 'name', 'original_url', 'source_type', 'unique_code', 'created_at', 'user_id'],
+      attributes: ['id', 'name', 'original_url', 'source_type', 'unique_code', 'link_format', 'created_at', 'user_id'],
       order: [['created_at', 'DESC']]
     });
 
@@ -238,13 +259,29 @@ router.get('/my-links', async (req, res, next) => {
       const domain = extractDomain(link.original_url);
       const isCodeConnected = await isCodeConnectedForLink(req.user.id, domain);
 
+      // Build tracking_url based on saved link_format
+      let trackingUrl;
+      if (link.link_format === 'original') {
+        try {
+          const url = new URL(link.original_url);
+          url.searchParams.set('ref', link.unique_code);
+          trackingUrl = url.toString();
+        } catch {
+          const sep = link.original_url.includes('?') ? '&' : '?';
+          trackingUrl = `${link.original_url}${sep}ref=${link.unique_code}`;
+        }
+      } else {
+        trackingUrl = `${req.protocol}://${req.get('host')}/r/${link.unique_code}`;
+      }
+
       return {
         id: link.id,
         name: link.name,
         original_url: link.original_url,
         source_type: link.source_type,
         unique_code: link.unique_code,
-        tracking_url: `${req.protocol}://${req.get('host')}/track/${link.unique_code}`,
+        link_format: link.link_format || 'tracking',
+        tracking_url: trackingUrl,
         created_at: link.created_at,
         code_connected: isCodeConnected,
         domain: domain,

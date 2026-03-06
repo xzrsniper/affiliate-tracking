@@ -61,6 +61,12 @@ const Link = sequelize.define('Link', {
     allowNull: false,
     unique: true
   },
+  link_format: {
+    type: DataTypes.ENUM('tracking', 'original'),
+    allowNull: false,
+    defaultValue: 'tracking',
+    comment: 'tracking = lehko.space/track/code, original = original_url?ref=code'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

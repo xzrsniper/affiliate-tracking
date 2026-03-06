@@ -147,23 +147,7 @@ export default function Dashboard() {
     try {
       const response = await api.post('/api/links/create', newLink);
       const newLinkData = response.data.link;
-      
-      // Store the created link to show it
-      // Apply link format choice
-      if (newLink.link_format === 'original') {
-        // Build URL based on original: original_url + ?ref=unique_code
-        try {
-          const url = new URL(newLinkData.original_url);
-          url.searchParams.set('ref', newLinkData.unique_code);
-          newLinkData.tracking_url = url.toString();
-        } catch {
-          const sep = newLinkData.original_url.includes('?') ? '&' : '?';
-          newLinkData.tracking_url = `${newLinkData.original_url}${sep}ref=${newLinkData.unique_code}`;
-        }
-      } else {
-        // Lehko domain short link: lehko.space/r/code
-        newLinkData.tracking_url = newLinkData.tracking_url.replace('/track/', '/r/');
-      }
+      // tracking_url is now computed server-side based on link_format
       setCreatedLink(newLinkData);
       
       setLinks([newLinkData, ...links]);

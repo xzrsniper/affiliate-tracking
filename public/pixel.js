@@ -73,6 +73,33 @@
            ls('lehko_click_id') || getCookie('lehko_click_id') || null;
   }
 
+  // ── 1b. Track click for "original" format links ───────────────────────
+  // When a user arrives via google.com?ref=CODE (original format), the tracking
+  // server redirect was bypassed. Fire /api/track/view/CODE to record the click.
+  function trackOriginalFormatClick() {
+    var params = new URLSearchParams(location.search);
+    var urlRef = params.get('ref');
+    var urlCid = params.get('click_id');
+    // Only fire if ?ref= is present but ?click_id= is NOT (= "original" format link)
+    if (!urlRef || urlCid) return;
+    // Avoid double-firing on the same page session
+    var sessionKey = 'lehko_view_fired_' + urlRef;
+    try { if (sessionStorage.getItem(sessionKey)) return; sessionStorage.setItem(sessionKey, '1'); } catch(e) {}
+    var visitorId = ls('lehko_vid') || null;
+    var url = BASE_URL + '/api/track/view/' + encodeURIComponent(urlRef) +
+              (visitorId ? '?visitor_id=' + encodeURIComponent(visitorId) : '');
+    fetch(url, { mode: 'cors', keepalive: true })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.success && d.click_id) {
+          // Store click_id so conversions can be linked to this click
+          ls('lehko_click_id', String(d.click_id));
+          setCookie('lehko_click_id', String(d.click_id), 30);
+        }
+      })
+      .catch(function() {});
+  }
+
   // ── 1. Capture & Persist ───────────────────────────────────────────────
   // Save tracking params to ALL persistence layers
   function captureAndPersist() {
@@ -1149,6 +1176,7 @@
     });
   } else {
     captureAndPersist();
+    trackOriginalFormatClick();
 
     // Клік — завжди, навіть якщо config не завантажився
     document.addEventListener('click', onDocClick, true);

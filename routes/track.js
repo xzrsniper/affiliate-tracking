@@ -535,28 +535,48 @@ router.get('/view/:code', async (req, res, next) => {
     const visitorFingerprint = visitorId || getVisitorFingerprint(req);
     const ipAddress = getClientIP(req);
 
-    // IMPORTANT: Primary click tracking happens in redirect.js when user clicks the tracking link
-    // This endpoint is ONLY for verification - we don't create new clicks here to prevent duplicates
-    // Check if this visitor_fingerprint already exists for this link
-    const existingClick = await Click.findOne({
-      where: {
-        link_id: link.id,
-        visitor_fingerprint: visitorFingerprint
-      },
-      order: [['created_at', 'DESC']] // Get the most recent one
+    // For "original" format links, the user goes directly to the target site (bypassing redirect.js),
+    // so we must record the click here when pixel.js fires this endpoint.
+    // For "tracking" format links, clicks are already recorded in redirect.js — skip to avoid double-counting.
+    let clickId = null;
+
+    if (link.link_format === 'original') {
+      // Only prevent true duplicates within 1 second (refresh/double-click)
+      const veryRecentClick = await Click.findOne({
+        where: {
+          link_id: link.id,
+          visitor_fingerprint: visitorFingerprint,
+          created_at: { [Op.gte]: new Date(Date.now() - 1000) }
+        },
+        order: [['created_at', 'DESC']]
+      });
+
+      if (!veryRecentClick) {
+        const newClick = await Click.create({
+          link_id: link.id,
+          visitor_fingerprint: visitorFingerprint,
+          ip_address: ipAddress
+        });
+        clickId = newClick.id;
+      } else {
+        clickId = veryRecentClick.id;
+      }
+    }
+
+    // For tracking-format links, check if a click exists (verification only)
+    const existingClick = clickId ? null : await Click.findOne({
+      where: { link_id: link.id, visitor_fingerprint: visitorFingerprint },
+      order: [['created_at', 'DESC']]
     });
 
-    const isUniqueClick = !existingClick;
-    
-    // DO NOT create a new click here - clicks are already tracked in redirect.js
-    // This endpoint is only for verification/statistics purposes
-    // Creating clicks here would cause double-counting
+    const isUniqueClick = link.link_format === 'original' ? (clickId !== null) : !existingClick;
 
     // Return success with click type info
     res.json({ 
       success: true, 
       message: 'Click tracked',
       is_unique: isUniqueClick,
+      click_id: clickId,
       link_id: link.id
     });
   } catch (error) {
