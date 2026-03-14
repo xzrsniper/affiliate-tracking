@@ -7,6 +7,47 @@ import sequelize from '../config/database.js';
 
 const router = express.Router();
 
+let clickSessionColumnsCache = {
+  checkedAt: 0,
+  hasSessionDuration: false,
+  hasHadEngagement: false
+};
+
+async function getClickSessionColumnsAvailability() {
+  const now = Date.now();
+  if (now - clickSessionColumnsCache.checkedAt < 5 * 60 * 1000) {
+    return clickSessionColumnsCache;
+  }
+
+  try {
+    const rows = await sequelize.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'clicks'
+        AND COLUMN_NAME IN ('session_duration_seconds', 'had_engagement')
+    `, {
+      type: QueryTypes.SELECT
+    });
+
+    const names = new Set(rows.map((row) => row.COLUMN_NAME));
+    clickSessionColumnsCache = {
+      checkedAt: now,
+      hasSessionDuration: names.has('session_duration_seconds'),
+      hasHadEngagement: names.has('had_engagement')
+    };
+  } catch (error) {
+    // Safe fallback: keep dashboard working even if schema inspection fails.
+    clickSessionColumnsCache = {
+      checkedAt: now,
+      hasSessionDuration: false,
+      hasHadEngagement: false
+    };
+  }
+
+  return clickSessionColumnsCache;
+}
+
 function extractDomain(url) {
   try {
     const urlObj = new URL(url);
@@ -226,19 +267,36 @@ router.get('/my-links', async (req, res, next) => {
 
     const linkIds = links.map((link) => link.id);
 
-    const [clickStatsRows, conversionStatsRows] = await Promise.all([
-      sequelize.query(`
+    const clickColumns = await getClickSessionColumnsAvailability();
+
+    const clickStatsSql = clickColumns.hasSessionDuration
+      ? `
         SELECT
           link_id,
           COUNT(*) as total_clicks,
           COUNT(DISTINCT visitor_fingerprint) as unique_clicks,
           COUNT(CASE WHEN session_duration_seconds IS NOT NULL THEN 1 END) as measured_sessions,
           COALESCE(AVG(session_duration_seconds), 0) as avg_session_seconds,
-          SUM(CASE WHEN session_duration_seconds IS NOT NULL AND session_duration_seconds < 15 AND COALESCE(had_engagement, 0) = 0 THEN 1 ELSE 0 END) as bounces
+          SUM(CASE WHEN session_duration_seconds IS NOT NULL AND session_duration_seconds < 15 AND ${clickColumns.hasHadEngagement ? 'COALESCE(had_engagement, 0)' : '0'} = 0 THEN 1 ELSE 0 END) as bounces
         FROM clicks
         WHERE link_id IN (?)${snapshotCondition}
         GROUP BY link_id
-      `, {
+      `
+      : `
+        SELECT
+          link_id,
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT visitor_fingerprint) as unique_clicks,
+          0 as measured_sessions,
+          0 as avg_session_seconds,
+          0 as bounces
+        FROM clicks
+        WHERE link_id IN (?)${snapshotCondition}
+        GROUP BY link_id
+      `;
+
+    const [clickStatsRows, conversionStatsRows] = await Promise.all([
+      sequelize.query(clickStatsSql, {
         replacements: [linkIds, ...snapshotReplacements],
         type: QueryTypes.SELECT
       }),
