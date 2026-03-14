@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrackFlow — Setup Guide</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --accent: #6d28d9;
+      --accent-soft: #8b5cf6;
+      --brand-dark: #0b2530;
+      --text-main: #10212b;
+      --text-muted: #4f6470;
+      --surface: #ffffff;
+      --surface-alt: #f7fbfd;
+      --border-main: #dbe5ea;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Manrope', system-ui, -apple-system, sans-serif; background: var(--surface-alt); color: var(--text-main); min-height: 100vh; }
+
+    /* ── Top nav (no sidebar — public page) ── */
+    .topnav {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-main);
+      padding: 0 40px; height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-icon { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-soft)); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; font-weight: 700; }
+    .logo-text { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--text-main); letter-spacing: -0.2px; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .nav-link { font-size: 14px; color: var(--text-muted); text-decoration: none; padding: 6px 12px; border-radius: 6px; transition: all .15s; font-weight: 500; }
+    .nav-link:hover { background: #f3f4f6; color: var(--text-main); }
+    .btn-nav { padding: 7px 16px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; transition: background .15s; }
+    .btn-nav:hover { background: #5b21b6; }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center; padding: 64px 24px 48px;
+      background: linear-gradient(180deg, #fff 0%, var(--surface-alt) 100%);
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 20px;
+      padding: 5px 14px; font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 20px;
+    }
+    .hero h1 { font-family: 'Space Grotesk', sans-serif; font-size: 38px; font-weight: 800; color: var(--text-main); letter-spacing: -0.8px; line-height: 1.15; margin-bottom: 14px; }
+    .hero h1 span { color: var(--accent); }
+    .hero p { font-size: 17px; color: var(--text-muted); max-width: 520px; margin: 0 auto 32px; line-height: 1.65; }
+    .hero-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .btn-primary { padding: 12px 28px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
+    .btn-primary:hover { background: #5b21b6; }
+    .btn-outline { padding: 12px 24px; background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all .15s; }
+    .btn-outline:hover { background: var(--surface-alt); }
+
+    /* ── Progress indicator ── */
+    .progress-section { padding: 32px 40px; max-width: 860px; margin: 0 auto; }
+    .progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .progress-title { font-size: 14px; font-weight: 600; color: #374151; }
+    .progress-pct { font-size: 13px; color: var(--accent); font-weight: 600; }
+    .progress-track { height: 8px; background: var(--border-main); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-soft)); border-radius: 4px; width: 33%; }
+    .steps-dots { display: flex; justify-content: space-between; margin-top: 10px; }
+    .step-dot { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .dot { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+    .dot.done { background: var(--accent); color: #fff; }
+    .dot.current { background: #fff; border: 2px solid var(--accent); color: var(--accent); }
+    .dot.pending { background: var(--border-main); color: #6f8591; }
+    .dot-label { font-size: 11px; color: #6f8591; font-weight: 500; }
+    .dot-label.active { color: var(--accent); }
+
+    /* ── Main grid ── */
+    .guide-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 0 40px 48px; max-width: 1140px; margin: 0 auto; }
+    @media (max-width: 860px) { .guide-grid { grid-template-columns: 1fr; padding: 0 20px 40px; } }
+
+    /* ── Guide card ── */
+    .guide-card { background: #fff; border: 1px solid var(--border-main); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow .2s, border-color .2s; }
+    .guide-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.07); border-color: #c4b5fd; }
+    .guide-card-top {
+      padding: 26px 26px 0;
+    }
+    .card-icon-wrap { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 16px; }
+    .icon-violet { background: #f5f3ff; }
+    .icon-blue { background: #eff6ff; }
+    .icon-green { background: #f0fdf4; }
+    .icon-teal { background: #f0fdfa; }
+    .icon-amber { background: #fffbeb; }
+    .card-number { font-size: 11px; font-weight: 700; color: var(--accent); background: #f5f3ff; border: 1px solid #c4b5fd; border-radius: 20px; padding: 2px 9px; display: inline-block; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .guide-card h2 { font-size: 17px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; letter-spacing: -0.2px; }
+    .guide-card p { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+
+    .guide-card-body { padding: 20px 26px; flex: 1; }
+    .step-list { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+    .step-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #374151; line-height: 1.45; }
+    .step-num { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+    .step-num.violet { background: var(--accent); color: #fff; }
+    .step-num.blue { background: #2563eb;   color: #fff; }
+    .step-num.green { background: #10b981;  color: #fff; }
+    .step-num.check { background: #f0fdf4; color: #16a34a; font-size: 11px; }
+
+    .code-block {
+      background: #1e1b4b; border-radius: 10px; padding: 14px 16px;
+      font-size: 12px; color: #c4b5fd; font-family: 'Fira Code', 'Cascadia Code', monospace; line-height: 1.7;
+      margin-top: 14px; overflow-x: auto;
+    }
+    .code-block .kw { color: #f59e0b; }
+    .code-block .str { color: #86efac; }
+    .code-block .cm { color: var(--text-muted); }
+
+    .guide-card-footer { padding: 0 26px 22px; display: flex; gap: 8px; }
+    .btn-card-primary { flex: 1; padding: 9px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; text-align: center; transition: background .15s; }
+    .btn-card-primary:hover { background: #5b21b6; }
+    .btn-card-ghost { padding: 9px 14px; background: transparent; color: var(--text-muted); border: 1px solid var(--border-main); border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .15s; text-decoration: none; }
+    .btn-card-ghost:hover { background: var(--surface-alt); }
+
+    /* FAQ section */
+    .faq-section { max-width: 720px; margin: 0 auto; padding: 0 40px 60px; }
+    .faq-title { font-size: 22px; font-weight: 700; color: var(--text-main); margin-bottom: 20px; letter-spacing: -0.3px; }
+    .faq-item { border: 1px solid var(--border-main); border-radius: 10px; padding: 16px 20px; margin-bottom: 10px; background: #fff; }
+    .faq-q { font-size: 14px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .faq-q .arrow { color: var(--accent); font-size: 16px; }
+    .faq-a { font-size: 13px; color: var(--text-muted); margin-top: 10px; line-height: 1.65; }
+
+    /* Demo nav */
+    .demo-nav { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); border: 1px solid var(--border-main); border-radius: 40px; padding: 8px 16px; display: flex; align-items: center; gap: 6px; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.08); font-size: 12px; font-weight: 500; color: #374151; }
+    .demo-nav span { color: #6f8591; }
+    .demo-nav a { color: var(--accent); text-decoration: none; padding: 4px 10px; border-radius: 20px; transition: background .15s; }
+    .demo-nav a:hover { background: #f5f3ff; }
+    .demo-nav a.current { background: #f5f3ff; }
+  </style>
+</head>
+<body>
+
+  <div class="demo-nav">
+    <span>Mockup pages:</span>
+    <a href="design-2-clean-saas.html">Home</a>
+    <a href="design-2-login.html">Login</a>
+    <a href="design-2-dashboard.html">Dashboard</a>
+    <a href="design-2-settings.html">Settings</a>
+    <a href="design-2-admin.html">Admin</a>
+    <a href="design-2-guide.html" class="current">Guide</a>
+  </div>
+
+  <!-- ── Top nav ── -->
+  <nav class="topnav" style="margin-top: 50px;">
+    <a href="design-2-clean-saas.html" class="nav-logo">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">TrackFlow</span>
+    </a>
+    <div class="nav-right">
+      <a href="design-2-dashboard.html" class="nav-link">← Back to Dashboard</a>
+      <a href="design-2-settings.html" class="nav-link">Settings</a>
+      <a href="design-2-login.html" class="btn-nav">Account</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <div class="hero-badge">⚡ Setup Guide</div>
+    <h1>Get <span>TrackFlow</span> running<br />on your store in 10 minutes</h1>
+    <p>Follow the steps below to install the tracking pixel, configure your first link, and start seeing real-time analytics.</p>
+    <div class="hero-actions">
+      <a href="#" class="btn-primary">▶ Watch Video Tutorial</a>
+      <a href="#" class="btn-outline">📄 Read Full Docs</a>
+    </div>
+  </div>
+
+  <!-- ── Progress ── -->
+  <div class="progress-section">
+    <div class="progress-header">
+      <span class="progress-title">Your setup progress</span>
+      <span class="progress-pct">1 / 3 complete</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill"></div>
+    </div>
+    <div class="steps-dots">
+      <div class="step-dot"><div class="dot done">✓</div><div class="dot-label active">Pixel installed</div></div>
+      <div class="step-dot"><div class="dot current">2</div><div class="dot-label active">Create link</div></div>
+      <div class="step-dot"><div class="dot pending">3</div><div class="dot-label">First conversion</div></div>
+    </div>
+  </div>
+
+  <!-- ── Guide cards ── -->
+  <div class="guide-grid">
+
+    <!-- Card 1: Install pixel -->
+    <div class="guide-card">
+      <div class="guide-card-top">
+        <div class="card-icon-wrap icon-violet">📦</div>
+        <div class="card-number">STEP 1</div>
+        <h2>Install the Tracking Pixel</h2>
+        <p>Paste a small JavaScript snippet into your store's &lt;head&gt; tag or add it via Google Tag Manager.</p>
+      </div>
+      <div class="guide-card-body">
+        <ul class="step-list">
+          <li><div class="step-num check">✓</div> Copy your unique pixel code from the box below</li>
+          <li><div class="step-num violet">2</div> Open your store admin → Themes → header.liquid (Shopify) or header.php (WooCommerce)</li>
+          <li><div class="step-num violet">3</div> Paste the code before the closing &lt;/head&gt; tag</li>
+          <li><div class="step-num violet">4</div> Save and publish — the pixel fires automatically on every page</li>
+        </ul>
+        <div class="code-block"><span class="cm">// Paste into &lt;head&gt;</span>
+<span class="kw">&lt;script&gt;</span>
+(function(w,d,s,l){
+  w[l]=w[l]||[];
+  <span class="str">w.lhk_id = "YOUR_SITE_ID"</span>;
+  var f=d.createElement(s);
+  f.src=<span class="str">'https://cdn.lehko.track/px.js'</span>;
+  d.head.appendChild(f);
+})(<span class="kw">window</span>,document,<span class="str">'script'</span>,<span class="str">'lehko'</span>);
+<span class="kw">&lt;/script&gt;</span></div>
+      </div>
+      <div class="guide-card-footer">
+        <a href="#" class="btn-card-primary">Copy Pixel Code</a>
+        <a href="#" class="btn-card-ghost">GTM Setup</a>
+      </div>
+    </div>
+
+    <!-- Card 2: Create link -->
+    <div class="guide-card">
+      <div class="guide-card-top">
+        <div class="card-icon-wrap icon-blue">🔗</div>
+        <div class="card-number">STEP 2</div>
+        <h2>Create Your First Tracking Link</h2>
+        <p>Generate a short link that captures UTM parameters, source, medium and campaign automatically.</p>
+      </div>
+      <div class="guide-card-body">
+        <ul class="step-list">
+          <li><div class="step-num blue">1</div> Go to Dashboard → click <strong>+ New Link</strong></li>
+          <li><div class="step-num blue">2</div> Enter your destination URL (product page, homepage, etc.)</li>
+          <li><div class="step-num blue">3</div> Set Source and optionally a custom alias (e.g. <em>fb-promo</em>)</li>
+          <li><div class="step-num blue">4</div> Copy the short link and share it in your ad, post, or bio</li>
+        </ul>
+        <div class="code-block"><span class="cm"># Your link looks like this:</span>
+https://lhk.to/<span class="str">fb-promo</span>
+
+<span class="cm"># It redirects to:</span>
+https://myshop.com/sale?<span class="kw">utm_source</span>=facebook
+  &amp;<span class="kw">utm_medium</span>=cpc
+  &amp;<span class="kw">utm_campaign</span>=summer25
+  &amp;<span class="str">click_id</span>={click_id}</div>
+      </div>
+      <div class="guide-card-footer">
+        <a href="design-2-dashboard.html" class="btn-card-primary">Create Link Now</a>
+        <a href="#" class="btn-card-ghost">API Docs</a>
+      </div>
+    </div>
+
+    <!-- Card 3: Track conversions -->
+    <div class="guide-card">
+      <div class="guide-card-top">
+        <div class="card-icon-wrap icon-green">✅</div>
+        <div class="card-number">STEP 3</div>
+        <h2>Track Conversions via API</h2>
+        <p>Send purchase and lead events from your server to attribute revenue back to each affiliate link.</p>
+      </div>
+      <div class="guide-card-body">
+        <ul class="step-list">
+          <li><div class="step-num green">1</div> Grab the <code>click_id</code> from the URL query param on arrival</li>
+          <li><div class="step-num green">2</div> Store it in the user session or order metadata</li>
+          <li><div class="step-num green">3</div> On purchase / form submit → send a POST to the Conversions API</li>
+          <li><div class="step-num green">4</div> Revenue, AOV, and ROAS appear in your Dashboard instantly</li>
+        </ul>
+        <div class="code-block"><span class="kw">POST</span> https://api.lehko.track/v1/conversion
+<span class="cm">Authorization: Bearer YOUR_API_KEY</span>
+
+{
+  <span class="str">"click_id"</span>: <span class="str">"abc123xyz"</span>,
+  <span class="str">"event"</span>:    <span class="str">"purchase"</span>,
+  <span class="str">"revenue"</span>:  <span class="kw">149.00</span>,
+  <span class="str">"order_id"</span>: <span class="str">"ORD-7821"</span>
+}</div>
+      </div>
+      <div class="guide-card-footer">
+        <a href="#" class="btn-card-primary">Full API Reference</a>
+        <a href="#" class="btn-card-ghost">Telegram Support</a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── FAQ ── -->
+  <div class="faq-section">
+    <div class="faq-title">Frequently Asked Questions</div>
+
+    <div class="faq-item">
+      <div class="faq-q">Does the pixel slow down my store? <span class="arrow">›</span></div>
+      <div class="faq-a">No. The pixel is loaded asynchronously and is under 2KB. It has no impact on Lighthouse or Core Web Vitals scores.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can I track multiple websites under one account? <span class="arrow">›</span></div>
+      <div class="faq-a">Yes. You can add multiple websites in Settings and each gets a unique Site ID. Links and analytics are separated per website.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How does the click_id work with Google Ads GCLID? <span class="arrow">›</span></div>
+      <div class="faq-a">TrackFlow auto-captures GCLID, FBCLID, and TTCLID alongside the internal click_id so you can match conversions in both Google Ads and your own reports.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Is there a Shopify / WooCommerce plugin? <span class="arrow">›</span></div>
+      <div class="faq-a">A native Shopify app is coming in Q3 2025. Until then, the GTM integration (one App Block or GTM snippet) works seamlessly.</div>
+    </div>
+  </div>
+
+</body>
+</html>

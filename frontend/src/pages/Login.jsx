@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Mail, Lock } from 'lucide-react';
 import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import Logo from '../components/Logo.jsx';
@@ -356,47 +357,110 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[#f3f4f6]">
+      <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-[46%_54%]">
+        <aside className="hidden lg:flex flex-col justify-center bg-[linear-gradient(135deg,#0b2530_0%,#6d28d9_40%,#7c3aed_70%,#8b5cf6_100%)] px-14 py-16 text-white relative overflow-hidden">
+          <div className="absolute -top-28 -right-20 h-[390px] w-[390px] rounded-full bg-white/10" />
+          <div className="absolute -bottom-24 -left-16 h-[320px] w-[320px] rounded-full bg-white/10" />
+          <div className="relative z-10">
+            <div className="mb-12">
+              <Logo size="lg" showText={true} linkTo={null} className="text-white [&>span]:text-white" />
+            </div>
+            <h1 className="text-[50px] font-extrabold leading-[1.08] tracking-[-0.03em] mb-4">
+              Track every click.<br />Grow every sale.
+            </h1>
+            <p className="text-white/75 text-[15px] leading-relaxed mb-10 max-w-md">
+              Affiliate & UTM tracking platform for modern marketers. Real-time analytics, custom links, and conversion insights.
+            </p>
+            <ul className="space-y-3 text-white/90 text-sm">
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Custom short links with UTM builder</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Real-time click & conversion tracking</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Add-to-cart & revenue attribution</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Google Tag Manager integration</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Multi-user affiliate management</li>
+            </ul>
+
+            <div className="mt-12 grid grid-cols-3 gap-5 max-w-md">
+              <div className="rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-center backdrop-blur">
+                <p className="text-2xl font-extrabold leading-none">2.4M</p>
+                <p className="mt-1 text-xs text-white/75">Clicks tracked</p>
+              </div>
+              <div className="rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-center backdrop-blur">
+                <p className="text-2xl font-extrabold leading-none">18K</p>
+                <p className="mt-1 text-xs text-white/75">Conversions</p>
+              </div>
+              <div className="rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-center backdrop-blur">
+                <p className="text-2xl font-extrabold leading-none">99.9%</p>
+                <p className="mt-1 text-xs text-white/75">Uptime</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex items-center justify-center bg-[#f7fbfd] p-8 sm:p-10">
+          <div className="w-full max-w-[420px]">
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 lg:hidden">
           <div className="flex justify-center mb-4">
             <Logo size="xl" showText={true} linkTo={null} />
           </div>
-          <p className="text-slate-500 dark:text-slate-400">
+          <p className="text-slate-500">
             {isRegister ? t('login.createYourAccount') : t('login.signInToContinue')}
           </p>
         </div>
 
         {/* Form Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-[20px] border border-slate-300 p-10 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+          {!showCheckEmail && !showForgotPassword && (
+            <div className="mb-6">
+              <h2 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">Welcome back</h2>
+              <p className="text-slate-500 mt-1 text-sm">Sign in to your TrackFlow account</p>
+              <div className="mt-5 rounded-[10px] bg-slate-100 p-[3px] grid grid-cols-2 gap-1">
+                <button
+                  type="button"
+                  onClick={() => { setIsRegister(false); setError(''); setEmailNotVerifiedEmail(''); }}
+                  className={`rounded-lg py-2 text-sm font-medium transition ${!isRegister ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsRegister(true); setError(''); setEmailNotVerifiedEmail(''); }}
+                  className={`rounded-lg py-2 text-sm font-medium transition ${isRegister ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Create Account
+                </button>
+              </div>
+            </div>
+          )}
+
           {showCheckEmail ? (
             <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+              <h2 className="text-lg font-semibold text-slate-800">
                 {t('login.checkEmailTitle')}
               </h2>
-              <p className="text-slate-600 dark:text-slate-400 text-sm">
+              <p className="text-slate-600 text-sm">
                 {t('login.checkEmailText', { email: registeredEmail })}
               </p>
-              <p className="text-slate-500 dark:text-slate-500 text-xs">
+              <p className="text-slate-500 text-xs">
                 {t('login.checkEmailSpam')}
               </p>
               {resendSuccess && (
-                <p className="text-green-600 dark:text-green-400 text-sm">{t('login.resendSuccess')}</p>
+                <p className="text-green-600 text-sm">{t('login.resendSuccess')}</p>
               )}
               <div className="flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={handleResendVerification}
                   disabled={resendLoading}
-                  className="w-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 font-medium py-2 px-4 rounded-xl hover:bg-violet-200 dark:hover:bg-violet-900/50 disabled:opacity-50"
+                  className="w-full bg-violet-100 text-violet-700 font-medium py-2 px-4 rounded-xl hover:bg-violet-200 disabled:opacity-50"
                 >
                   {resendLoading ? t('login.pleaseWait') : t('login.resendVerification')}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowCheckEmail(false); setError(''); setResendSuccess(false); }}
-                  className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm font-medium"
+                  className="w-full text-slate-600 hover:text-slate-800 text-sm font-medium"
                 >
                   {t('login.backToLogin')}
                 </button>
@@ -404,21 +468,21 @@ export default function Login() {
             </div>
           ) : showForgotPassword ? (
             <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+              <h2 className="text-lg font-semibold text-slate-800">
                 {t('login.forgotPasswordTitle')}
               </h2>
-              <p className="text-slate-600 dark:text-slate-400 text-sm">
+              <p className="text-slate-600 text-sm">
                 {t('login.forgotPasswordDesc')}
               </p>
               {forgotSuccess ? (
                 <div className="space-y-4">
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-xl text-sm">
+                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">
                     {t('login.forgotPasswordSuccess')}
                   </div>
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(false); setForgotSuccess(false); setForgotEmail(''); setForgotError(''); }}
-                    className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm font-medium"
+                    className="w-full text-slate-600 hover:text-slate-800 text-sm font-medium"
                   >
                     {t('login.backToLogin')}
                   </button>
@@ -426,19 +490,19 @@ export default function Login() {
               ) : (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   {forgotError && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
                       {forgotError}
                     </div>
                   )}
                   <div>
-                    <label htmlFor="forgotEmail" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <label htmlFor="forgotEmail" className="block text-sm font-medium text-slate-700 mb-2">
                       {t('login.emailAddress')}
                     </label>
                     <input
                       id="forgotEmail"
                       type="email"
                       required
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                      className="w-full px-3 py-2.5 bg-white rounded-[10px] border border-slate-300 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
                       placeholder="you@example.com"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
@@ -454,7 +518,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(false); setForgotError(''); setForgotEmail(''); }}
-                    className="w-full text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white text-sm font-medium"
+                    className="w-full text-slate-600 hover:text-slate-800 text-sm font-medium"
                   >
                     {t('login.backToLogin')}
                   </button>
@@ -465,7 +529,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className={`space-y-2 ${errorShake ? 'animate-shake' : ''}`}>
-                <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-4 rounded-xl text-sm flex items-start gap-3">
+                <div className="bg-red-50 border-2 border-red-300 text-red-700 px-4 py-4 rounded-xl text-sm flex items-start gap-3">
                   <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   <div>
                     <p className="font-semibold">{t('login.errorTitle')}</p>
@@ -477,7 +541,7 @@ export default function Login() {
                     type="button"
                     onClick={handleResendVerification}
                     disabled={resendLoading}
-                    className="text-sm text-violet-600 dark:text-violet-400 hover:underline"
+                    className="text-sm text-violet-600 hover:underline"
                   >
                     {resendLoading ? t('login.pleaseWait') : t('login.resendVerification')}
                   </button>
@@ -486,53 +550,59 @@ export default function Login() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
                 {t('login.emailAddress')}
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={handleChange}
-              />
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="w-full pl-10 pr-3 py-2.5 bg-white rounded-[10px] border border-slate-300 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
+                  placeholder="you@example.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                   {t('login.password')}
                 </label>
                 {!isRegister && (
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(true); setForgotEmail(formData.email); setError(''); }}
-                    className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+                    className="text-xs text-violet-600 hover:text-violet-700 font-medium"
                   >
                     {t('login.forgotPassword')}
                   </button>
                 )}
               </div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete={isRegister ? 'new-password' : 'current-password'}
-                required
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-              />
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
+                  required
+                  className="w-full pl-10 pr-3 py-2.5 bg-white rounded-[10px] border border-slate-300 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
             {isRegister && (
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
                   {t('login.confirmPasswordLabel')}
                 </label>
                 <input
@@ -541,7 +611,7 @@ export default function Login() {
                   type="password"
                   autoComplete="new-password"
                   required={isRegister}
-                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                  className="w-full px-3 py-2.5 bg-white rounded-[10px] border border-slate-300 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
                   placeholder="••••••••"
                 />
               </div>
@@ -550,7 +620,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold py-3 px-4 rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-violet-500/25"
+              className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold py-2.5 px-4 rounded-[10px] hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_6px_18px_rgba(109,40,217,0.22)]"
             >
               {loading
                 ? t('login.pleaseWait')
@@ -565,9 +635,9 @@ export default function Login() {
           {!showCheckEmail && !showForgotPassword && (
           <>
           <div className="mt-6 mb-6 flex items-center">
-            <div className="flex-1 border-t border-slate-200 dark:border-slate-700"></div>
-            <span className="px-4 text-sm text-slate-500 dark:text-slate-400">{t('login.or')}</span>
-            <div className="flex-1 border-t border-slate-200 dark:border-slate-700"></div>
+            <div className="flex-1 border-t border-slate-200"></div>
+            <span className="px-4 text-sm text-slate-500">{t('login.or')}</span>
+            <div className="flex-1 border-t border-slate-200"></div>
           </div>
 
           {/* Google Sign In Button - показується якщо налаштовано або під час завантаження */}
@@ -575,7 +645,7 @@ export default function Login() {
             <button
               onClick={handleGoogleButtonClick}
               disabled={googleLoading || !resolvedGoogleClientId}
-              className="w-full flex items-center justify-center space-x-3 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 hover:border-slate-300 dark:hover:border-slate-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="w-full flex items-center justify-center space-x-3 bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 px-4 rounded-[10px] hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -608,6 +678,9 @@ export default function Login() {
           )}
 
           <div className="mt-6 text-center">
+            <span className="text-sm text-slate-500">
+              {isRegister ? t('login.hasAccount') : t('login.noAccount')}{' '}
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -615,16 +688,16 @@ export default function Login() {
                 setError('');
                 setEmailNotVerifiedEmail('');
               }}
-              className="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
+              className="text-sm text-violet-600 hover:text-violet-700 font-medium"
             >
-              {isRegister
-                ? t('login.hasAccount') + ' ' + t('login.signIn')
-                : t('login.noAccount') + ' ' + t('login.signUp')}
+              {isRegister ? t('login.signIn') : t('login.signUp')}
             </button>
           </div>
           </>
           )}
         </div>
+        </div>
+        </section>
       </div>
     </div>
   );

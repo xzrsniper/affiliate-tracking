@@ -48,8 +48,8 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-slate-500 dark:text-slate-400">{t('common.loading')}</div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500">{t('common.loading')}</div>
       </div>
     );
   }

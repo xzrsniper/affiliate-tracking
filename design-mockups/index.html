@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LehkoTrack — Design Mockups Index</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111827; min-height: 100vh; padding: 48px 32px; }
+
+    .page-header { max-width: 960px; margin: 0 auto 48px; }
+    .header-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+    .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #6d28d9, #8b5cf6); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; font-weight: 700; }
+    .logo-text { font-size: 18px; font-weight: 700; color: #111827; }
+    .header-badge { display: inline-flex; align-items: center; gap: 6px; background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 20px; padding: 5px 14px; font-size: 12px; font-weight: 600; color: #6d28d9; margin-bottom: 12px; }
+    .page-header h1 { font-size: 34px; font-weight: 800; color: #111827; letter-spacing: -0.6px; margin-bottom: 10px; }
+    .page-header p { font-size: 16px; color: #6b7280; max-width: 560px; line-height: 1.6; }
+
+    /* ── Style selector ── */
+    .style-section { max-width: 960px; margin: 0 auto 52px; }
+    .style-section h2 { font-size: 13px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 16px; }
+    .style-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .style-card {
+      border-radius: 14px; overflow: hidden; cursor: pointer;
+      transition: box-shadow .2s, transform .15s;
+      text-decoration: none; display: block;
+      border: 2px solid transparent;
+    }
+    .style-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.12); transform: translateY(-2px); }
+    .style-card.selected { border-color: #6d28d9; }
+    .style-thumb {
+      height: 140px; width: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+    }
+    .style-thumb.dark { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%); }
+    .style-thumb.clean { background: linear-gradient(135deg, #fff 0%, #f5f3ff 100%); border-bottom: 1px solid #e5e7eb; }
+    .style-thumb.bold { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
+    .style-info { background: #fff; border-top: 1px solid #e5e7eb; padding: 14px 18px; }
+    .style-name { font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 2px; }
+    .style-desc { font-size: 12px; color: #6b7280; }
+    .selected-tag { background: #f5f3ff; color: #6d28d9; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-left: 8px; letter-spacing: 0.5px; }
+
+    /* ── Pages section ── */
+    .pages-section { max-width: 960px; margin: 0 auto; }
+    .pages-section h2 { font-size: 13px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 16px; }
+    .pages-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 700px) { .pages-grid { grid-template-columns: 1fr; } .style-grid { grid-template-columns: 1fr; } }
+
+    .page-card {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden;
+      text-decoration: none; display: flex; flex-direction: column;
+      transition: box-shadow .2s, border-color .2s, transform .15s;
+    }
+    .page-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.08); border-color: #c4b5fd; transform: translateY(-2px); }
+    .page-thumb {
+      height: 120px; display: flex; align-items: center; justify-content: center;
+      font-size: 44px; position: relative; overflow: hidden;
+    }
+    .page-thumb.landing { background: linear-gradient(135deg, #f5f3ff, #ede9fe); }
+    .page-thumb.login   { background: linear-gradient(135deg, #eff6ff, #dbeafe); }
+    .page-thumb.dash    { background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+    .page-thumb.settings{ background: linear-gradient(135deg, #fffbeb, #fef3c7); }
+    .page-thumb.admin   { background: linear-gradient(135deg, #fef2f2, #fee2e2); }
+    .page-thumb.guide   { background: linear-gradient(135deg, #f0fdfa, #ccfbf1); }
+
+    .page-badge {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 6px; padding: 3px 8px;
+      font-size: 10px; font-weight: 600; color: #6b7280;
+    }
+
+    /* Mini preview elements for thumbs */
+    .mini-sidebar {
+      width: 48px; height: 80px; background: rgba(255,255,255,0.7); border-radius: 6px;
+      margin-right: 8px; padding: 6px 4px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .mini-s-logo { width: 100%; height: 8px; background: #6d28d9; border-radius: 3px; }
+    .mini-s-item { width: 100%; height: 5px; background: #e5e7eb; border-radius: 2px; }
+    .mini-s-item.active { background: #c4b5fd; }
+    .mini-main { flex: 1; height: 80px; display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+    .mini-header { height: 8px; background: rgba(255,255,255,0.6); border-radius: 3px; width: 70%; }
+    .mini-stats { display: flex; gap: 3px; }
+    .mini-stat { height: 18px; flex: 1; background: rgba(255,255,255,0.7); border-radius: 4px; }
+    .mini-chart { height: 24px; background: rgba(255,255,255,0.5); border-radius: 4px; }
+
+    .page-info { padding: 15px 18px 18px; }
+    .page-name { font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+    .page-desc { font-size: 12px; color: #6b7280; line-height: 1.5; margin-bottom: 12px; }
+    .page-features { display: flex; flex-wrap: wrap; gap: 5px; }
+    .feature-tag { background: #f3f4f6; color: #6b7280; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; }
+    .feature-tag.violet { background: #f5f3ff; color: #6d28d9; }
+    .open-link {
+      display: block; text-align: center; padding: 10px; margin: 0 18px 16px;
+      background: #6d28d9; color: #fff; border-radius: 8px;
+      font-size: 13px; font-weight: 600; text-decoration: none; transition: background .15s;
+    }
+    .open-link:hover { background: #5b21b6; }
+
+    /* ── Footer ── */
+    .index-footer { max-width: 960px; margin: 52px auto 0; padding-top: 28px; border-top: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+    .footer-note { font-size: 12px; color: #9ca3af; }
+    .footer-links { display: flex; gap: 16px; }
+    .footer-links a { font-size: 12px; color: #6d28d9; text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div class="header-logo">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">LehkoTrack</span>
+    </div>
+    <div class="header-badge">🎨 Design Exploration</div>
+    <h1>Site Redesign Mockups</h1>
+    <p>Interactive HTML prototypes showing how each page of the platform could look in 3 different visual styles. Click any card to preview.</p>
+  </div>
+
+  <!-- ── Style options ── -->
+  <div class="style-section">
+    <h2>Landing Page — 3 Style Options</h2>
+    <div class="style-grid">
+      <a href="design-1-dark-glass.html" class="style-card">
+        <div class="style-thumb dark">🌑</div>
+        <div class="style-info">
+          <div class="style-name">Style 1 — Dark Glassmorphism</div>
+          <div class="style-desc">Dark background, violet-blue gradients, frosted glass cards</div>
+        </div>
+      </a>
+      <a href="design-2-clean-saas.html" class="style-card selected">
+        <div class="style-thumb clean">☀</div>
+        <div class="style-info">
+          <div class="style-name">Style 2 — Clean Modern SaaS <span class="selected-tag">FULL SITE ↓</span></div>
+          <div class="style-desc">White background, violet accents, minimal borders — like Notion / Linear</div>
+        </div>
+      </a>
+      <a href="design-3-bold-vibrant.html" class="style-card">
+        <div class="style-thumb bold">🔥</div>
+        <div class="style-info">
+          <div class="style-name">Style 3 — Bold Neobrutalism</div>
+          <div class="style-desc">Orange &amp; black, strong shadows, high-contrast typography</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- ── Full site pages ── -->
+  <div class="pages-section">
+    <h2>Style 2 — All Pages</h2>
+    <div class="pages-grid">
+
+      <a href="design-2-clean-saas.html" class="page-card">
+        <div class="page-thumb landing">
+          <span>🏠</span>
+          <span class="page-badge">Public</span>
+        </div>
+        <div class="page-info">
+          <div class="page-name">Landing Page</div>
+          <div class="page-desc">Marketing homepage with hero, feature sections, pricing, and CTA.</div>
+          <div class="page-features">
+            <span class="feature-tag violet">Hero</span>
+            <span class="feature-tag">Pricing</span>
+            <span class="feature-tag">Features</span>
+            <span class="feature-tag">CTA</span>
+          </div>
+        </div>
+        <a href="design-2-clean-saas.html" class="open-link">Open →</a>
+      </a>
+
+      <a href="design-2-login.html" class="page-card">
+        <div class="page-thumb login">
+          <span>🔑</span>
+          <span class="page-badge">Auth</span>
+        </div>
+        <div class="page-info">
+          <div class="page-name">Login / Register</div>
+          <div class="page-desc">Split-screen auth page with email+password login, OAuth, and sign-up toggle.</div>
+          <div class="page-features">
+            <span class="feature-tag violet">Sign In</span>
+            <span class="feature-tag">Register</span>
+            <span class="feature-tag">Google OAuth</span>
+          </div>
+        </div>
+        <a href="design-2-login.html" class="open-link">Open →</a>
+      </a>
+
+      <a href="design-2-dashboard.html" class="page-card">
+        <div class="page-thumb dash">
+          <div class="mini-sidebar">
+            <div class="mini-s-logo"></div>
+            <div class="mini-s-item active"></div>
+            <div class="mini-s-item"></div>
+            <div class="mini-s-item"></div>
+          </div>
+          <div class="mini-main">
+            <div class="mini-header"></div>
+            <div class="mini-stats">
+              <div class="mini-stat"></div>
+              <div class="mini-stat"></div>
+              <div class="mini-stat"></div>
+            </div>
+            <div class="mini-chart"></div>
+          </div>
+          <span class="page-badge">Sidebar</span>
+        </div>
+        <div class="page-info">
+          <div class="page-name">Dashboard</div>
+          <div class="page-desc">Main analytics view: 6 stat cards, area chart, links table with search and filters.</div>
+          <div class="page-features">
+            <span class="feature-tag violet">Stats</span>
+            <span class="feature-tag">Chart</span>
+            <span class="feature-tag">Links Table</span>
+            <span class="feature-tag">Sidebar</span>
+          </div>
+        </div>
+        <a href="design-2-dashboard.html" class="open-link">Open →</a>
+      </a>
+
+      <a href="design-2-settings.html" class="page-card">
+        <div class="page-thumb settings">
+          <span>⚙️</span>
+          <span class="page-badge">Sidebar</span>
+        </div>
+        <div class="page-info">
+          <div class="page-name">Settings</div>
+          <div class="page-desc">Account info, password change, notification toggles, plan usage, and danger zone.</div>
+          <div class="page-features">
+            <span class="feature-tag violet">Account</span>
+            <span class="feature-tag">Security</span>
+            <span class="feature-tag">Billing</span>
+            <span class="feature-tag">Danger</span>
+          </div>
+        </div>
+        <a href="design-2-settings.html" class="open-link">Open →</a>
+      </a>
+
+      <a href="design-2-admin.html" class="page-card">
+        <div class="page-thumb admin">
+          <span>🛡️</span>
+          <span class="page-badge">Admin only</span>
+        </div>
+        <div class="page-info">
+          <div class="page-name">Admin Panel</div>
+          <div class="page-desc">User management table with search, role/status filters, ban/unban actions, and link limits.</div>
+          <div class="page-features">
+            <span class="feature-tag violet">Users Table</span>
+            <span class="feature-tag">Ban / Unban</span>
+            <span class="feature-tag">Link Limits</span>
+          </div>
+        </div>
+        <a href="design-2-admin.html" class="open-link">Open →</a>
+      </a>
+
+      <a href="design-2-guide.html" class="page-card">
+        <div class="page-thumb guide">
+          <span>📖</span>
+          <span class="page-badge">Public</span>
+        </div>
+        <div class="page-info">
+          <div class="page-name">Setup Guide</div>
+          <div class="page-desc">3-step onboarding: install pixel → create link → track conversions. Includes code blocks and FAQ.</div>
+          <div class="page-features">
+            <span class="feature-tag violet">3 Steps</span>
+            <span class="feature-tag">Code Snippets</span>
+            <span class="feature-tag">FAQ</span>
+          </div>
+        </div>
+        <a href="design-2-guide.html" class="open-link">Open →</a>
+      </a>
+
+    </div>
+  </div>
+
+  <div class="index-footer">
+    <div class="footer-note">Design mockups — not implemented in source code</div>
+    <div class="footer-links">
+      <a href="design-2-clean-saas.html">Landing</a>
+      <a href="design-2-login.html">Login</a>
+      <a href="design-2-dashboard.html">Dashboard</a>
+      <a href="design-2-settings.html">Settings</a>
+      <a href="design-2-admin.html">Admin</a>
+      <a href="design-2-guide.html">Guide</a>
+    </div>
+  </div>
+
+</body>
+</html>

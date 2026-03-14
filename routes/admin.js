@@ -1,7 +1,7 @@
 import express from 'express';
 import { User, Link, Click, Conversion } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
-import { Op } from 'sequelize';
+import { Op, fn, col } from 'sequelize';
 
 const router = express.Router();
 
@@ -39,16 +39,24 @@ router.get('/users', async (req, res, next) => {
       order: [['created_at', 'DESC']]
     });
 
-    // Get link counts for each user
-    const usersWithStats = await Promise.all(
-      users.map(async (user) => {
-        const linkCount = await Link.count({ where: { user_id: user.id } });
-        return {
-          ...user.toJSON(),
-          link_count: linkCount
-        };
-      })
+    const userIds = users.map((user) => user.id);
+    const linkCountRows = userIds.length
+      ? await Link.findAll({
+          where: { user_id: { [Op.in]: userIds } },
+          attributes: ['user_id', [fn('COUNT', col('id')), 'link_count']],
+          group: ['user_id'],
+          raw: true
+        })
+      : [];
+
+    const linkCountByUserId = new Map(
+      linkCountRows.map((row) => [Number(row.user_id), Number(row.link_count || 0)])
     );
+
+    const usersWithStats = users.map((user) => ({
+      ...user.toJSON(),
+      link_count: linkCountByUserId.get(user.id) || 0
+    }));
 
     res.json({
       success: true,

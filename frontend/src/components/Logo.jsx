@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { Link as LinkIcon } from 'lucide-react';
 
 export default function Logo({ size = 'md', showText = true, className = '', linkTo = null }) {
   const sizeClasses = {
@@ -18,30 +17,28 @@ export default function Logo({ size = 'md', showText = true, className = '', lin
 
   const logoContent = (
     <div className={`flex items-center space-x-3 ${className}`}>
-      <div className={`${sizeClasses[size]} bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden`}>
-        <img 
-          src="/logo.png" 
-          alt="LehkoTrack Logo" 
+      <div className={`${sizeClasses[size]} bg-gradient-to-br from-violet-600 via-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg shadow-violet-500/30 ring-1 ring-white/30`}>
+        <img
+          src="/logo.png"
+          alt="LehkoTrack logo"
           className="w-full h-full object-contain p-1.5"
           onError={(e) => {
-            // Fallback to icon if logo doesn't load
             e.target.style.display = 'none';
             const parent = e.target.parentElement;
             if (parent) {
-              parent.innerHTML = '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>';
+              parent.innerHTML = '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>';
             }
           }}
         />
       </div>
       {showText && (
-        <span className={`${textSizeClasses[size]} font-bold text-slate-800 dark:text-white`}>
+        <span className={`${textSizeClasses[size]} font-bold tracking-tight text-slate-900`}>
           LehkoTrack
         </span>
       )}
     </div>
   );
 
-  // If linkTo is provided, wrap with Link
   if (linkTo) {
     return (
       <Link to={linkTo} className="flex items-center">

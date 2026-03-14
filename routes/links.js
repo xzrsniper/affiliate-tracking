@@ -2,7 +2,6 @@ import express from 'express';
 import { Link, Click, Conversion, User, Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
-import { checkTrackerInstallation } from '../utils/trackerCheck.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
@@ -17,22 +16,14 @@ function extractDomain(url) {
   }
 }
 
-// Check if tracking code is connected: either in "My sites" with connected status, OR tracker detected on link's domain
-async function isCodeConnectedForLink(userId, linkDomain) {
-  if (!linkDomain) return false;
-  const website = await Website.findOne({
-    where: {
-      user_id: userId,
-      is_connected: true,
-      [Op.or]: [
-        { domain: linkDomain },
-        { domain: `www.${linkDomain}` },
-        { domain: linkDomain.replace(/^www\./, '') }
-      ]
-    }
-  });
-  if (website) return true;
-  return await checkTrackerInstallation(linkDomain);
+function normalizeDomain(domain) {
+  if (!domain) return null;
+  return String(domain)
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '')
+    .toLowerCase()
+    .split('/')[0]
+    .replace(/^www\./, '');
 }
 
 // All routes require authentication
@@ -142,9 +133,14 @@ router.post('/create', async (req, res, next) => {
  */
 router.get('/clicks-chart', async (req, res, next) => {
   try {
+    const { source_type } = req.query;
+
     // Get all link IDs for this user
     const userLinks = await Link.findAll({
-      where: { user_id: req.user.id },
+      where: {
+        user_id: req.user.id,
+        ...(source_type ? { source_type } : {})
+      },
       attributes: ['id']
     });
     const linkIds = userLinks.map(l => l.id);
@@ -210,30 +206,45 @@ router.get('/my-links', async (req, res, next) => {
       snapshotReplacements.push(snapshotEnd);
     }
 
-    // Use raw queries for better performance - aggregate stats directly in SQL
     const links = await Link.findAll({
       where: { user_id: req.user.id },
       attributes: ['id', 'name', 'original_url', 'source_type', 'unique_code', 'link_format', 'created_at', 'user_id'],
       order: [['created_at', 'DESC']]
     });
 
-    // Calculate stats for each link using optimized SQL aggregation
-    // This is much faster than loading all clicks/conversions into memory
-    const linksWithStats = await Promise.all(links.map(async (link) => {
-      // Use SQL aggregation for better performance
-      const [clickStats] = await sequelize.query(`
-        SELECT 
-          COUNT(*) as total_clicks,
-          COUNT(DISTINCT visitor_fingerprint) as unique_clicks
-        FROM clicks
-        WHERE link_id = ?${snapshotCondition}
-      `, {
-        replacements: [link.id, ...snapshotReplacements],
-        type: QueryTypes.SELECT
+    if (links.length === 0) {
+      return res.json({
+        success: true,
+        links: [],
+        summary: {
+          total_links: 0,
+          link_limit: req.user.link_limit,
+          remaining_slots: Math.max(0, req.user.link_limit)
+        }
       });
+    }
 
-      const [conversionStats] = await sequelize.query(`
-        SELECT 
+    const linkIds = links.map((link) => link.id);
+
+    const [clickStatsRows, conversionStatsRows] = await Promise.all([
+      sequelize.query(`
+        SELECT
+          link_id,
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT visitor_fingerprint) as unique_clicks,
+          COUNT(CASE WHEN session_duration_seconds IS NOT NULL THEN 1 END) as measured_sessions,
+          COALESCE(AVG(session_duration_seconds), 0) as avg_session_seconds,
+          SUM(CASE WHEN session_duration_seconds IS NOT NULL AND session_duration_seconds < 15 AND COALESCE(had_engagement, 0) = 0 THEN 1 ELSE 0 END) as bounces
+        FROM clicks
+        WHERE link_id IN (?)${snapshotCondition}
+        GROUP BY link_id
+      `, {
+        replacements: [linkIds, ...snapshotReplacements],
+        type: QueryTypes.SELECT
+      }),
+      sequelize.query(`
+        SELECT
+          link_id,
           COUNT(*) as conversions,
           COALESCE(SUM(order_value), 0) as total_revenue,
           SUM(CASE WHEN event_type = 'lead' THEN 1 ELSE 0 END) as leads,
@@ -241,11 +252,56 @@ router.get('/my-links', async (req, res, next) => {
           SUM(CASE WHEN event_type = 'cart' THEN 1 ELSE 0 END) as carts,
           COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue
         FROM conversions
-        WHERE link_id = ?${snapshotCondition}
+        WHERE link_id IN (?)${snapshotCondition}
+        GROUP BY link_id
       `, {
-        replacements: [link.id, ...snapshotReplacements],
+        replacements: [linkIds, ...snapshotReplacements],
         type: QueryTypes.SELECT
-      });
+      })
+    ]);
+
+    const clickStatsByLinkId = new Map(clickStatsRows.map((row) => [Number(row.link_id), row]));
+    const conversionStatsByLinkId = new Map(conversionStatsRows.map((row) => [Number(row.link_id), row]));
+
+    const candidateDomains = Array.from(new Set(
+      links.map((link) => normalizeDomain(extractDomain(link.original_url))).filter(Boolean)
+    ));
+
+    const domainsToMatch = Array.from(new Set(candidateDomains.flatMap((domain) => [domain, `www.${domain}`])));
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+
+    const [connectedWebsites, recentVerifications] = await Promise.all([
+      Website.findAll({
+        where: {
+          user_id: req.user.id,
+          is_connected: true,
+          domain: { [Op.in]: domainsToMatch }
+        },
+        attributes: ['domain']
+      }),
+      sequelize.query(`
+        SELECT DISTINCT domain
+        FROM tracker_verifications
+        WHERE domain IN (?) AND last_seen >= ?
+      `, {
+        replacements: [domainsToMatch, tenMinutesAgo],
+        type: QueryTypes.SELECT
+      })
+    ]);
+
+    const connectedDomains = new Set();
+    connectedWebsites.forEach((website) => {
+      const normalized = normalizeDomain(website.domain);
+      if (normalized) connectedDomains.add(normalized);
+    });
+    recentVerifications.forEach((item) => {
+      const normalized = normalizeDomain(item.domain);
+      if (normalized) connectedDomains.add(normalized);
+    });
+
+    const linksWithStats = links.map((link) => {
+      const clickStats = clickStatsByLinkId.get(link.id) || {};
+      const conversionStats = conversionStatsByLinkId.get(link.id) || {};
 
       const totalClicks = parseInt(clickStats?.total_clicks || 0);
       const uniqueClicks = parseInt(clickStats?.unique_clicks || 0);
@@ -255,9 +311,14 @@ router.get('/my-links', async (req, res, next) => {
       const totalSales = parseInt(conversionStats?.sales || 0);
       const totalCarts = parseInt(conversionStats?.carts || 0);
       const salesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
+      const measuredSessions = parseInt(clickStats?.measured_sessions || 0);
+      const avgSessionSeconds = parseFloat(clickStats?.avg_session_seconds || 0);
+      const bounces = parseInt(clickStats?.bounces || 0);
+      const bounceRate = measuredSessions > 0 ? (bounces / measuredSessions) * 100 : 0;
+      const averageCheck = totalSales > 0 ? salesRevenue / totalSales : 0;
 
-      const domain = extractDomain(link.original_url);
-      const isCodeConnected = await isCodeConnectedForLink(req.user.id, domain);
+      const domain = normalizeDomain(extractDomain(link.original_url));
+      const isCodeConnected = domain ? connectedDomains.has(domain) : false;
 
       // Build tracking_url based on saved link_format
       let trackingUrl;
@@ -293,10 +354,14 @@ router.get('/my-links', async (req, res, next) => {
           sales: totalSales,
           carts: totalCarts,
           total_revenue: parseFloat(totalRevenue.toFixed(2)),
-          sales_revenue: parseFloat(salesRevenue.toFixed(2))
+          sales_revenue: parseFloat(salesRevenue.toFixed(2)),
+          avg_session_seconds: parseFloat(avgSessionSeconds.toFixed(2)),
+          bounce_rate: parseFloat(bounceRate.toFixed(2)),
+          average_check: parseFloat(averageCheck.toFixed(2)),
+          measured_sessions: measuredSessions
         }
       };
-    }));
+    });
 
     res.json({
       success: true,
@@ -306,6 +371,33 @@ router.get('/my-links', async (req, res, next) => {
         link_limit: req.user.link_limit,
         remaining_slots: Math.max(0, req.user.link_limit - links.length)
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/bulk-delete', authenticate, async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids)
+      ? req.body.ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0)
+      : [];
+
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'ids array is required' });
+    }
+
+    const deletedCount = await Link.destroy({
+      where: {
+        id: ids,
+        user_id: req.user.id
+      }
+    });
+
+    res.json({
+      success: true,
+      deleted_count: deletedCount,
+      requested_count: ids.length
     });
   } catch (error) {
     next(error);

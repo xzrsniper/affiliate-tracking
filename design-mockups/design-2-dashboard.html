@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrackFlow — Dashboard</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --accent: #6d28d9;
+      --accent-soft: #8b5cf6;
+      --brand-dark: #0b2530;
+      --text-main: #10212b;
+      --text-muted: #4f6470;
+      --surface: #ffffff;
+      --surface-alt: #f7fbfd;
+      --border-main: #dbe5ea;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Manrope', system-ui, -apple-system, sans-serif; background: var(--surface-alt); color: var(--text-main); display: flex; min-height: 100vh; }
+
+    /* ───── Sidebar ───── */
+    .sidebar {
+      width: 240px; flex-shrink: 0; background: #fff;
+      border-right: 1px solid var(--border-main);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; height: 100vh; z-index: 10;
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 20px 20px 18px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .logo-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 17px; font-weight: 700; flex-shrink: 0;
+    }
+    .logo-text { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--text-main); letter-spacing: -0.2px; }
+
+    .sidebar-section { padding: 14px 10px 6px; }
+    .section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.8px; color: #6f8591; text-transform: uppercase; padding: 0 10px 8px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 8px; cursor: pointer;
+      color: var(--text-muted); font-size: 14px; font-weight: 500;
+      transition: all .15s; text-decoration: none; margin-bottom: 2px;
+    }
+    .nav-item:hover { background: #f3f4f6; color: var(--text-main); }
+    .nav-item.active { background: #f5f3ff; color: var(--accent); }
+    .nav-item .icon { width: 18px; text-align: center; font-size: 15px; }
+    .nav-badge {
+      margin-left: auto; background: var(--accent); color: #fff;
+      font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px;
+    }
+
+    .sidebar-bottom {
+      margin-top: auto; padding: 14px 10px;
+      border-top: 1px solid #f3f4f6;
+    }
+    .user-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 8px; cursor: pointer;
+      transition: background .15s;
+    }
+    .user-row:hover { background: #f3f4f6; }
+    .avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .user-info .user-name { font-size: 13px; font-weight: 600; color: var(--text-main); }
+    .user-info .user-email { font-size: 11px; color: #6f8591; }
+    .logout-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 8px; cursor: pointer;
+      color: #ef4444; font-size: 13px; font-weight: 500; margin-top: 4px;
+      transition: background .15s;
+    }
+    .logout-btn:hover { background: #fef2f2; }
+
+    /* ───── Main Content ───── */
+    .main { margin-left: 240px; flex: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Top bar */
+    .topbar {
+      position: sticky; top: 0; z-index: 5;
+      background: rgba(249,250,251,0.9); backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-main);
+      padding: 14px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .topbar-left h1 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; }
+    .topbar-left p { font-size: 13px; color: var(--text-muted); margin-top: 1px; }
+    .topbar-actions { display: flex; align-items: center; gap: 10px; }
+    .btn-primary {
+      padding: 8px 16px; background: var(--accent); color: #fff;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px;
+      transition: background .15s;
+    }
+    .btn-primary:hover { background: #5b21b6; }
+    .btn-secondary {
+      padding: 8px 14px; background: #fff; color: #374151;
+      border: 1px solid var(--border-main); border-radius: 8px; font-size: 13px; font-weight: 500;
+      cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px;
+      transition: background .15s;
+    }
+    .btn-secondary:hover { background: var(--surface-alt); }
+
+    /* Page body */
+    .page-body { padding: 28px 32px; flex: 1; }
+
+    /* Filter row */
+    .filter-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border-main); background: #fff; cursor: pointer; color: var(--text-muted);
+      font-family: inherit; transition: all .15s;
+    }
+    .filter-btn.active { background: #f5f3ff; border-color: #c4b5fd; color: var(--accent); }
+    .filter-btn:hover:not(.active) { background: #f3f4f6; }
+    .filter-sep { width: 1px; height: 20px; background: var(--border-main); }
+    .filter-select {
+      padding: 6px 12px; border: 1px solid var(--border-main); border-radius: 8px;
+      font-size: 13px; color: #374151; background: #fff; cursor: pointer; font-family: inherit;
+    }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card {
+      background: #fff; border: 1px solid var(--border-main); border-radius: 14px;
+      padding: 20px 22px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .stat-top { display: flex; align-items: center; justify-content: space-between; }
+    .stat-label { font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .stat-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 15px;
+    }
+    .stat-icon.violet { background: #f5f3ff; }
+    .stat-icon.blue { background: #eff6ff; }
+    .stat-icon.green { background: #f0fdf4; }
+    .stat-icon.amber { background: #fffbeb; }
+    .stat-icon.pink { background: #fdf4ff; }
+    .stat-icon.teal { background: #f0fdfa; }
+    .stat-value { font-size: 28px; font-weight: 700; color: var(--text-main); letter-spacing: -0.5px; line-height: 1; }
+    .stat-footer { display: flex; align-items: center; gap: 6px; }
+    .stat-change { font-size: 12px; font-weight: 600; }
+    .stat-change.up { color: #16a34a; }
+    .stat-change.down { color: #dc2626; }
+    .stat-period { font-size: 12px; color: #6f8591; }
+
+    /* Chart card */
+    .chart-card {
+      background: #fff; border: 1px solid var(--border-main); border-radius: 14px;
+      padding: 22px 24px; margin-bottom: 24px;
+    }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .chart-title { font-size: 15px; font-weight: 600; color: var(--text-main); }
+    .chart-legend { display: flex; gap: 16px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .legend-dot.violet { background: var(--accent); }
+    .legend-dot.blue { background: #3b82f6; }
+    .legend-dot.green { background: #10b981; }
+
+    /* SVG chart mock */
+    .chart-wrap { width: 100%; height: 180px; position: relative; }
+    .chart-wrap svg { width: 100%; height: 100%; }
+    .y-labels { position: absolute; left: 0; top: 0; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+    .y-label { font-size: 11px; color: #6f8591; }
+    .x-labels { display: flex; justify-content: space-between; margin-top: 8px; }
+    .x-label { font-size: 11px; color: #6f8591; }
+
+    /* Links table */
+    .table-card {
+      background: #fff; border: 1px solid var(--border-main); border-radius: 14px;
+      overflow: hidden;
+    }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px; border-bottom: 1px solid #f3f4f6;
+    }
+    .table-title { font-size: 15px; font-weight: 600; color: var(--text-main); }
+    .table-actions { display: flex; gap: 8px; align-items: center; }
+    .search-input {
+      padding: 7px 12px 7px 32px; border: 1px solid var(--border-main); border-radius: 8px;
+      font-size: 13px; color: #374151; font-family: inherit; width: 200px; position: relative;
+    }
+    .search-wrap { position: relative; }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #6f8591; font-size: 13px; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 10px 18px; text-align: left; font-size: 11px; font-weight: 600;
+      color: #6f8591; text-transform: uppercase; letter-spacing: 0.5px;
+      background: var(--surface-alt); border-bottom: 1px solid #f3f4f6;
+    }
+    tbody tr { border-bottom: 1px solid var(--surface-alt); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fafafa; }
+    td { padding: 13px 18px; font-size: 13.5px; color: #374151; vertical-align: middle; }
+    .link-name { font-weight: 600; color: var(--text-main); }
+    .link-url { font-size: 12px; color: var(--accent); margin-top: 2px; font-family: monospace; }
+    .source-badge {
+      display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2px;
+    }
+    .source-badge.fb { background: #eff6ff; color: #2563eb; }
+    .source-badge.ig { background: #fdf4ff; color: #7c3aed; }
+    .source-badge.gg { background: #fff7ed; color: #c2410c; }
+    .source-badge.tg { background: #f0fdfa; color: #0d9488; }
+    .source-badge.em { background: #f0fdf4; color: #15803d; }
+    .num { font-weight: 600; color: var(--text-main); }
+    .rev { font-weight: 700; color: #16a34a; }
+    .actions-cell { display: flex; gap: 6px; }
+    .act-btn {
+      padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border-main); background: #fff; cursor: pointer; font-family: inherit;
+      color: var(--text-muted); transition: all .15s;
+    }
+    .act-btn:hover { background: #f3f4f6; }
+    .act-btn.copy { color: var(--accent); border-color: #c4b5fd; }
+    .act-btn.copy:hover { background: #f5f3ff; }
+
+    .table-footer {
+      padding: 12px 22px; border-top: 1px solid #f3f4f6;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: #6f8591;
+    }
+    .pagination { display: flex; gap: 4px; }
+    .page-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border-main);
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; cursor: pointer; transition: all .15s; color: #374151;
+    }
+    .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .page-btn:hover:not(.active) { background: #f3f4f6; }
+
+    /* Demo nav */
+    .demo-nav {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
+      border: 1px solid var(--border-main); border-radius: 40px; padding: 8px 16px;
+      display: flex; align-items: center; gap: 6px; z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08); font-size: 12px; font-weight: 500; color: #374151;
+    }
+    .demo-nav span { color: #6f8591; }
+    .demo-nav a { color: var(--accent); text-decoration: none; padding: 4px 10px; border-radius: 20px; transition: background .15s; }
+    .demo-nav a:hover { background: #f5f3ff; }
+    .demo-nav a.current { background: #f5f3ff; }
+  </style>
+</head>
+<body>
+
+  <div class="demo-nav">
+    <span>Mockup pages:</span>
+    <a href="design-2-clean-saas.html">Home</a>
+    <a href="design-2-login.html">Login</a>
+    <a href="design-2-dashboard.html" class="current">Dashboard</a>
+    <a href="design-2-settings.html">Settings</a>
+    <a href="design-2-admin.html">Admin</a>
+    <a href="design-2-guide.html">Guide</a>
+  </div>
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">TrackFlow</span>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Menu</div>
+      <a href="design-2-dashboard.html" class="nav-item active">
+        <span class="icon">📊</span> Dashboard
+        <span class="nav-badge">3</span>
+      </a>
+      <a href="design-2-admin.html" class="nav-item">
+        <span class="icon">🛡️</span> Admin
+      </a>
+      <a href="design-2-guide.html" class="nav-item">
+        <span class="icon">📖</span> Setup Guide
+      </a>
+      <a href="design-2-settings.html" class="nav-item">
+        <span class="icon">⚙️</span> Settings
+      </a>
+    </div>
+
+    <div class="sidebar-section" style="margin-top: auto;">
+      <div class="section-label">Resources</div>
+      <a href="#" class="nav-item">
+        <span class="icon">📄</span> Documentation
+      </a>
+      <a href="#" class="nav-item">
+        <span class="icon">💬</span> Support
+      </a>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="user-row">
+        <div class="avatar">AK</div>
+        <div class="user-info">
+          <div class="user-name">Andriy K.</div>
+          <div class="user-email">admin@lehko.dev</div>
+        </div>
+      </div>
+      <div class="logout-btn">
+        <span>🚪</span> Log Out
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main">
+    <div class="topbar" style="margin-top: 50px;">
+      <div class="topbar-left">
+        <h1>Dashboard</h1>
+        <p>Thursday, June 19, 2025</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-secondary">⟳ Refresh</button>
+        <button class="btn-primary">+ New Link</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Filters -->
+      <div class="filter-row">
+        <button class="filter-btn">All time</button>
+        <button class="filter-btn">Today</button>
+        <button class="filter-btn active">7 days</button>
+        <button class="filter-btn">30 days</button>
+        <button class="filter-btn">Custom</button>
+        <div class="filter-sep"></div>
+        <select class="filter-select">
+          <option>All links</option>
+          <option>Facebook</option>
+          <option>Instagram</option>
+          <option>Google</option>
+        </select>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Total Clicks</span>
+            <div class="stat-icon violet">🔗</div>
+          </div>
+          <div class="stat-value">48,302</div>
+          <div class="stat-footer">
+            <span class="stat-change up">▲ +12.4%</span>
+            <span class="stat-period">vs last 7 days</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Unique Visitors</span>
+            <div class="stat-icon blue">👤</div>
+          </div>
+          <div class="stat-value">31,847</div>
+          <div class="stat-footer">
+            <span class="stat-change up">▲ +8.1%</span>
+            <span class="stat-period">vs last 7 days</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Add to Cart</span>
+            <div class="stat-icon amber">🛒</div>
+          </div>
+          <div class="stat-value">5,214</div>
+          <div class="stat-footer">
+            <span class="stat-change up">▲ +3.7%</span>
+            <span class="stat-period">vs last 7 days</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Leads</span>
+            <div class="stat-icon teal">📬</div>
+          </div>
+          <div class="stat-value">2,890</div>
+          <div class="stat-footer">
+            <span class="stat-change down">▼ -1.2%</span>
+            <span class="stat-period">vs last 7 days</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Conversions</span>
+            <div class="stat-icon green">✅</div>
+          </div>
+          <div class="stat-value">1,427</div>
+          <div class="stat-footer">
+            <span class="stat-change up">▲ +21.0%</span>
+            <span class="stat-period">vs last 7 days</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Revenue</span>
+            <div class="stat-icon pink">💰</div>
+          </div>
+          <div class="stat-value">$84,620</div>
+          <div class="stat-footer">
+            <span class="stat-change up">▲ +18.3%</span>
+            <span class="stat-period">vs last 7 days</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Clicks &amp; Conversions — last 14 days</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot violet"></div>Clicks</div>
+            <div class="legend-item"><div class="legend-dot green"></div>Conversions</div>
+          </div>
+        </div>
+        <!-- SVG area chart mockup -->
+        <div class="chart-wrap">
+          <svg viewBox="0 0 900 160" preserveAspectRatio="none">
+            <!-- Grid lines -->
+            <line x1="0" y1="40"  x2="900" y2="40"  stroke="#f3f4f6" stroke-width="1"/>
+            <line x1="0" y1="80"  x2="900" y2="80"  stroke="#f3f4f6" stroke-width="1"/>
+            <line x1="0" y1="120" x2="900" y2="120" stroke="#f3f4f6" stroke-width="1"/>
+            <!-- Clicks area (violet) -->
+            <defs>
+              <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.01"/>
+              </linearGradient>
+              <linearGradient id="gg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#10b981" stop-opacity="0.15"/>
+                <stop offset="100%" stop-color="#10b981" stop-opacity="0.01"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,130 C60,115 120,95 180,100 C240,105 300,75 360,70 C420,65 480,85 540,72 C600,60 660,45 720,35 C780,25 840,40 900,30 L900,160 L0,160 Z" fill="url(#gv)"/>
+            <path d="M0,130 C60,115 120,95 180,100 C240,105 300,75 360,70 C420,65 480,85 540,72 C600,60 660,45 720,35 C780,25 840,40 900,30" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+            <!-- Conversions area (green) -->
+            <path d="M0,148 C60,143 120,138 180,135 C240,132 300,125 360,120 C420,115 480,122 540,115 C600,108 660,99 720,92 C780,85 840,95 900,87 L900,160 L0,160 Z" fill="url(#gg)"/>
+            <path d="M0,148 C60,143 120,138 180,135 C240,132 300,125 360,120 C420,115 480,122 540,115 C600,108 660,99 720,92 C780,85 840,95 900,87" fill="none" stroke="#10b981" stroke-width="2" stroke-linejoin="round"/>
+            <!-- Data point dots (clicks) -->
+            <circle cx="180" cy="100" r="4" fill="var(--accent)"/>
+            <circle cx="360" cy="70"  r="4" fill="var(--accent)"/>
+            <circle cx="540" cy="72"  r="4" fill="var(--accent)"/>
+            <circle cx="720" cy="35"  r="4" fill="var(--accent)"/>
+            <circle cx="900" cy="30"  r="4" fill="var(--accent)"/>
+          </svg>
+        </div>
+        <div class="x-labels">
+          <span class="x-label">Jun 5</span><span class="x-label">Jun 7</span>
+          <span class="x-label">Jun 9</span><span class="x-label">Jun 11</span>
+          <span class="x-label">Jun 13</span><span class="x-label">Jun 15</span>
+          <span class="x-label">Jun 17</span><span class="x-label">Jun 19</span>
+        </div>
+      </div>
+
+      <!-- Links Table -->
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">Your Tracking Links</span>
+          <div class="table-actions">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input class="search-input" placeholder="Search links…" />
+            </div>
+            <button class="btn-primary">+ New Link</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Link / URL</th>
+              <th>Source</th>
+              <th>Clicks</th>
+              <th>Unique</th>
+              <th>Carts</th>
+              <th>Revenue</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="link-name">Summer Sale FB</div>
+                <div class="link-url">lhk.to/sm-fb-2025</div>
+              </td>
+              <td><span class="source-badge fb">Facebook</span></td>
+              <td><span class="num">14,820</span></td>
+              <td><span class="num">9,341</span></td>
+              <td><span class="num">1,204</span></td>
+              <td><span class="rev">$24,300</span></td>
+              <td><div class="actions-cell">
+                <button class="act-btn copy">Copy</button>
+                <button class="act-btn">Edit</button>
+                <button class="act-btn">Stats</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="link-name">Instagram Story</div>
+                <div class="link-url">lhk.to/ig-story-06</div>
+              </td>
+              <td><span class="source-badge ig">Instagram</span></td>
+              <td><span class="num">10,150</span></td>
+              <td><span class="num">7,820</span></td>
+              <td><span class="num">890</span></td>
+              <td><span class="rev">$18,760</span></td>
+              <td><div class="actions-cell">
+                <button class="act-btn copy">Copy</button>
+                <button class="act-btn">Edit</button>
+                <button class="act-btn">Stats</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="link-name">Google Ads — Shoes</div>
+                <div class="link-url">lhk.to/gg-shoes-cpc</div>
+              </td>
+              <td><span class="source-badge gg">Google</span></td>
+              <td><span class="num">8,430</span></td>
+              <td><span class="num">6,100</span></td>
+              <td><span class="num">741</span></td>
+              <td><span class="rev">$19,840</span></td>
+              <td><div class="actions-cell">
+                <button class="act-btn copy">Copy</button>
+                <button class="act-btn">Edit</button>
+                <button class="act-btn">Stats</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="link-name">Telegram Channel</div>
+                <div class="link-url">lhk.to/tg-channel</div>
+              </td>
+              <td><span class="source-badge tg">Telegram</span></td>
+              <td><span class="num">6,910</span></td>
+              <td><span class="num">5,200</span></td>
+              <td><span class="num">380</span></td>
+              <td><span class="rev">$11,400</span></td>
+              <td><div class="actions-cell">
+                <button class="act-btn copy">Copy</button>
+                <button class="act-btn">Edit</button>
+                <button class="act-btn">Stats</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="link-name">Email Newsletter</div>
+                <div class="link-url">lhk.to/em-weekly-19</div>
+              </td>
+              <td><span class="source-badge em">Email</span></td>
+              <td><span class="num">4,990</span></td>
+              <td><span class="num">4,010</span></td>
+              <td><span class="num">310</span></td>
+              <td><span class="rev">$10,320</span></td>
+              <td><div class="actions-cell">
+                <button class="act-btn copy">Copy</button>
+                <button class="act-btn">Edit</button>
+                <button class="act-btn">Stats</button>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="table-footer">
+          <span>Showing 5 of 18 links</span>
+          <div class="pagination">
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">→</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+
+</body>
+</html>

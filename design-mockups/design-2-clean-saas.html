@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrackFlow – Design 2: Clean Modern SaaS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --accent: #6d28d9;
+    --accent-soft: #8b5cf6;
+    --brand-dark: #4c1d95;
+    --brand-warm: #f59e0b;
+    --text: #10212b;
+    --text-muted: #4f6470;
+    --border: #dbe5ea;
+    --bg: #f7fbfd;
+    --bg-secondary: #ffffff;
+  }
+
+  body {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    background-image:
+      radial-gradient(circle at 10% 0%, rgba(109,40,217,0.12) 0, rgba(109,40,217,0) 45%),
+      radial-gradient(circle at 90% 5%, rgba(245,158,11,0.1) 0, rgba(245,158,11,0) 40%);
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 80px;
+    height: 68px;
+    border-bottom: 1px solid #d6e3e8;
+    position: sticky;
+    top: 0;
+    background: rgba(247,251,253,0.92);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: 20px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .logo-mark {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--brand-dark), var(--accent-soft));
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 17px; font-weight: 900;
+  }
+
+  .nav-center {
+    display: flex; gap: 4px;
+  }
+
+  .nav-link {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all .18s;
+  }
+  .nav-link:hover { background: var(--bg-secondary); color: var(--text); }
+
+  .nav-right { display: flex; gap: 10px; align-items: center; }
+
+  .btn { 
+    padding: 8px 18px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .18s;
+    border: none;
+  }
+
+  .btn-outline {
+    background: white;
+    color: var(--text);
+    border: 1.5px solid var(--border);
+  }
+  .btn-outline:hover { border-color: #6f8591; }
+
+  .btn-filled {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 6px 18px rgba(109,40,217,0.22);
+  }
+  .btn-filled:hover { background: #5b21b6; }
+
+  /* HERO */
+  .hero {
+    padding: 90px 80px 60px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: center;
+    max-width: 1280px;
+    margin: 0 auto;
+    animation: liftIn .5s ease-out;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    background: #f3f0ff;
+    border-radius: 100px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 28px;
+    border: 1px solid #ede9fe;
+  }
+
+  .hero-tag svg-icon { font-size: 11px; }
+
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(36px, 4.5vw, 58px);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    color: var(--text);
+    margin-bottom: 22px;
+  }
+
+  .highlight {
+    background: linear-gradient(135deg, var(--brand-dark), var(--accent-soft));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-desc {
+    font-size: 17px;
+    color: var(--text-muted);
+    line-height: 1.75;
+    margin-bottom: 36px;
+    max-width: 480px;
+  }
+
+  .hero-actions {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 44px;
+  }
+
+  .btn-lg {
+    padding: 12px 26px;
+    font-size: 15px;
+    border-radius: 11px;
+  }
+
+  .hero-social-proof {
+    display: flex; align-items: center; gap: 14px;
+  }
+
+  .avatars {
+    display: flex;
+  }
+
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 2px solid white;
+    margin-left: -8px;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  .avatars .avatar:first-child { margin-left: 0; }
+  .a1 { background: #fbbf24; }
+  .a2 { background: #34d399; }
+  .a3 { background: #60a5fa; }
+  .a4 { background: #f87171; }
+
+  .proof-text {
+    font-size: 13.5px;
+    color: var(--text-muted);
+  }
+
+  .proof-text strong { color: var(--text); }
+
+  /* HERO VISUAL */
+  .hero-visual {
+    position: relative;
+  }
+
+  .main-card {
+    background: #ffffff;
+    border: 1px solid #d6e3e8;
+    border-radius: 20px;
+    box-shadow: 0 28px 70px rgba(11,37,48,0.16), 0 4px 18px rgba(11,37,48,0.06);
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .card-badge {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px;
+    color: #16a34a;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-weight: 600;
+  }
+
+  .badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse2 2s infinite;
+  }
+
+  @keyframes pulse2 {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .card-body { padding: 20px 24px; }
+
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .metric {
+    padding: 14px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+  }
+
+  .metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .metric-val { font-size: 22px; font-weight: 800; color: var(--text); }
+  .metric-sub { font-size: 11px; color: #16a34a; margin-top: 3px; font-weight: 500; }
+
+  .chart-mock {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    height: 100px;
+  }
+
+  .bar2 {
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    transition: opacity .2s;
+  }
+  .bar2:hover { opacity: 0.7; }
+
+  .table-mock {
+    margin-top: 16px;
+  }
+
+  .table-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .table-row:last-child { border: none; }
+
+  .table-name { font-weight: 600; color: var(--text); }
+  .table-url { color: var(--text-muted); font-size: 12px; }
+  .table-num { font-weight: 700; color: var(--accent); }
+  .table-conv { font-weight: 600; color: #16a34a; }
+
+  .floating-badge {
+    position: absolute;
+    bottom: -16px; left: -20px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .floating-icon {
+    width: 36px; height: 36px;
+    background: #f3f0ff;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .fb-title { font-weight: 700; color: var(--text); font-size: 13px; }
+  .fb-sub { font-size: 12px; color: var(--text-muted); }
+
+  /* LOGOS */
+  .logos-section {
+    padding: 50px 80px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+
+  .logos-title {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 28px;
+    font-weight: 500;
+  }
+
+  .logos-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 50px;
+    flex-wrap: wrap;
+  }
+
+  .logo-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #6f8591;
+    filter: grayscale(1);
+  }
+
+  /* FEATURES */
+  .features-section {
+    padding: 100px 80px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .badge-label {
+    display: inline-block;
+    padding: 4px 14px;
+    background: #f3f0ff;
+    color: var(--accent);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  .section-h2 {
+    font-size: clamp(28px, 3.5vw, 44px);
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    margin-bottom: 14px;
+    line-height: 1.15;
+  }
+
+  .section-p {
+    font-size: 17px;
+    color: var(--text-muted);
+    max-width: 560px;
+    line-height: 1.7;
+    margin-bottom: 52px;
+  }
+
+  .zigzag-feature {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 70px;
+    align-items: center;
+    margin-bottom: 80px;
+  }
+
+  .zigzag-feature.reversed { direction: rtl; }
+  .zigzag-feature.reversed > * { direction: ltr; }
+
+  .feature-visual {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .fv-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  .fv-name { font-weight: 600; }
+  .fv-bar-wrap { flex: 1; margin: 0 16px; background: var(--bg-secondary); border-radius: 4px; height: 6px; }
+  .fv-bar-fill { height: 6px; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-soft)); }
+  .fv-val { font-weight: 700; color: var(--accent); }
+
+  .feature-text h3 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 14px;
+  }
+
+  .feature-text p {
+    font-size: 15.5px;
+    color: var(--text-muted);
+    line-height: 1.75;
+    margin-bottom: 20px;
+  }
+
+  .feature-list {
+    list-style: none;
+  }
+
+  .feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .fl-check {
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    background: #f3f0ff;
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-weight: 800;
+  }
+
+  /* FAQ */
+  .faq-section {
+    padding: 100px 80px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .faq-inner {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .faq-inner .badge-label { margin-bottom: 16px; }
+
+  .faq-inner .section-h2 {
+    margin-bottom: 10px;
+  }
+
+  .faq-inner .section-p {
+    margin-bottom: 48px;
+  }
+
+  .faq-item {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .faq-item:first-of-type {
+    border-top: 1px solid var(--border);
+  }
+
+  .faq-q {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 20px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    text-align: left;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: inherit;
+    gap: 20px;
+    transition: color .18s;
+  }
+
+  .faq-q:hover { color: var(--accent); }
+
+  .faq-q.open { color: var(--accent); }
+
+  .faq-icon {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+    color: var(--text-muted);
+    transition: all .2s;
+    line-height: 1;
+  }
+
+  .faq-q.open .faq-icon {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    transform: rotate(45deg);
+  }
+
+  .faq-a {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height .3s ease, padding .3s ease;
+  }
+
+  .faq-a.open {
+    max-height: 300px;
+  }
+
+  .faq-a-inner {
+    padding-bottom: 20px;
+    font-size: 14.5px;
+    color: var(--text-muted);
+    line-height: 1.75;
+  }
+
+  .faq-contact {
+    margin-top: 40px;
+    padding: 24px 28px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .faq-contact-text {
+    font-size: 14.5px;
+    color: var(--text);
+  }
+
+  .faq-contact-text strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+
+  .faq-contact-text span {
+    color: var(--text-muted);
+    font-size: 13.5px;
+  }
+
+  .btn-tg {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    background: #2AABEE;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .18s;
+    flex-shrink: 0;
+  }
+
+  .btn-tg:hover { opacity: 0.88; }
+
+  .pricing-section {
+    padding: 100px 80px;
+    background: var(--bg-secondary);
+  }
+
+  .pricing-header {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .price-card {
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    position: relative;
+    transition: box-shadow .2s;
+  }
+  .price-card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.08); }
+
+  .price-card.popular {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(109,40,217,0.1);
+  }
+
+  .pop-tag {
+    position: absolute;
+    top: -13px; left: 50%; transform: translateX(-50%);
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+
+  .plan-tag { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px; }
+  .plan-price2 { font-size: 44px; font-weight: 900; letter-spacing: -2px; margin-bottom: 6px; }
+  .plan-price2 sup { font-size: 22px; vertical-align: super; }
+  .plan-price2 sub { font-size: 16px; font-weight: 400; color: var(--text-muted); }
+  .plan-desc2 { font-size: 13.5px; color: var(--text-muted); margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .plan-ul { list-style: none; margin-bottom: 28px; }
+  .plan-ul li { display: flex; align-items: center; gap: 9px; font-size: 14px; padding: 7px 0; color: var(--text); }
+  .plan-ul li .ck { color: var(--accent); font-weight: 700; font-size: 13px; }
+
+  .btn-plan {
+    width: 100%;
+    padding: 11px;
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .18s;
+    border: none;
+  }
+
+  .btn-plan.outlined { background: white; border: 1.5px solid var(--border); color: var(--text); }
+  .btn-plan.outlined:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-plan.purple { background: var(--accent); color: white; }
+  .btn-plan.purple:hover { background: #5b21b6; }
+
+  /* CTA */
+  .cta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 40px;
+    padding: 60px 80px;
+    background: linear-gradient(125deg, var(--brand-dark) 0%, var(--accent) 65%, var(--accent-soft) 100%);
+    flex-wrap: wrap;
+  }
+
+  .cta h2 { font-size: 36px; font-weight: 900; letter-spacing: -1px; color: white; max-width: 540px; }
+  .cta p { color: rgba(255,255,255,0.75); font-size: 15px; margin-top: 8px; }
+
+  .cta-btns { display: flex; gap: 12px; flex-shrink: 0; }
+  .btn-white { background: white; color: var(--brand-dark); border: none; padding: 13px 26px; border-radius: 11px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn-white:hover { background: #f5f3ff; }
+  .btn-transparent { background: rgba(255,255,255,0.15); color: white; border: 1.5px solid rgba(255,255,255,0.3); padding: 13px 26px; border-radius: 11px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn-transparent:hover { background: rgba(255,255,255,0.22); }
+
+  /* FOOTER */
+  footer {
+    padding: 40px 80px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .footer-links { display: flex; gap: 24px; }
+  .footer-links a { color: var(--text-muted); text-decoration: none; }
+  .footer-links a:hover { color: var(--text); }
+
+  /* PAIN POINTS */
+  .pain-section {
+    background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+    padding: 100px 80px;
+  }
+
+  .pain-grid {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 70px;
+    align-items: center;
+  }
+
+  .pain-h2 {
+    font-size: clamp(28px, 3.5vw, 44px);
+    font-weight: 900;
+    letter-spacing: -1.5px;
+    color: white;
+    margin-bottom: 36px;
+    line-height: 1.15;
+  }
+
+  .pain-list {
+    list-style: none;
+  }
+
+  .pain-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14.5px;
+    color: rgba(255,255,255,0.92);
+    margin-bottom: 12px;
+    line-height: 1.55;
+  }
+
+  .pain-check {
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.22);
+    border: 1px solid rgba(255,255,255,0.35);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-weight: 800;
+  }
+
+  .pain-card {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.28);
+    backdrop-filter: blur(12px);
+    border-radius: 22px;
+    padding: 44px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 26px;
+  }
+
+  .pain-card-icon {
+    width: 76px; height: 76px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px;
+  }
+
+  .pain-card-text {
+    font-size: 16.5px;
+    color: rgba(255,255,255,0.95);
+    line-height: 1.75;
+    font-weight: 500;
+  }
+
+  .pain-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.32);
+    color: white;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  /* WHY US */
+  .why-section {
+    padding: 100px 80px;
+    background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%);
+  }
+
+  .why-grid {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 70px;
+    align-items: center;
+  }
+
+  .why-features {
+    list-style: none;
+    margin-top: 28px;
+  }
+
+  .why-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14.5px;
+    color: rgba(255,255,255,0.92);
+    margin-bottom: 12px;
+  }
+
+  .stats-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.28);
+    backdrop-filter: blur(12px);
+    border-radius: 18px;
+    padding: 26px 30px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    transition: background .2s, transform .2s;
+  }
+
+  .stat-card:hover {
+    background: rgba(255,255,255,0.22);
+    transform: translateY(-2px);
+  }
+
+  .stat-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .stat-num {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: white;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: rgba(255,255,255,0.78);
+    margin-top: 3px;
+  }
+
+  /* SIGNUP BLOCK */
+  .signup-block {
+    padding: 60px 80px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+  }
+
+  .signup-block h3 {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    margin: 0;
+  }
+
+  .signup-block h3 span {
+    background: linear-gradient(135deg, var(--brand-dark), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .signup-block p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  @keyframes liftIn {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 1080px) {
+    nav {
+      padding: 0 24px;
+    }
+
+    .hero,
+    .features-section,
+    .faq-section,
+    .pricing-section,
+    .pain-section,
+    .why-section,
+    .signup-block,
+    .cta,
+    .logos-section,
+    footer {
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+
+    .hero,
+    .pain-grid,
+    .why-grid {
+      grid-template-columns: 1fr;
+      gap: 34px;
+    }
+
+    .pricing-grid {
+      grid-template-columns: 1fr;
+      max-width: 520px;
+    }
+
+    .zigzag-feature,
+    .zigzag-feature.reversed {
+      grid-template-columns: 1fr;
+      direction: ltr;
+      gap: 24px;
+      margin-bottom: 52px;
+    }
+  }
+
+  @media (max-width: 760px) {
+    nav {
+      height: auto;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+
+    .nav-center {
+      order: 3;
+      width: 100%;
+      justify-content: center;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .hero {
+      padding-top: 56px;
+      padding-bottom: 34px;
+    }
+
+    .card-header,
+    .card-body {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+
+    .metrics-row {
+      grid-template-columns: 1fr;
+    }
+
+    .faq-contact,
+    .cta,
+    footer {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .cta-btns {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="logo">
+    <div class="logo-mark">T</div>
+    TrackFlow
+  </a>
+  <div class="nav-center">
+    <a href="#" class="nav-link">Функції</a>
+    <a href="#" class="nav-link">Ціни</a>
+    <a href="#" class="nav-link">Документація</a>
+    <a href="#" class="nav-link">Блог</a>
+    <a href="#" class="nav-link">Контакти</a>
+  </div>
+  <div class="nav-right">
+    <button class="btn btn-outline">Увійти</button>
+    <button class="btn btn-filled">Почати безкоштовно</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section style="background: var(--bg); padding-bottom: 0;">
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-tag">
+        ✨ Понад 1,000+ маркетологів вже використовують
+      </div>
+      <h1>Affiliate трекінг,<br>який <span class="highlight">насправді працює</span></h1>
+      <p class="hero-desc">Відстежуй кожне джерело трафіку, вимірюй конверсії та оптимізуй бюджет на основі реальних даних — все в одному місці.</p>
+      <div class="hero-actions">
+        <button class="btn btn-filled btn-lg">Спробувати безкоштовно</button>
+        <button class="btn btn-outline btn-lg">▶ Переглянути демо</button>
+      </div>
+      <div class="hero-social-proof">
+        <div class="avatars">
+          <div class="avatar a1">А</div>
+          <div class="avatar a2">В</div>
+          <div class="avatar a3">Д</div>
+          <div class="avatar a4">С</div>
+        </div>
+        <div class="proof-text">Приєднуйся до <strong>1,000+ команд</strong>, які вже масштабуються</div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="main-card">
+        <div class="card-header">
+          <div class="card-title">📊 Огляд кампаній</div>
+          <div class="card-badge"><div class="badge-dot"></div> Live</div>
+        </div>
+        <div class="card-body">
+          <div class="metrics-row">
+            <div class="metric">
+              <div class="metric-label">Кліки</div>
+              <div class="metric-val">4,821</div>
+              <div class="metric-sub">↑ 18.4%</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Конверсії</div>
+              <div class="metric-val" style="color: var(--accent-soft);">312</div>
+              <div class="metric-sub">↑ 7.2%</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Виручка</div>
+              <div class="metric-val" style="color: var(--brand-warm);">$2,140</div>
+              <div class="metric-sub">↑ 23.1%</div>
+            </div>
+          </div>
+          <div class="chart-mock">
+            <div class="bar2" style="height:30%; background: #e9d5ff;"></div>
+            <div class="bar2" style="height:50%; background: #c4b5fd;"></div>
+            <div class="bar2" style="height:40%; background: #a78bfa;"></div>
+            <div class="bar2" style="height:65%; background: var(--accent-soft);"></div>
+            <div class="bar2" style="height:55%; background: #7c3aed;"></div>
+            <div class="bar2" style="height:75%; background: var(--accent);"></div>
+            <div class="bar2" style="height:60%; background: #7c3aed;"></div>
+            <div class="bar2" style="height:85%; background: var(--accent);"></div>
+            <div class="bar2" style="height:70%; background: #7c3aed;"></div>
+            <div class="bar2" style="height:100%; background: var(--accent);"></div>
+            <div class="bar2" style="height:80%; background: #7c3aed;"></div>
+            <div class="bar2" style="height:90%; background: var(--accent);"></div>
+          </div>
+          <div class="table-mock">
+            <div class="table-row">
+              <div>
+                <div class="table-name">Google Ads</div>
+                <div class="table-url">utm_source=google</div>
+              </div>
+              <div class="table-num">2,144</div>
+              <div class="table-conv">142 конв.</div>
+            </div>
+            <div class="table-row">
+              <div>
+                <div class="table-name">Facebook</div>
+                <div class="table-url">utm_source=fb</div>
+              </div>
+              <div class="table-num">1,390</div>
+              <div class="table-conv">98 конв.</div>
+            </div>
+            <div class="table-row">
+              <div>
+                <div class="table-name">Telegram</div>
+                <div class="table-url">utm_source=tg</div>
+              </div>
+              <div class="table-num">744</div>
+              <div class="table-conv">52 конв.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="floating-badge">
+        <div class="floating-icon">🔗</div>
+        <div>
+          <div class="fb-title">Нове посилання створено</div>
+          <div class="fb-sub">trckflw.io/X8k2q · тільки що</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGOS -->
+<div class="logos-section">
+  <div class="logos-title">Інтегрується з інструментами яким ти довіряєш</div>
+  <div class="logos-row">
+    <div class="logo-pill">📊 Google Analytics</div>
+    <div class="logo-pill">📌 Google Tag Manager</div>
+    <div class="logo-pill">💙 Facebook Ads</div>
+    <div class="logo-pill">📦 Shopify</div>
+    <div class="logo-pill">🛒 WooCommerce</div>
+    <div class="logo-pill">📬 Mailchimp</div>
+  </div>
+</div>
+
+<!-- PAIN POINTS -->
+<section class="pain-section">
+  <div class="pain-grid">
+    <div>
+      <div class="pain-badge">Больові точки</div>
+      <h2 class="pain-h2">Ви втрачаєте бюджет<br>якщо...</h2>
+      <ul class="pain-list">
+        <li><div class="pain-check">✓</div> Ви не оцінюєте рекламу по прибутку, а тільки по кліках</li>
+        <li><div class="pain-check">✓</div> Ви не знаєте, яке джерело трафіку реально продає</li>
+        <li><div class="pain-check">✓</div> У вас 3–5 різних звітів замість одного</li>
+        <li><div class="pain-check">✓</div> Ви довіряєте скріншотам від підрядників</li>
+        <li><div class="pain-check">✓</div> Ви не рахуєте ROMI по кожному каналу</li>
+      </ul>
+    </div>
+    <div class="pain-card">
+      <div class="pain-card-icon">⊞</div>
+      <p class="pain-card-text">TrackFlow об'єднує всі джерела трафіку в один центр контролю та показує тільки те, що має значення — продажі та прибуток.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-section">
+  <div class="badge-label">Функції</div>
+  <div class="section-h2">Все що тобі потрібно<br>для зростання</div>
+  <p class="section-p">Від базового трекінгу до глибокої аналітики — TrackFlow дає повну картину твого маркетингу.</p>
+
+  <!-- Feature 1 -->
+  <div class="zigzag-feature">
+    <div class="feature-visual">
+      <div class="fv-row">
+        <span class="fv-name">🔗 Google Ads</span>
+        <div class="fv-bar-wrap"><div class="fv-bar-fill" style="width:85%"></div></div>
+        <span class="fv-val">$1,240</span>
+      </div>
+      <div class="fv-row">
+        <span class="fv-name">💙 Facebook</span>
+        <div class="fv-bar-wrap"><div class="fv-bar-fill" style="width:60%"></div></div>
+        <span class="fv-val">$890</span>
+      </div>
+      <div class="fv-row">
+        <span class="fv-name">✈️ Telegram</span>
+        <div class="fv-bar-wrap"><div class="fv-bar-fill" style="width:40%"></div></div>
+        <span class="fv-val">$580</span>
+      </div>
+      <div class="fv-row">
+        <span class="fv-name">📧 Email</span>
+        <div class="fv-bar-wrap"><div class="fv-bar-fill" style="width:25%"></div></div>
+        <span class="fv-val">$340</span>
+      </div>
+    </div>
+    <div class="feature-text">
+      <h3>Знай звідки приходять твої <span class="highlight">гроші</span></h3>
+      <p>Точна атрибуція за всіма каналами: Google, Facebook, email, Telegram, органіка. Розуміння ROI кожного каналу — ключ до зростання.</p>
+      <ul class="feature-list">
+        <li><div class="fl-check">✓</div> UTM-параметри та кастомні теги</li>
+        <li><div class="fl-check">✓</div> Multi-touch атрибуція</li>
+        <li><div class="fl-check">✓</div> Порівняння по часових проміжках</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Feature 2 -->
+  <div class="zigzag-feature reversed">
+    <div class="feature-text">
+      <h3>Інтеграція за <span class="highlight">5 хвилин</span></h3>
+      <p>Один рядок коду на сайті — і ти вже відстежуєш. Підтримка GTM, WordPress, Shopify та будь-якого іншого сайту.</p>
+      <ul class="feature-list">
+        <li><div class="fl-check">✓</div> JavaScript сніпет в 1 рядок</li>
+        <li><div class="fl-check">✓</div> Google Tag Manager рецепт</li>
+        <li><div class="fl-check">✓</div> REST API для власних інтеграцій</li>
+      </ul>
+    </div>
+    <div class="feature-visual" style="font-family: monospace;">
+      <div style="background: #1e1e2e; border-radius: 12px; padding: 20px; color: #cdd6f4; font-size: 13px; line-height: 1.8;">
+        <div style="color: #6c7086; margin-bottom: 8px;">&lt;!-- Додай на сайт --&gt;</div>
+        <div><span style="color: #89b4fa;">&lt;script</span> <span style="color: #a6e3a1;">src</span><span style="color: #cdd6f4;">=</span><span style="color: #f38ba8;">"https://cdn.trckflw.io/pixel.js"</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #a6e3a1;">data-site-id</span><span >=</span><span style="color: #f38ba8;">"your-id"</span><span style="color: #89b4fa;">&gt;&lt;/script&gt;</span></div>
+        <div style="color: #6c7086; margin-top: 12px;">&lt;!-- Ось і все! ✅ --&gt;</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SIGNUP BLOCK -->
+<div class="signup-block">
+  <h3>Готовий почати з <span>TrackFlow</span>?</h3>
+  <p>Безкоштовно · Кредитна картка не потрібна · Реєстрація за 30 секунд</p>
+  <button class="btn btn-filled btn-lg">Створити акаунт →</button>
+</div>
+
+<!-- WHY TRACKFLOW -->
+<section class="why-section">
+  <div class="why-grid">
+    <div>
+      <div class="pain-badge">Наші результати</div>
+      <h2 class="section-h2" style="color:white;">Чому бізнеси обирають<br><span style="opacity:0.85;">TrackFlow?</span></h2>
+      <p class="section-p" style="color:rgba(255,255,255,0.75);margin-bottom:0;">Професійна система трекінгу реклами та обліку трафіку з повним контролем конверсій, доходу та окупності.</p>
+      <ul class="why-features">
+        <li><div class="pain-check">✓</div> Автоматичне відстеження кліків та конверсій</li>
+        <li><div class="pain-check">✓</div> Підтримка visitor fingerprint для унікальних відвідувачів</li>
+        <li><div class="pain-check">✓</div> Гнучкі налаштування для різних джерел трафіку</li>
+        <li><div class="pain-check">✓</div> API для інтеграції з вашими системами</li>
+        <li><div class="pain-check">✓</div> Детальна статистика та звіти</li>
+        <li><div class="pain-check">✓</div> Безкоштовний старт з можливістю масштабування</li>
+      </ul>
+    </div>
+    <div class="stats-col">
+      <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div>
+          <div class="stat-num">1000+</div>
+          <div class="stat-label">Активних користувачів</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div>
+          <div class="stat-num">1М+</div>
+          <div class="stat-label">Відстежених кліків</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💵</div>
+        <div>
+          <div class="stat-num">$10М+</div>
+          <div class="stat-label">Відстежених доходів</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section">
+  <div class="faq-inner">
+    <div class="badge-label">FAQ</div>
+    <div class="section-h2">Часті запитання</div>
+    <p class="section-p">Відповідаємо на те, що запитують найчастіше.</p>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Як TrackFlow впливає на швидкість завантаження мого сайту?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Практично ніяк. Наш скрипт оптимізований і важить лише 2 Кб (це менше, ніж іконка вашого логотипу). Він завантажується асинхронно, тому не затримує відображення контенту для користувача.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Чи потрібно мені бути програмістом, щоб усе налаштувати?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Зовсім ні. Якщо ви вмієте скопіювати текст і вставити його в поле на сайті (або використовувати Google Tag Manager), ви впораєтесь за 5–7 хвилин. У нас є покрокові інструкції для WordPress, Shopify та інших популярних платформ.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Що таке Visitor Fingerprint і чи це законно?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Це технологія, яка дозволяє впізнати унікального відвідувача без використання «куків» (cookies), які часто блокуються браузерами. Це повністю відповідає стандартам конфіденційності, оскільки ми не збираємо персональні дані (ПІБ, телефон), а лише ідентифікуємо сесію для точності аналітики.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Чим ви кращі за стандартний Google Analytics 4?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">GA4 — чудовий інструмент, але він занадто складний для швидкого прийняття рішень. TrackFlow створений для власника: він відразу показує гроші та ROMI, а не просто абстрактні сесії. Крім того, ми значно точніше відстежуємо трафік з Instagram-сторіз та Telegram-каналів, де GA4 часто помиляється.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Чи можу я відстежувати рекламу у блогерів через QR-коди?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Так! Ви створюєте унікальне посилання для блогера, і бачите кожне сканування та кожну покупку, зроблену через це посилання, в режимі реального часу.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Чи можу я вивантажити свої дані, якщо вирішу піти?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Звісно. Ви — власник своїх даних. У будь-який момент ви можете експортувати звіти у форматі CSV або Excel.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Чи можна підключити декілька доменів/сайтів до одного кабінету?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Так, ви можете відстежувати декілька проектів в одному акаунті. Це зручно для серійних підприємців або маркетингових агенцій, яким потрібно бачити загальну картину по всіх клієнтах без перемикання між десятками логінів.</div></div>
+    </div>
+
+    <div class="faq-contact">
+      <div class="faq-contact-text">
+        <strong>Не знайшли відповіді? Ми на зв'язку!</strong>
+        <span>Напишіть нам в Telegram — ми допоможемо з налаштуванням вашого першого проекту.</span>
+      </div>
+      <button class="btn-tg">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.932z"/></svg>
+        Написати в Telegram
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section">
+  <div class="pricing-header">
+    <div class="badge-label">Тарифи</div>
+    <div class="section-h2">Прозорі ціни без сюрпризів</div>
+    <p class="section-p" style="margin: 0 auto; text-align: center;">Починай безкоштовно та масштабуйся разом із бізнесом.</p>
+  </div>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="plan-tag">Старт</div>
+      <div class="plan-price2">Безкоштовно</div>
+      <div class="plan-desc2">Ідеально для початку та тестування</div>
+      <ul class="plan-ul">
+        <li><span class="ck">✓</span> До 10,000 кліків/місяць</li>
+        <li><span class="ck">✓</span> 1 сайт</li>
+        <li><span class="ck">✓</span> Базові звіти</li>
+        <li><span class="ck">✓</span> 30 днів зберігання</li>
+      </ul>
+      <button class="btn-plan outlined">Почати безкоштовно</button>
+    </div>
+    <div class="price-card popular">
+      <div class="pop-tag">⭐ Найпопулярніший</div>
+      <div class="plan-tag">Про</div>
+      <div class="plan-price2"><sup>$</sup>29<sub>/міс</sub></div>
+      <div class="plan-desc2">Для маркетологів, що масштабуються</div>
+      <ul class="plan-ul">
+        <li><span class="ck">✓</span> До 500,000 кліків/місяць</li>
+        <li><span class="ck">✓</span> 10 сайтів</li>
+        <li><span class="ck">✓</span> Розширена аналітика</li>
+        <li><span class="ck">✓</span> 1 рік зберігання</li>
+        <li><span class="ck">✓</span> Email звіти</li>
+        <li><span class="ck">✓</span> API доступ</li>
+      </ul>
+      <button class="btn-plan purple">Обрати план</button>
+    </div>
+    <div class="price-card">
+      <div class="plan-tag">Агентство</div>
+      <div class="plan-price2"><sup>$</sup>99<sub>/міс</sub></div>
+      <div class="plan-desc2">Для команд та digital-агентств</div>
+      <ul class="plan-ul">
+        <li><span class="ck">✓</span> Необмежені кліки</li>
+        <li><span class="ck">✓</span> Необмежені сайти</li>
+        <li><span class="ck">✓</span> White label</li>
+        <li><span class="ck">✓</span> Командний доступ</li>
+        <li><span class="ck">✓</span> Пріоритетна підтримка</li>
+      </ul>
+      <button class="btn-plan outlined">Зв'язатися з нами</button>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta">
+  <div>
+    <h2>Готовий масштабувати свої кампанії?</h2>
+    <p>Реєстрація за 30 секунд. Кредитна картка не потрібна.</p>
+  </div>
+  <div class="cta-btns">
+    <button class="btn-white">Почати безкоштовно</button>
+    <button class="btn-transparent">Поговорити з нами</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <a href="#" class="logo" style="text-decoration: none;">
+    <div class="logo-mark">T</div>
+    <span style="color: var(--text);">TrackFlow</span>
+  </a>
+  <div class="footer-links">
+    <a href="#">Функції</a>
+    <a href="#">Ціни</a>
+    <a href="#">Docs</a>
+    <a href="#">Блог</a>
+    <a href="#">Підтримка</a>
+  </div>
+  <span>© 2026 TrackFlow. Всі права захищені.</span>
+</footer>
+
+<script>
+function toggleFaq(btn) {
+  const answer = btn.nextElementSibling;
+  const isOpen = btn.classList.contains('open');
+  document.querySelectorAll('.faq-q').forEach(function(q) {
+    q.classList.remove('open');
+    q.nextElementSibling.classList.remove('open');
+  });
+  if (!isOpen) {
+    btn.classList.add('open');
+    answer.classList.add('open');
+  }
+}
+</script>
+
+</body>
+</html>

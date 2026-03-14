@@ -114,7 +114,7 @@
   "layout": {
     "dashboard": "Головна",
     "admin": "Адмін",
-    "setup": "Налаштування",
+    "setup": "Трекер",
     "settings": "Налаштування",
     "superAdmin": "Super Admin",
     "user": "Користувач"
@@ -171,7 +171,9 @@
     "successUpdate": "Посилання успішно оновлено!",
     "errorUpdate": "Не вдалося оновити посилання",
     "successDelete": "Посилання успішно видалено!",
+    "successBulkDelete": "Успішно видалено {{count}} посилань",
     "errorDelete": "Не вдалося видалити посилання",
+    "errorBulkDelete": "Не вдалося видалити вибрані посилання",
     "linksCount_one": "{{count}} посилання",
     "linksCount_few": "{{count}} посилання",
     "linksCount_many": "{{count}} посилань",
@@ -195,7 +197,13 @@
     "tableSales": "Продажі",
     "tableCr": "CR%",
     "tableRevenue": "Дохід",
+    "tableAvgTime": "Сер. час",
+    "tableBounceRate": "Bounce rate",
+    "tableAvgCheck": "Сер. чек",
     "tableActions": "Дії",
+    "selectAll": "Вибрати все",
+    "deleteSelected": "Видалити вибрані",
+    "selectedCount": "Вибрано: {{count}}",
     "codeConnected": "Код підключено",
     "codeNotConnected": "Код не підключено",
     "copyTrackingUrl": "Копіювати tracking URL",
@@ -208,6 +216,8 @@
     "deleteConfirmTitle": "Видалити посилання?",
     "deleteConfirmDesc": "Цю дію неможливо скасувати",
     "deleteConfirmText": "Ви впевнені, що хочете видалити це tracking посилання? Усі дані про кліки та конверсії будуть втрачені.",
+    "deleteBulkConfirmTitle": "Видалити вибрані посилання?",
+    "deleteBulkConfirmText": "Ви впевнені, що хочете видалити {{count}} посилань? Усі дані про кліки та конверсії для них будуть втрачені.",
     "notSpecified": "Не вказано",
     "snapshotFilter": "Зріз у часі",
     "snapshotDate": "Дата",
@@ -266,6 +276,10 @@
   "settings": {
     "title": "Налаштування",
     "subtitle": "Керуйте налаштуваннями акаунта",
+    "tabAccount": "Account",
+    "tabSecurity": "Security",
+    "tabNotifications": "Notifications",
+    "tabBilling": "Billing",
     "accountInfo": "Інформація про акаунт",
     "accountDetails": "Дані вашого акаунта",
     "email": "Email",
@@ -292,7 +306,9 @@
     "setPasswordDesc": "Ви ввійшли через Google. Встановіть пароль, щоб також входити за email і паролём.",
     "setPasswordBtn": "Встановити пароль",
     "setPasswordSuccess": "Пароль встановлено! Тепер ви можете входити за email і паролєм.",
-    "setPasswordError": "Не вдалося встановити пароль. Спробуйте пізніше."
+    "setPasswordError": "Не вдалося встановити пароль. Спробуйте пізніше.",
+    "comingSoonBadge": "Coming soon",
+    "comingSoonText": "Цей розділ ще недоступний. Інтерфейс уже підготовлено, а функціональність з'явиться в одному з наступних оновлень."
   },
   "confirmPasswordChange": {
     "title": "Підтвердження зміни пароля",
@@ -314,7 +330,7 @@
     "successDesc": "Ваш пароль успішно змінено. Тепер ви можете увійти з новим паролем."
   },
   "setup": {
-    "title": "Налаштування Tracking",
+    "title": "Трекер",
     "subtitle": "Інструкції з встановлення tracking системи на ваш сайт",
     "tabMySites": "Мої сайти",
     "tabInstall": "Встановлення",

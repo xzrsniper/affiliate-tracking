@@ -6,13 +6,13 @@ import {
   LayoutDashboard,
   Users,
   LogOut,
-  Link as LinkIcon,
   Settings,
   Code,
   Sun,
   Moon,
-  MessageCircle,
-  Globe
+  Globe,
+  FileText,
+  MessageCircle
 } from 'lucide-react';
 import Logo from './Logo.jsx';
 
@@ -29,13 +29,6 @@ export default function Layout({ children }) {
     navigate('/login');
   };
 
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
-
-  // Check if user can access admin panel (only owner/client)
-  // Admin link is hidden from UI - access is controlled by backend
-  // Backend will check ADMIN_EMAIL environment variable
   const canAccessAdmin = user?.role === 'super_admin';
 
   const navItems = [
@@ -46,95 +39,108 @@ export default function Layout({ children }) {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 fixed h-full left-0 top-0 flex flex-col">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+    <div className="min-h-screen bg-[#f7fbfd] text-slate-900 lg:flex">
+      <aside className="w-full lg:w-60 lg:fixed lg:h-screen left-0 top-0 flex flex-col bg-white border-b lg:border-b-0 lg:border-r border-slate-200">
+        <div className="p-5 border-b border-slate-100 w-full">
           <Logo size="md" showText={true} linkTo="/dashboard" />
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <div className="px-3 pt-4 pb-2">
+          <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Menu</p>
+        </div>
+        <nav className="px-3 pb-3 lg:block flex gap-2 overflow-x-auto lg:space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = isActive(item.path);
+            const active = location.pathname === item.path;
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+                className={`group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                   active
-                    ? 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
+                    ? 'bg-violet-50 text-violet-700'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <Icon className="w-4 h-4" />
+                <span className="text-sm font-medium">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-          <div className="px-4 py-2 mb-2">
-            <p className="text-sm font-medium text-slate-800 dark:text-white">{user?.email}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {user?.role === 'super_admin' ? t('layout.superAdmin') : t('layout.user')}
-            </p>
+        <div className="mt-auto px-3 pb-3">
+          <div className="px-2 pt-2 pb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Resources</p>
           </div>
-          <button
-            onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all mb-2"
-            title={isUk ? 'English' : 'Українська'}
+          <a
+            href="/guide"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           >
-            <Globe className="w-5 h-5" />
-            <span>{isUk ? 'EN' : 'УКР'}</span>
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all mb-2"
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="w-5 h-5" />
-                <span>{t('common.lightTheme')}</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-5 h-5" />
-                <span>{t('common.darkTheme')}</span>
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-all"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>{t('common.logout')}</span>
-          </button>
-          {typeof __BUILD_ID__ !== 'undefined' && (
-            <p className="mt-3 px-4 text-[10px] text-slate-400 dark:text-slate-500" title="Новий білд = нове число">
-              Build: {__BUILD_ID__}
-            </p>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 ml-64">
-        <div className="p-8 relative">
-          {/* Contacts Button - Top Right */}
+            <FileText className="w-4 h-4" />
+            <span>Documentation</span>
+          </a>
           <a
             href="https://t.me/hodunkooo"
             target="_blank"
             rel="noopener noreferrer"
-            className="absolute top-8 right-8 flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 z-10"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           >
-            <MessageCircle className="w-5 h-5" />
-            <span>{t('common.contacts')}</span>
+            <MessageCircle className="w-4 h-4" />
+            <span>Support</span>
           </a>
-          {children}
+          <div className="mt-1 space-y-1">
+            <button
+              onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              title={isUk ? 'English' : 'Ukrainian'}
+            >
+              <Globe className="w-4 h-4" />
+              <span>{isUk ? 'EN' : 'UKR'}</span>
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-4 h-4" />
+                  <span>{t('common.lightTheme')}</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4" />
+                  <span>{t('common.darkTheme')}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        <div className="p-3 border-t border-slate-100">
+          <div className="px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors">
+            <p className="text-sm font-semibold text-slate-900 truncate">{user?.email}</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {user?.role === 'super_admin' ? t('layout.superAdmin') : t('layout.user')}
+            </p>
+          </div>
+          <div className="mt-1">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>{t('common.logout')}</span>
+            </button>
+          </div>
+          {typeof __BUILD_ID__ !== 'undefined' && (
+            <p className="mt-3 px-2 text-[10px] text-slate-400">Build: {__BUILD_ID__}</p>
+          )}
+        </div>
+      </aside>
+
+      <main className="flex-1 lg:ml-60 min-h-screen">
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   );

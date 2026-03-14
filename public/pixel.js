@@ -73,6 +73,77 @@
            ls('lehko_click_id') || getCookie('lehko_click_id') || null;
   }
 
+  var SESSION_START_KEY = 'lehko_session_started_at';
+  var SESSION_CLICK_ID_KEY = 'lehko_session_click_id';
+  var SESSION_ENGAGED_KEY = 'lehko_session_engaged';
+
+  function ensureSessionTracking() {
+    var ref = getRef();
+    var clickId = getClickId();
+    if (!ref || !clickId) return;
+
+    var currentClickId = String(clickId);
+    var savedClickId = ss(SESSION_CLICK_ID_KEY);
+
+    if (savedClickId !== currentClickId) {
+      ss(SESSION_CLICK_ID_KEY, currentClickId);
+      ss(SESSION_START_KEY, String(Date.now()));
+      ss(SESSION_ENGAGED_KEY, '0');
+      return;
+    }
+
+    if (!ss(SESSION_START_KEY)) {
+      ss(SESSION_START_KEY, String(Date.now()));
+    }
+  }
+
+  function markEngagement() {
+    if (!getRef()) return;
+    ss(SESSION_ENGAGED_KEY, '1');
+  }
+
+  function reportSessionMetrics() {
+    var clickId = getClickId();
+    var startedAt = parseInt(ss(SESSION_START_KEY) || '0', 10);
+    if (!clickId || !startedAt) return;
+
+    var durationSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+    var hadEngagement = ss(SESSION_ENGAGED_KEY) === '1';
+    var payload = JSON.stringify({
+      click_id: clickId,
+      duration_seconds: durationSeconds,
+      had_engagement: hadEngagement
+    });
+    var url = BASE_URL + '/api/track/session';
+
+    try {
+      if (navigator.sendBeacon) {
+        var blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+        return;
+      }
+    } catch (e) { /* fallback below */ }
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true
+    }).catch(function () {});
+  }
+
+  function installEngagementTracking() {
+    var opts = { passive: true, capture: true };
+    ['scroll', 'keydown', 'touchstart', 'mousedown'].forEach(function (eventName) {
+      window.addEventListener(eventName, markEngagement, opts);
+    });
+
+    window.addEventListener('pagehide', reportSessionMetrics, { capture: true });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') reportSessionMetrics();
+    }, true);
+  }
+
   // ── 1b. Track click for "original" format links ───────────────────────
   // When a user arrives via google.com?ref=CODE (original format), the tracking
   // server redirect was bypassed. Fire /api/track/view/CODE to record the click.
@@ -95,6 +166,7 @@
           // Store click_id so conversions can be linked to this click
           ls('lehko_click_id', String(d.click_id));
           setCookie('lehko_click_id', String(d.click_id), 30);
+          ensureSessionTracking();
         }
       })
       .catch(function() {});
@@ -499,6 +571,7 @@
       console.warn('[LehkoTrack] Подія не відправлена: немає ref (зайдіть по трекінговому посиланню з click_id/ref)');
       return;
     }
+    markEngagement();
     if (eventType === 'lead') value = 0;
 
     if (orderId) {
@@ -834,6 +907,7 @@
       if (location.href !== last) {
         last = location.href;
         captureAndPersist();
+        ensureSessionTracking();
         decorateAllLinks();
         checkSuccessOnLoad();
       }
@@ -1177,6 +1251,8 @@
   } else {
     captureAndPersist();
     trackOriginalFormatClick();
+    ensureSessionTracking();
+    installEngagementTracking();
 
     // Клік — завжди, навіть якщо config не завантажився
     document.addEventListener('click', onDocClick, true);

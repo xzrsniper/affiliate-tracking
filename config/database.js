@@ -19,10 +19,10 @@ const sequelize = new Sequelize(
     },
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
+      max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+      min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+      acquire: parseInt(process.env.DB_POOL_ACQUIRE || '60000', 10),
+      idle: parseInt(process.env.DB_POOL_IDLE || '10000', 10)
     },
     define: {
       timestamps: true,

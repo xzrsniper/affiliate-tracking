@@ -19,6 +19,7 @@
     "db:add-websites": "node scripts/add-websites-table.js",
     "db:add-universal-tracker": "node scripts/add-universal-tracker-tables.js",
     "db:add-click-id": "node scripts/add-click-id-and-button-selector.js",
+    "db:add-click-session": "node scripts/add-click-session-fields.js",
     "db:add-event-type": "node scripts/add-event-type-field.js",
     "db:add-email-verification": "node scripts/add-email-verification-fields.js",
     "db:add-password-change": "node scripts/add-password-change-fields.js",

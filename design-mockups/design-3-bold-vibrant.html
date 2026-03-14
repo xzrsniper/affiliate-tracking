@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrackFlow – Design 3: Bold & Vibrant</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --orange: #f97316;
+    --orange-dark: #ea580c;
+    --pink: #ec4899;
+    --yellow: #fbbf24;
+    --green: #10b981;
+    --text: #0f0f0f;
+    --bg: #fffbf5;
+  }
+
+  body {
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* NAV */
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 60px;
+    border-bottom: 2px solid var(--text);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 22px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .logo-box {
+    width: 38px; height: 38px;
+    background: var(--text);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-size: 18px; font-weight: 900;
+  }
+
+  .nav-links {
+    display: flex; gap: 0; list-style: none;
+  }
+
+  .nav-links a {
+    padding: 8px 18px;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    transition: all .15s;
+  }
+  .nav-links a:hover { background: var(--text); color: var(--bg); }
+
+  .nav-cta {
+    display: flex; gap: 10px; align-items: center;
+  }
+
+  .btn-nav-ghost {
+    padding: 9px 20px;
+    border: 2px solid var(--text);
+    border-radius: 10px;
+    background: transparent;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .15s;
+    color: var(--text);
+  }
+  .btn-nav-ghost:hover { background: var(--text); color: var(--bg); }
+
+  .btn-nav-cta {
+    padding: 9px 20px;
+    border: 2px solid var(--text);
+    border-radius: 10px;
+    background: var(--orange);
+    color: var(--text);
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .15s;
+    box-shadow: 3px 3px 0 var(--text);
+  }
+  .btn-nav-cta:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--text); }
+
+  /* HERO */
+  .hero {
+    padding: 80px 60px 0;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 50px;
+    align-items: end;
+    max-width: 1280px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .hero-left {
+    padding-bottom: 60px;
+  }
+
+  .hero-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px 7px 8px;
+    background: var(--yellow);
+    border: 2px solid var(--text);
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 32px;
+    box-shadow: 2px 2px 0 var(--text);
+  }
+
+  .pill-icon {
+    width: 24px; height: 24px;
+    background: var(--text);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--yellow); font-size: 12px;
+  }
+
+  h1 {
+    font-size: clamp(44px, 5.5vw, 74px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2.5px;
+    margin-bottom: 26px;
+  }
+
+  .text-orange { color: var(--orange); }
+  .text-pink { color: var(--pink); }
+
+  .hero-desc {
+    font-size: 17.5px;
+    color: #4b5563;
+    line-height: 1.7;
+    max-width: 500px;
+    margin-bottom: 40px;
+    font-weight: 400;
+  }
+
+  .hero-btns {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 40px;
+  }
+
+  .btn-big {
+    padding: 14px 30px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all .15s;
+    border: 2px solid var(--text);
+  }
+
+  .btn-big.cta {
+    background: var(--orange);
+    color: var(--text);
+    box-shadow: 4px 4px 0 var(--text);
+  }
+  .btn-big.cta:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--text); }
+
+  .btn-big.secondary {
+    background: transparent;
+    color: var(--text);
+    box-shadow: 4px 4px 0 var(--text);
+  }
+  .btn-big.secondary:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--text); }
+
+  .hero-stats {
+    display: flex; gap: 30px; flex-wrap: wrap;
+  }
+
+  .stat-item {
+    display: flex; flex-direction: column;
+  }
+
+  .stat-num {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .stat-lbl {
+    font-size: 12.5px;
+    color: #6b7280;
+    font-weight: 500;
+    margin-top: 3px;
+  }
+
+  /* HERO RIGHT - Dashboard mock */
+  .hero-right {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-bottom: 0;
+    padding-top: 0;
+    align-self: end;
+  }
+
+  .hw-card {
+    border: 2px solid var(--text);
+    border-radius: 18px;
+    background: white;
+    box-shadow: 5px 5px 0 var(--text);
+    overflow: hidden;
+  }
+
+  .hw-card.orange-bg { background: var(--orange); }
+  .hw-card.yellow-bg { background: var(--yellow); }
+  .hw-card.green-bg { background: #d1fae5; }
+
+  .hw-card-inner { padding: 22px; }
+
+  .metric-big {
+    font-size: 46px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .metric-big-label {
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.7;
+  }
+
+  .inline-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 60px;
+    margin-top: 14px;
+  }
+
+  .ic-bar {
+    flex: 1;
+    border-radius: 3px 3px 0 0;
+    background: rgba(0,0,0,0.15);
+  }
+
+  .small-row {
+    display: flex; gap: 14px;
+  }
+
+  .small-metric-card {
+    flex: 1;
+    border: 2px solid var(--text);
+    border-radius: 14px;
+    padding: 16px;
+    background: white;
+    box-shadow: 4px 4px 0 var(--text);
+  }
+
+  .sm-val { font-size: 24px; font-weight: 800; letter-spacing: -1px; }
+  .sm-lbl { font-size: 12px; color: #6b7280; font-weight: 500; margin-top: 4px; }
+  .sm-up { font-size: 12px; font-weight: 700; color: var(--green); }
+
+  .radar-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .radar-row:last-child { border: none; padding-bottom: 0; }
+  .rr-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    border: 1.5px solid var(--text);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .rr-bar-wrap { flex: 1; background: #f3f4f6; border-radius: 4px; height: 7px; }
+  .rr-bar { height: 7px; border-radius: 4px; background: var(--orange); }
+  .rr-val { font-weight: 800; min-width: 40px; text-align: right; }
+
+  /* FEATURES 3-col */
+  .features3 {
+    padding: 100px 60px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .features3-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 50px;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+
+  .f3-label {
+    display: inline-block;
+    padding: 5px 14px;
+    background: var(--orange);
+    border: 2px solid var(--text);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 3px 3px 0 var(--text);
+    margin-bottom: 14px;
+  }
+
+  .f3-title {
+    font-size: clamp(28px, 3.5vw, 46px);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+  }
+
+  .features3-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .f3-card {
+    border: 2px solid var(--text);
+    border-radius: 20px;
+    padding: 30px;
+    background: white;
+    box-shadow: 5px 5px 0 var(--text);
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .f3-card:nth-child(2) { background: var(--orange); }
+  .f3-card:nth-child(5) { background: var(--yellow); }
+
+  .f3-card:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--text); }
+
+  .f3-num {
+    font-size: 64px;
+    font-weight: 900;
+    letter-spacing: -3px;
+    line-height: 1;
+    opacity: 0.07;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+  }
+
+  .f3-icon {
+    width: 50px; height: 50px;
+    border: 2px solid var(--text);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    background: var(--bg);
+    margin-bottom: 20px;
+  }
+
+  .f3-card:nth-child(2) .f3-icon { background: var(--bg); }
+  .f3-card:nth-child(5) .f3-icon { background: var(--bg); }
+
+  .f3-card h3 {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+  }
+
+  .f3-card p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #4b5563;
+  }
+
+  .f3-card:nth-child(2) p,
+  .f3-card:nth-child(5) p { color: rgba(0,0,0,0.65); }
+
+  /* TESTIMONIALS */
+  .testimonials {
+    background: var(--text);
+    color: white;
+    padding: 80px 60px;
+  }
+
+  .test-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 44px;
+    flex-wrap: wrap; gap: 16px;
+  }
+
+  .test-h2 {
+    font-size: clamp(26px, 3vw, 40px);
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+
+  .test-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1160px;
+    margin: 0 auto;
+  }
+
+  .test-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 28px;
+    transition: all .2s;
+  }
+
+  .test-card:hover { background: rgba(255,255,255,0.09); }
+
+  .test-stars { color: var(--yellow); font-size: 15px; letter-spacing: 2px; margin-bottom: 14px; }
+  .test-text { font-size: 14.5px; line-height: 1.75; color: rgba(255,255,255,0.8); margin-bottom: 22px; }
+
+  .test-author {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .test-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px;
+  }
+
+  .ta1 { background: var(--orange); color: var(--text); }
+  .ta2 { background: var(--pink); color: white; }
+  .ta3 { background: var(--green); color: white; }
+
+  .test-name { font-weight: 700; font-size: 14px; }
+  .test-role { font-size: 12px; color: rgba(255,255,255,0.4); }
+
+  /* PRICING */
+  .pricing3 {
+    padding: 100px 60px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .pricing3-header {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+
+  .p3-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .p3-card {
+    border: 2px solid var(--text);
+    border-radius: 22px;
+    padding: 32px;
+    background: white;
+    box-shadow: 5px 5px 0 var(--text);
+    transition: all .2s;
+  }
+
+  .p3-card:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--text); }
+
+  .p3-card.featured {
+    background: var(--text);
+    color: white;
+    transform: translateY(-8px);
+  }
+
+  .p3-card.featured:hover { transform: translate(2px, calc(2px - 8px)); }
+
+  .p3-tag { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+  .p3-card.featured .p3-tag { color: var(--orange); }
+  .p3-card:not(.featured) .p3-tag { color: #9ca3af; }
+
+  .p3-price { font-size: 50px; font-weight: 900; letter-spacing: -2.5px; line-height: 1; margin-bottom: 8px; }
+  .p3-price span { font-size: 20px; font-weight: 500; opacity: 0.5; }
+  .p3-desc { font-size: 13.5px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 2px solid; }
+  .p3-card:not(.featured) .p3-desc { color: #6b7280; border-color: #e5e7eb; }
+  .p3-card.featured .p3-desc { color: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.1); }
+
+  .p3-ul { list-style: none; margin-bottom: 28px; }
+  .p3-ul li {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; padding: 8px 0;
+    border-bottom: 1px solid;
+  }
+  .p3-card:not(.featured) .p3-ul li { color: var(--text); border-color: #f3f4f6; }
+  .p3-card.featured .p3-ul li { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.07); }
+  .p3-ul li:last-child { border: none; }
+  .p3-ck { font-weight: 800; }
+  .p3-card:not(.featured) .p3-ck { color: var(--orange); }
+  .p3-card.featured .p3-ck { color: var(--orange); }
+
+  .p3-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all .15s;
+    border: 2px solid;
+  }
+
+  .p3-btn.normal { background: transparent; border-color: var(--text); color: var(--text); box-shadow: 3px 3px 0 var(--text); }
+  .p3-btn.normal:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--text); }
+  .p3-btn.featured { background: var(--orange); border-color: var(--orange); color: var(--text); box-shadow: 3px 3px 0 rgba(255,255,255,0.2); }
+  .p3-btn.featured:hover { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(255,255,255,0.2); }
+
+  /* FINAL CTA */
+  .final-cta {
+    background: var(--orange);
+    border-top: 2px solid var(--text);
+    border-bottom: 2px solid var(--text);
+    padding: 80px 60px;
+    text-align: center;
+  }
+
+  .final-cta h2 {
+    font-size: clamp(32px, 5vw, 60px);
+    font-weight: 900;
+    letter-spacing: -2px;
+    margin-bottom: 16px;
+    line-height: 1.1;
+  }
+
+  .final-cta p {
+    font-size: 17px;
+    font-weight: 500;
+    opacity: 0.75;
+    margin-bottom: 36px;
+  }
+
+  .cta-btn-group { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+  .btn-cta-main {
+    padding: 15px 34px;
+    border: 2px solid var(--text);
+    border-radius: 14px;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 5px 5px 0 rgba(0,0,0,0.2);
+    transition: all .15s;
+  }
+  .btn-cta-main:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 rgba(0,0,0,0.2); }
+
+  .btn-cta-outline {
+    padding: 15px 34px;
+    border: 2px solid var(--text);
+    border-radius: 14px;
+    background: transparent;
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 5px 5px 0 var(--text);
+    transition: all .15s;
+  }
+  .btn-cta-outline:hover { transform: translate(2px, 2px); box-shadow: 3px 3px 0 var(--text); }
+
+  /* FOOTER */
+  footer {
+    padding: 36px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 2px solid var(--text);
+    font-size: 13.5px;
+    font-weight: 500;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .footer-links { display: flex; gap: 24px; }
+  .footer-links a { color: var(--text); font-weight: 600; text-decoration: none; }
+  .footer-links a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="logo">
+    <div class="logo-box">T</div>
+    TrackFlow
+  </a>
+  <ul class="nav-links">
+    <li><a href="#">Функції</a></li>
+    <li><a href="#">Ціни</a></li>
+    <li><a href="#">Документація</a></li>
+    <li><a href="#">Контакти</a></li>
+  </ul>
+  <div class="nav-cta">
+    <button class="btn-nav-ghost">Увійти</button>
+    <button class="btn-nav-cta">Спробуй зараз →</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section style="background: var(--bg); border-bottom: 2px solid var(--text);">
+  <div class="hero">
+    <div class="hero-left">
+      <div class="hero-pill">
+        <div class="pill-icon">⚡</div>
+        Нова версія — попередження про фрод
+      </div>
+      <h1>
+        Стоп<br>
+        <span class="text-orange">зливати</span><br>
+        бюджет.
+      </h1>
+      <p class="hero-desc">
+        TrackFlow відстежує кожен клік і конверсію, щоб ти точно знав: куди інвестувати, а що — вимкнути.
+      </p>
+      <div class="hero-btns">
+        <button class="btn-big cta">Почати безкоштовно →</button>
+        <button class="btn-big secondary">Дивитись демо ▶</button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-item">
+          <span class="stat-num">1M+</span>
+          <span class="stat-lbl">Кліків щомісяця</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">$10M+</span>
+          <span class="stat-lbl">Проаналізовано</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">1000+</span>
+          <span class="stat-lbl">Команд</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="hw-card orange-bg">
+        <div class="hw-card-inner">
+          <div class="metric-big-label">Виручка сьогодні</div>
+          <div class="metric-big">$2,140</div>
+          <div class="inline-chart">
+            <div class="ic-bar" style="height:40%"></div>
+            <div class="ic-bar" style="height:60%"></div>
+            <div class="ic-bar" style="height:45%"></div>
+            <div class="ic-bar" style="height:75%"></div>
+            <div class="ic-bar" style="height:55%"></div>
+            <div class="ic-bar" style="height:85%"></div>
+            <div class="ic-bar" style="height:70%"></div>
+            <div class="ic-bar" style="height:100%"></div>
+            <div class="ic-bar" style="height:80%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="small-row">
+        <div class="small-metric-card" style="background: #f3f0ff;">
+          <div class="sm-val">4,821</div>
+          <div class="sm-lbl">Кліки</div>
+          <div class="sm-up">↑ +18.4%</div>
+        </div>
+        <div class="small-metric-card" style="background: #d1fae5;">
+          <div class="sm-val">312</div>
+          <div class="sm-lbl">Конверсії</div>
+          <div class="sm-up">↑ +7.2%</div>
+        </div>
+      </div>
+
+      <div class="hw-card">
+        <div class="hw-card-inner">
+          <div style="font-size: 13px; font-weight: 700; margin-bottom: 14px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px;">Топ джерела</div>
+          <div class="radar-row">
+            <div class="rr-icon">📊</div>
+            <span style="font-size: 13.5px; min-width: 90px;">Google Ads</span>
+            <div class="rr-bar-wrap"><div class="rr-bar" style="width:85%"></div></div>
+            <div class="rr-val">2,344</div>
+          </div>
+          <div class="radar-row">
+            <div class="rr-icon">💙</div>
+            <span style="font-size: 13.5px; min-width: 90px;">Facebook</span>
+            <div class="rr-bar-wrap"><div class="rr-bar" style="width:60%"></div></div>
+            <div class="rr-val">1,590</div>
+          </div>
+          <div class="radar-row">
+            <div class="rr-icon">✈️</div>
+            <span style="font-size: 13.5px; min-width: 90px;">Telegram</span>
+            <div class="rr-bar-wrap"><div class="rr-bar" style="width:38%"></div></div>
+            <div class="rr-val">744</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features3">
+  <div class="features3-header">
+    <div>
+      <div class="f3-label">Можливості</div>
+      <div class="f3-title">Чому обирають<br>TrackFlow?</div>
+    </div>
+    <button class="btn-nav-cta">Усі функції →</button>
+  </div>
+  <div class="features3-grid">
+    <div class="f3-card">
+      <div class="f3-num">01</div>
+      <div class="f3-icon">🖱️</div>
+      <h3>Real-time трекінг</h3>
+      <p>Дані про кліки та конверсії з'являються миттєво. Ніякого затримки — ти завжди в курсі.</p>
+    </div>
+    <div class="f3-card">
+      <div class="f3-num">02</div>
+      <div class="f3-icon">📊</div>
+      <h3>Глибока аналітика</h3>
+      <p>Звіти за каналами, пристроями, геолокацією та UTM-параметрами — все що треба для рішень.</p>
+    </div>
+    <div class="f3-card">
+      <div class="f3-num">03</div>
+      <div class="f3-icon">🔗</div>
+      <h3>Розумні посилання</h3>
+      <p>Унікальні трекінгові посилання для кожного партнера або кампанії за лічені секунди.</p>
+    </div>
+    <div class="f3-card">
+      <div class="f3-num">04</div>
+      <div class="f3-icon">🛡️</div>
+      <h3>Захист від фроду</h3>
+      <p>Автоматично визначає ботів та підозрілу активність. Твій бюджет не зіллється в нікуди.</p>
+    </div>
+    <div class="f3-card">
+      <div class="f3-num">05</div>
+      <div class="f3-icon">⚡</div>
+      <h3>Легка інтеграція</h3>
+      <p>1 рядок коду або GTM-рецепт. Підключення займає менше 5 хвилин для будь-якого сайту.</p>
+    </div>
+    <div class="f3-card">
+      <div class="f3-num">06</div>
+      <div class="f3-icon">🌍</div>
+      <h3>Мульти-сайт</h3>
+      <p>Керуй всіма своїми проєктами з одного акаунту. Без обмежень кількості сайтів.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<div class="testimonials">
+  <div class="test-header">
+    <div class="test-h2">Що кажуть<br>наші клієнти</div>
+    <button class="btn-nav-cta" style="color: var(--text);">Читати більше →</button>
+  </div>
+  <div class="test-grid">
+    <div class="test-card">
+      <div class="test-stars">★★★★★</div>
+      <p class="test-text">"Після підключення TrackFlow я нарешті побачив, що 40% бюджету йшло на неефективні канали. За місяць зростання ROAS на 2.3x!"</p>
+      <div class="test-author">
+        <div class="test-avatar ta1">А</div>
+        <div>
+          <div class="test-name">Андрій К.</div>
+          <div class="test-role">Performance маркетолог</div>
+        </div>
+      </div>
+    </div>
+    <div class="test-card">
+      <div class="test-stars">★★★★★</div>
+      <p class="test-text">"Нарешті інструмент, де не треба розбиратися годинами. Підключила за 5 хвилин через GTM і одразу побачила реальні дані."</p>
+      <div class="test-author">
+        <div class="test-avatar ta2">В</div>
+        <div>
+          <div class="test-name">Вікторія М.</div>
+          <div class="test-role">Власниця інтернет-магазину</div>
+        </div>
+      </div>
+    </div>
+    <div class="test-card">
+      <div class="test-stars">★★★★★</div>
+      <p class="test-text">"Використовуємо для всіх клієнтів агентства. Зручні звіти, gіd миттєва аналітика. Клієнти тепер бачать цінність кожної гривні."</p>
+      <div class="test-author">
+        <div class="test-avatar ta3">Д</div>
+        <div>
+          <div class="test-name">Дмитро Л.</div>
+          <div class="test-role">CEO digital-агентства</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<section class="pricing3">
+  <div class="pricing3-header">
+    <div class="f3-label">Тарифи</div>
+    <div class="f3-title" style="text-align: center;">Починай безкоштовно</div>
+  </div>
+  <div class="p3-grid">
+    <div class="p3-card">
+      <div class="p3-tag">Старт</div>
+      <div class="p3-price">$0</div>
+      <div class="p3-desc">Для початку та тестування</div>
+      <ul class="p3-ul">
+        <li><span class="p3-ck">✓</span> 10,000 кліків/міс</li>
+        <li><span class="p3-ck">✓</span> 1 сайт</li>
+        <li><span class="p3-ck">✓</span> Базові звіти</li>
+        <li><span class="p3-ck">✓</span> 30 днів даних</li>
+      </ul>
+      <button class="p3-btn normal">Почати безкоштовно</button>
+    </div>
+    <div class="p3-card featured">
+      <div class="p3-tag">Про 🔥</div>
+      <div class="p3-price">$29<span>/міс</span></div>
+      <div class="p3-desc">Для тих, хто масштабується</div>
+      <ul class="p3-ul">
+        <li><span class="p3-ck">✓</span> 500,000 кліків/міс</li>
+        <li><span class="p3-ck">✓</span> 10 сайтів</li>
+        <li><span class="p3-ck">✓</span> Повна аналітика</li>
+        <li><span class="p3-ck">✓</span> 1 рік даних</li>
+        <li><span class="p3-ck">✓</span> Email звіти</li>
+        <li><span class="p3-ck">✓</span> API доступ</li>
+      </ul>
+      <button class="p3-btn featured">Вибрати план</button>
+    </div>
+    <div class="p3-card">
+      <div class="p3-tag">Агентство</div>
+      <div class="p3-price">$99<span>/міс</span></div>
+      <div class="p3-desc">Для команд та агентств</div>
+      <ul class="p3-ul">
+        <li><span class="p3-ck">✓</span> Необмежені кліки</li>
+        <li><span class="p3-ck">✓</span> Необмежені сайти</li>
+        <li><span class="p3-ck">✓</span> White label</li>
+        <li><span class="p3-ck">✓</span> Командний доступ</li>
+        <li><span class="p3-ck">✓</span> Пріорітетна підтримка</li>
+      </ul>
+      <button class="p3-btn normal">Зв'язатись</button>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<div class="final-cta">
+  <h2>Хватить гадати.<br>Почни вимірювати.</h2>
+  <p>Реєстрація безкоштовна. Без кредитної картки. Підключення за 5 хвилин.</p>
+  <div class="cta-btn-group">
+    <button class="btn-cta-main">Спробувати безкоштовно →</button>
+    <button class="btn-cta-outline">Написати в Telegram</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <a href="#" class="logo" style="text-decoration: none;">
+    <div class="logo-box">T</div>
+    <span>TrackFlow</span>
+  </a>
+  <div class="footer-links">
+    <a href="#">Функції</a>
+    <a href="#">Ціни</a>
+    <a href="#">Документація</a>
+    <a href="#">Блог</a>
+    <a href="#">Контакти</a>
+  </div>
+  <span>© 2026 TrackFlow</span>
+</footer>
+
+</body>
+</html>

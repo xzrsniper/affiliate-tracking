@@ -23,13 +23,16 @@ export function ThemeProvider({ children }) {
         localStorage.setItem('theme', theme);
       }
       
-      // Додаємо/видаляємо клас dark до body
+      // Додаємо/видаляємо клас dark та синхронізуємо browser color-scheme
       if (typeof document !== 'undefined') {
         if (theme === 'dark') {
           document.documentElement.classList.add('dark');
+          document.body.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
+          document.body.classList.remove('dark');
         }
+        document.documentElement.style.colorScheme = theme;
       }
     } catch (e) {
       console.warn('Error setting theme:', e);

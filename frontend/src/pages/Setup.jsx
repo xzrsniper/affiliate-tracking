@@ -328,34 +328,34 @@ window.__lehkoConfig = {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-none">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white/80 dark:bg-slate-900/70 px-5 py-4 backdrop-blur">
+          <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">
             {t('setup.title')}
           </h1>
-          <p className="text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-slate-600">
             {t('setup.subtitle')}
           </p>
         </div>
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="border-b border-slate-200 dark:border-slate-700">
-            <nav className="flex space-x-6 overflow-x-auto">
+          <div className="border-b-2 border-slate-200">
+            <nav className="flex gap-1 overflow-x-auto">
               {[
-                { id: 'websites', icon: Globe, label: t('setup.tabMySites'), active: 'border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400' },
-                { id: 'code', icon: FileCode, label: t('setup.tabInstall'), active: 'border-violet-600 dark:border-violet-400 text-violet-600 dark:text-violet-400' },
-                { id: 'gtm', icon: Tag, label: t('setup.tabGtm'), active: 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400' },
-                { id: 'guide', icon: BookOpen, label: t('setup.tabGuide'), active: 'border-emerald-600 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400' },
+                { id: 'websites', icon: Globe, label: t('setup.tabMySites'), active: 'border-violet-600 text-violet-600' },
+                { id: 'code', icon: FileCode, label: t('setup.tabInstall'), active: 'border-violet-600 text-violet-600' },
+                { id: 'gtm', icon: Tag, label: t('setup.tabGtm'), active: 'border-indigo-600 text-indigo-600' },
+                { id: 'guide', icon: BookOpen, label: t('setup.tabGuide'), active: 'border-emerald-600 text-emerald-600' },
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+                  className={`px-4 py-2.5 border-b-2 text-sm transition-colors whitespace-nowrap ${
                     activeTab === tab.id
-                      ? tab.active
-                      : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                      ? `${tab.active} font-semibold`
+                      : 'border-transparent text-slate-500 font-medium hover:text-slate-700'
                   }`}
                 >
                   <tab.icon className="w-4 h-4 inline mr-1.5" />
@@ -368,11 +368,11 @@ window.__lehkoConfig = {
 
         {/* Websites Tab */}
         {activeTab === 'websites' && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8 mb-8">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('setup.mySitesTitle')}</h2>
-                <p className="text-slate-600 dark:text-slate-400">{t('setup.mySitesDesc')}</p>
+                <h2 className="text-2xl font-bold text-slate-800">{t('setup.mySitesTitle')}</h2>
+                <p className="text-slate-600">{t('setup.mySitesDesc')}</p>
               </div>
               <div className="flex items-center space-x-3">
                 {websites.length > 0 && websites.some(w => w.domain && !isLocalhost(w.domain)) && (
@@ -390,7 +390,7 @@ window.__lehkoConfig = {
                       }
                     }}
                     disabled={checkingId !== null}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-xl transition-all flex items-center space-x-2 disabled:opacity-50"
+                    className="px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg transition-all flex items-center space-x-2 disabled:opacity-50"
                   >
                     <RefreshCw className={`w-5 h-5 ${checkingId !== null ? 'animate-spin' : ''}`} />
                     <span>{t('setup.checkAll')}</span>
@@ -398,7 +398,7 @@ window.__lehkoConfig = {
                 )}
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all flex items-center space-x-2"
+                  className="px-4 py-2 bg-violet-700 text-white font-semibold rounded-lg hover:bg-violet-800 transition-colors flex items-center space-x-2"
                 >
                   <Plus className="w-5 h-5" />
                   <span>{t('setup.addSite')}</span>
@@ -408,16 +408,16 @@ window.__lehkoConfig = {
 
             {/* Add Website Form */}
             {showAddForm && (
-              <div className="mb-6 bg-slate-50 dark:bg-slate-700 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">{t('setup.addNewSite')}</h3>
-                <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <p className="text-xs text-blue-800 dark:text-blue-300">
+              <div className="mb-6 bg-slate-50 rounded-lg p-6 border border-slate-200">
+                <h3 className="text-lg font-semibold text-slate-800 mb-4">{t('setup.addNewSite')}</h3>
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
                     💡 <strong>{t('common.help')}:</strong> {t('setup.tipDomain')}
                   </p>
                 </div>
                 <form onSubmit={handleAddWebsite} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       {t('setup.siteName')} <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -426,21 +426,21 @@ window.__lehkoConfig = {
                       value={newWebsite.name}
                       onChange={(e) => setNewWebsite({ ...newWebsite, name: e.target.value })}
                       placeholder={t('setup.siteNamePlaceholder')}
-                      className="w-full px-4 py-3 bg-white dark:bg-slate-600 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                      className="w-full px-4 py-2.5 bg-white rounded-lg border border-slate-200 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                      {t('setup.siteDomain')} <span className="text-slate-400 dark:text-slate-500">{t('setup.siteDomainOptional')}</span>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      {t('setup.siteDomain')} <span className="text-slate-400">{t('setup.siteDomainOptional')}</span>
                     </label>
                     <input
                       type="text"
                       value={newWebsite.domain}
                       onChange={(e) => setNewWebsite({ ...newWebsite, domain: e.target.value })}
                       placeholder={t('setup.siteDomainPlaceholder')}
-                      className="w-full px-4 py-3 bg-white dark:bg-slate-600 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                      className="w-full px-4 py-2.5 bg-white rounded-lg border border-slate-200 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
                     />
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    <p className="text-xs text-slate-500 mt-2">
                       💡 {t('setup.siteDomainHint')}
                     </p>
                   </div>
@@ -451,13 +451,13 @@ window.__lehkoConfig = {
                         setShowAddForm(false);
                         setNewWebsite({ name: '', domain: '' });
                       }}
-                      className="px-6 py-3 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-all"
+                      className="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-all"
                     >
                       {t('common.cancel')}
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
+                      className="px-6 py-2.5 bg-violet-700 text-white font-semibold rounded-lg hover:bg-violet-800 transition-colors"
                     >
                       {t('setup.add')}
                     </button>
@@ -468,32 +468,32 @@ window.__lehkoConfig = {
 
             {/* API URL Warning */}
             {API_BASE.includes('localhost') && (
-              <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-800 rounded-xl p-6">
+              <div className="mb-6 bg-amber-50 border-2 border-amber-300 dark:bg-slate-900 dark:border-slate-600 rounded-xl p-6">
                 <div className="flex items-start space-x-3">
-                  <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-300 mb-2">⚠️ {t('setup.apiWarningTitle')}</h3>
-                    <p className="text-sm text-amber-800 dark:text-amber-300 mb-3">
+                    <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200 mb-2">⚠️ {t('setup.apiWarningTitle')}</h3>
+                    <p className="text-sm text-amber-800 dark:text-slate-200 mb-3">
                       {t('setup.apiWarningLocalhost')}
                     </p>
-                    <p className="text-sm text-amber-800 dark:text-amber-300 mb-3">
+                    <p className="text-sm text-amber-800 dark:text-slate-200 mb-3">
                       {t('setup.apiWarningProduction')}
                     </p>
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-3">
-                      <p className="text-sm text-red-800 dark:text-red-300 font-semibold mb-1">🔒 {t('setup.httpsCritical')}</p>
-                      <p className="text-xs text-red-700 dark:text-red-400 mb-2">
+                    <div className="bg-red-50 border border-red-200 dark:bg-slate-800 dark:border-slate-600 rounded-lg p-3 mb-3">
+                      <p className="text-sm text-red-800 dark:text-amber-200 font-semibold mb-1">🔒 {t('setup.httpsCritical')}</p>
+                      <p className="text-xs text-red-700 dark:text-slate-300 mb-2">
                         {t('setup.httpsCriticalDesc')}
                       </p>
-                      <div className="bg-white dark:bg-slate-700 rounded p-2 mt-2">
-                        <p className="text-xs text-red-800 dark:text-red-300 mb-1"><strong>{t('setup.httpsCorrect')}</strong> <code className="bg-green-100 dark:bg-green-900/30 px-1 rounded">https://lehko.space</code></p>
-                        <p className="text-xs text-red-700 dark:text-red-400">❌ <strong>{t('setup.httpsWrong')}</strong> <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">http://lehko.space</code></p>
+                      <div className="bg-white dark:bg-slate-900 rounded p-2 mt-2">
+                        <p className="text-xs text-red-800 dark:text-slate-200 mb-1"><strong>{t('setup.httpsCorrect')}</strong> <code className="bg-green-100 dark:bg-emerald-900/40 dark:text-emerald-200 px-1 rounded">https://lehko.space</code></p>
+                        <p className="text-xs text-red-700 dark:text-slate-300">❌ <strong>{t('setup.httpsWrong')}</strong> <code className="bg-red-100 dark:bg-rose-900/40 dark:text-rose-200 px-1 rounded">http://lehko.space</code></p>
                       </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-amber-200 dark:border-amber-800 mb-3">
-                      <p className="text-xs text-amber-700 dark:text-amber-400 mb-2"><strong>{t('setup.apiExample')}</strong></p>
-                      <code className="text-xs text-amber-800 dark:text-amber-300">https://lehko.space</code> або <code className="text-xs text-amber-800 dark:text-amber-300">https://api.yourdomain.com</code>
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-amber-200 dark:border-slate-600 mb-3">
+                      <p className="text-xs text-amber-700 dark:text-slate-300 mb-2"><strong>{t('setup.apiExample')}</strong></p>
+                      <code className="text-xs text-amber-800 dark:text-amber-200">https://lehko.space</code> або <code className="text-xs text-amber-800 dark:text-amber-200">https://api.yourdomain.com</code>
                     </div>
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                    <p className="text-xs text-amber-700 dark:text-slate-400">
                       💡 {t('setup.apiWhere')}
                     </p>
                   </div>
@@ -504,28 +504,28 @@ window.__lehkoConfig = {
             {/* Info Banner */}
             {websites.length > 0 && (
               <div className="mb-6 space-y-3">
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <div className="bg-blue-50 border border-blue-200 dark:bg-slate-900 dark:border-slate-600 rounded-xl p-4">
                   <div className="flex items-start space-x-3">
-                    <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <HelpCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                      <p className="text-sm font-semibold text-blue-800 dark:text-slate-100 mb-1">
                         {t('setup.howCheckWorks')}
                       </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-400 mb-2">
+                      <p className="text-xs text-blue-700 dark:text-slate-300 mb-2">
                         {t('setup.howCheckWays')}
                       </p>
-                      <ul className="text-xs text-blue-700 dark:text-blue-400 list-disc list-inside space-y-1 ml-2">
+                      <ul className="text-xs text-blue-700 dark:text-slate-300 list-disc list-inside space-y-1 ml-2">
                         <li>{t('setup.verificationPing')}</li>
                         <li>{t('setup.htmlCheck')}</li>
                       </ul>
-                      <p className="text-xs text-blue-700 dark:text-blue-400 mt-2">
+                      <p className="text-xs text-blue-700 dark:text-slate-300 mt-2">
                         💡 {t('setup.checkTip')}
                       </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                      <p className="text-xs text-blue-700 dark:text-slate-300 mt-1">
                         🏷️ {t('setup.gtmTip')}
                       </p>
-                      <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
-                        <p className="text-xs text-blue-700 dark:text-blue-400 mb-1">
+                      <div className="mt-3 pt-3 border-t border-blue-200 dark:border-slate-700">
+                        <p className="text-xs text-blue-700 mb-1">
                           🧪 <a href={`${API_BASE}/tracker-test.html`} target="_blank" rel="noopener noreferrer" className="underline font-semibold">{t('setup.testPage')}</a>
                         </p>
                       </div>
@@ -536,23 +536,23 @@ window.__lehkoConfig = {
                 {/* Statistics */}
                 {websites.length > 0 && (
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                      <p className="text-2xl font-bold text-slate-800 dark:text-white">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-2xl font-bold text-slate-800">
                         {websites.length}
                       </p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{t('setup.totalSites')}</p>
+                      <p className="text-sm text-slate-600">{t('setup.totalSites')}</p>
                     </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
-                      <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+                    <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                      <p className="text-2xl font-bold text-green-700">
                         {websites.filter(w => w.is_connected).length}
                       </p>
-                      <p className="text-sm text-green-600 dark:text-green-400">{t('setup.connected')}</p>
+                      <p className="text-sm text-green-600">{t('setup.connected')}</p>
                     </div>
-                    <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
-                      <p className="text-2xl font-bold text-red-700 dark:text-red-400">
+                    <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                      <p className="text-2xl font-bold text-red-700">
                         {websites.filter(w => !w.is_connected && !isLocalhost(w.domain)).length}
                       </p>
-                      <p className="text-sm text-red-600 dark:text-red-400">{t('setup.notConnected')}</p>
+                      <p className="text-sm text-red-600">{t('setup.notConnected')}</p>
                     </div>
                   </div>
                 )}
@@ -561,8 +561,8 @@ window.__lehkoConfig = {
 
             {/* Quick Help */}
             {websites.length > 0 && (
-              <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                <p className="text-sm text-blue-800 dark:text-blue-300">
+              <div className="mb-4 bg-blue-50 border border-blue-200 dark:bg-slate-900 dark:border-slate-600 rounded-xl p-4">
+                <p className="text-sm text-blue-800 dark:text-slate-200">
                   {t('setup.quickHelp')}
                 </p>
               </div>
@@ -571,18 +571,18 @@ window.__lehkoConfig = {
             {/* Websites Table */}
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-slate-500 dark:text-slate-400">{t('common.loading')}</p>
+                <p className="text-slate-500">{t('common.loading')}</p>
               </div>
             ) : websites.length === 0 ? (
-              <div className="text-center py-12 bg-slate-50 dark:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-600">
-                <Globe className="w-16 h-16 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
-                <p className="text-slate-500 dark:text-slate-400 mb-2">{t('setup.noSitesYet')}</p>
-                <p className="text-sm text-slate-400 dark:text-slate-500 mb-4">
+              <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-200">
+                <Globe className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                <p className="text-slate-500 mb-2">{t('setup.noSitesYet')}</p>
+                <p className="text-sm text-slate-400 mb-4">
                   {t('setup.noSitesHint')}
                 </p>
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
+                      className="px-6 py-2.5 bg-violet-700 text-white font-semibold rounded-lg hover:bg-violet-800 transition-colors"
                 >
                   {t('setup.addFirstSite')}
                 </button>
@@ -591,33 +591,33 @@ window.__lehkoConfig = {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">{t('setup.tableSite')}</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">{t('setup.tableSiteId')}</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">{t('setup.tableStatus')}</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">{t('setup.tableCheck')}</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700 dark:text-slate-300">{t('setup.tableActions')}</th>
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">{t('setup.tableSite')}</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">{t('setup.tableSiteId')}</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">{t('setup.tableStatus')}</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">{t('setup.tableCheck')}</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">{t('setup.tableActions')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {websites.map((website) => (
-                      <tr key={website.id} className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                      <tr key={website.id} className="border-b border-slate-200 hover:bg-slate-50">
                         <td className="py-4 px-4">
                           <div>
-                            <p className="font-semibold text-slate-800 dark:text-white">{website.name}</p>
+                            <p className="font-semibold text-slate-800">{website.name}</p>
                             {website.domain && (
-                              <p className="text-sm text-slate-500 dark:text-slate-400">{website.domain}</p>
+                              <p className="text-sm text-slate-500">{website.domain}</p>
                             )}
                           </div>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center space-x-2">
-                            <code className="px-2 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded text-sm font-mono">
+                            <code className="px-2 py-1 bg-violet-100 text-violet-700 rounded text-sm font-mono">
                               {website.id}
                             </code>
                             <button
                               onClick={() => copyToClipboard(String(website.id), `site-id-${website.id}`)}
-                              className="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                              className="p-1 text-slate-500 hover:text-slate-700"
                               title={t('setup.copyId')}
                             >
                               {copiedSection === `site-id-${website.id}` ? (
@@ -627,49 +627,49 @@ window.__lehkoConfig = {
                               )}
                             </button>
                           </div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('setup.useForCode')}</p>
+                          <p className="text-xs text-slate-500 mt-1">{t('setup.useForCode')}</p>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex flex-col space-y-2">
                             <span
                               className={`inline-flex items-center space-x-2 px-3 py-1 rounded-lg font-medium text-sm ${
                                 website.is_connected
-                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-red-100 text-red-700'
                               }`}
                             >
                               <span className={`w-2 h-2 rounded-full ${website.is_connected ? 'bg-green-600' : 'bg-red-600'}`}></span>
                               <span>{website.is_connected ? '✅ ' + t('setup.connectedStatus') : '❌ ' + t('setup.notConnectedStatus')}</span>
                             </span>
                             {!website.is_connected && website.domain && !isLocalhost(website.domain) && (
-                              <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 mt-2 border border-slate-200 dark:border-slate-600">
-                                <p className="mb-2 font-semibold text-slate-700 dark:text-slate-300">💡 {t('setup.trackerNotFound')}</p>
+                              <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3 mt-2 border border-slate-200">
+                                <p className="mb-2 font-semibold text-slate-700">💡 {t('setup.trackerNotFound')}</p>
                                 <ol className="list-decimal list-inside space-y-1 ml-1">
                                   <li>{t('setup.trackerNotFound1')}</li>
                                   <li>{t('setup.trackerNotFound2')}</li>
                                   <li>{t('setup.trackerNotFound3')}</li>
                                   <li>{t('setup.trackerNotFound4')}</li>
                                 </ol>
-                                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600 space-y-2">
-                                  <p className="text-slate-600 dark:text-slate-300">
+                                <div className="mt-2 pt-2 border-t border-slate-200 space-y-2">
+                                  <p className="text-slate-600">
                                     📋 {t('setup.quickCheck')}
                                   </p>
-                                  <p className="text-indigo-700 dark:text-indigo-300 font-medium">
+                                  <p className="text-indigo-700 font-medium">
                                     🏷️ {t('setup.gtmNote')}
                                   </p>
                                 </div>
                               </div>
                             )}
                             {website.is_connected && (
-                              <div className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg p-3 mt-2 border border-green-200 dark:border-green-800">
+                              <div className="text-xs text-green-600 bg-green-50 rounded-lg p-3 mt-2 border border-green-200">
                                 <p className="font-semibold mb-2">✓ {t('setup.trackerFound')}</p>
-                                <div className="space-y-1 text-green-700 dark:text-green-300">
+                                <div className="space-y-1 text-green-700">
                                   <p>✅ {t('setup.verificationActive')}</p>
                                   <p>✅ {t('setup.autoClicks')}</p>
                                   <p>✅ {t('setup.autoConversions')}</p>
                                 </div>
-                                <div className="mt-2 pt-2 border-t border-green-200 dark:border-green-800">
-                                  <p className="text-green-600 dark:text-green-400">
+                                <div className="mt-2 pt-2 border-t border-green-200">
+                                  <p className="text-green-600">
                                     💡 {t('setup.guarantees')}
                                   </p>
                                 </div>
@@ -680,10 +680,10 @@ window.__lehkoConfig = {
                         <td className="py-4 px-4">
                           {isLocalhost(website.domain) ? (
                             <div className="flex flex-col space-y-1">
-                              <span className="text-sm text-slate-500 dark:text-slate-400 italic">
+                              <span className="text-sm text-slate-500 italic">
                                 {t('setup.localhostCheck')}
                               </span>
-                              <span className="text-xs text-slate-400 dark:text-slate-500">
+                              <span className="text-xs text-slate-400">
                                 {t('setup.localhostUsePublic')}
                               </span>
                             </div>
@@ -692,23 +692,23 @@ window.__lehkoConfig = {
                               <button
                                 onClick={() => handleCheckWebsite(website)}
                                 disabled={checkingId === website.id}
-                                className="inline-flex items-center space-x-2 px-3 py-2 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-400 rounded-lg transition-all disabled:opacity-50"
+                                className="inline-flex items-center space-x-2 px-3 py-2 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg transition-all disabled:opacity-50"
                               >
                                 <RefreshCw className={`w-4 h-4 ${checkingId === website.id ? 'animate-spin' : ''}`} />
                                 <span>{checkingId === website.id ? t('setup.checking') : t('setup.checkNow')}</span>
                               </button>
                               {!website.is_connected && (
-                                <div className="text-xs text-slate-500 dark:text-slate-400">
+                                <div className="text-xs text-slate-500">
                                   <p className="mb-1">💡 {t('setup.checkMayTake')}</p>
-                                  <p className="text-slate-400 dark:text-slate-500">
+                                  <p className="text-slate-400">
                                     {t('setup.checkHow')}
                                   </p>
                                 </div>
                               )}
                               {website.is_connected && (
-                                <div className="text-xs text-green-600 dark:text-green-400 space-y-1">
+                                <div className="text-xs text-green-600 space-y-1">
                                   <p>✓ {t('setup.lastCheckJust')}</p>
-                                  <p className="text-green-500 dark:text-green-500">
+                                  <p className="text-green-500">
                                     🔄 {t('setup.autoCheckEvery')}
                                   </p>
                                 </div>
@@ -723,7 +723,7 @@ window.__lehkoConfig = {
                                 const readyCode = getUniversalCode(website.id);
                                 copyToClipboard(readyCode, `quick-copy-${website.id}`);
                               }}
-                              className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                               title={t('setup.quickCopyCode')}
                             >
                               {copiedSection === `quick-copy-${website.id}` ? (
@@ -737,8 +737,8 @@ window.__lehkoConfig = {
                               disabled={configuringId === website.id}
                               className={`p-2 rounded-lg transition-colors ${
                                 (website.purchase_button_selector || website.cart_button_selector)
-                                  ? 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30'
-                                  : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30'
+                                  ? 'text-green-600 hover:bg-green-50'
+                                  : 'text-amber-600 hover:bg-amber-50'
                               } ${configuringId === website.id ? 'animate-pulse' : ''}`}
                               title={(website.purchase_button_selector || website.cart_button_selector)
                                 ? `${website.purchase_button_selector ? 'Лід: ' + website.purchase_button_selector : ''}${website.cart_button_selector ? (website.purchase_button_selector ? ' | ' : '') + 'Кошик: ' + website.cart_button_selector : ''} (клікніть щоб змінити)`
@@ -749,21 +749,21 @@ window.__lehkoConfig = {
                             </button>
                             <button
                               onClick={() => openEditWebsite(website)}
-                              className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                               title={t('setup.settingsUrlPrice')}
                             >
                               <Sliders className="w-5 h-5" />
                             </button>
                             <button
                               onClick={() => { setShowCodeModal(website); }}
-                              className="p-2 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/30 rounded-lg transition-colors"
+                              className="p-2 text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
                               title={t('setup.showCode')}
                             >
                               <Code className="w-5 h-5" />
                             </button>
                             <button
                               onClick={() => handleDeleteWebsite(website.id)}
-                              className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title={t('common.delete')}
                             >
                               <Trash2 className="w-5 h-5" />
@@ -782,33 +782,33 @@ window.__lehkoConfig = {
         {/* Code Modal */}
         {showCodeModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">
+                <h3 className="text-xl font-bold text-slate-800">
                   {t('setup.trackingCodeFor')} {showCodeModal.name}
                 </h3>
                 <button
                   onClick={() => setShowCodeModal(null)}
-                  className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               
               {/* Info Box with Site Details */}
-              <div className="mb-4 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-xl p-4 border-2 border-violet-200 dark:border-violet-800">
-                <h4 className="font-semibold text-slate-800 dark:text-white mb-3">📋 {t('setup.siteInfo')}</h4>
+              <div className="mb-4 bg-gradient-to-r from-violet-50 to-indigo-50 rounded-xl p-4 border-2 border-violet-200">
+                <h4 className="font-semibold text-slate-800 mb-3">📋 {t('setup.siteInfo')}</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-400">{t('setup.siteId')}</span>
+                    <span className="text-slate-600">{t('setup.siteId')}</span>
                     <div className="flex items-center space-x-2">
-                      <code className="px-2 py-1 bg-white dark:bg-slate-700 text-violet-700 dark:text-violet-400 rounded font-mono font-semibold">
+                      <code className="px-2 py-1 bg-white text-violet-700 rounded font-mono font-semibold">
                         {showCodeModal?.id || 'N/A'}
                       </code>
                       {showCodeModal?.id && (
                         <button
                           onClick={() => copyToClipboard(String(showCodeModal.id), 'modal-site-id')}
-                          className="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                          className="p-1 text-slate-500 hover:text-slate-700"
                           title={t('setup.copyId')}
                         >
                           {copiedSection === 'modal-site-id' ? (
@@ -821,26 +821,26 @@ window.__lehkoConfig = {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-400">{t('setup.apiUrl')}</span>
-                    <code className="px-2 py-1 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-mono text-xs">
+                    <span className="text-slate-600">{t('setup.apiUrl')}</span>
+                    <code className="px-2 py-1 bg-white text-slate-800 rounded font-mono text-xs">
                       {API_BASE}
                     </code>
                   </div>
                   {showCodeModal?.domain && (
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">{t('setup.siteDomainLabel')}</span>
-                      <code className="px-2 py-1 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded font-mono text-xs">
+                      <span className="text-slate-600">{t('setup.siteDomainLabel')}</span>
+                      <code className="px-2 py-1 bg-white text-slate-800 rounded font-mono text-xs">
                         {showCodeModal.domain}
                       </code>
                     </div>
                   )}
                 </div>
             {API_BASE.includes('localhost') && (
-              <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <p className="text-xs text-amber-800 dark:text-amber-300">
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-800">
                   {t('setup.localhostInCode')}
                 </p>
-                <p className="text-xs text-red-700 dark:text-red-400 mt-2">
+                <p className="text-xs text-red-700 mt-2">
                   {t('setup.httpsCriticalShort')}
                 </p>
               </div>
@@ -848,29 +848,29 @@ window.__lehkoConfig = {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                   ✅ {t('setup.readyCode')}
                 </label>
-                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 border border-slate-200 dark:border-slate-600 relative">
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 relative">
                   <button
                     onClick={() => {
                       copyToClipboard(modalCode, 'modal-code');
                     }}
-                    className="absolute top-4 right-4 p-2 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition-colors"
+                    className="absolute top-4 right-4 p-2 text-slate-600 hover:bg-white rounded-lg transition-colors"
                     title={t('setup.copyCode')}
                   >
                     {copiedSection === 'modal-code' ? (
-                      <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <Check className="w-5 h-5 text-green-600" />
                     ) : (
                       <Copy className="w-5 h-5" />
                     )}
                   </button>
-                  <pre className="text-sm text-slate-800 dark:text-slate-200 overflow-x-auto">
+                  <pre className="text-sm text-slate-800 overflow-x-auto">
                     <code>{modalCode}</code>
                   </pre>
                 </div>
                 {showCodeModal?.id && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  <p className="text-xs text-slate-500 mt-2">
                     ✅ {t('setup.siteIdInCode')} ({showCodeModal.id})
                     {!API_BASE.includes('localhost') && (
                       <span className="block mt-1">✅ {t('setup.apiInCode')} ({API_BASE})</span>
@@ -880,15 +880,15 @@ window.__lehkoConfig = {
               </div>
 
               {/* Detailed Instructions */}
-              <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">📖 {t('setup.stepByStep')}</h4>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 dark:text-blue-300">
+              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <h4 className="font-semibold text-blue-800 mb-3">📖 {t('setup.stepByStep')}</h4>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
                   <li>{t('setup.stepCopy')}</li>
                   <li>{t('setup.stepOpenHtml')}</li>
                   <li>{t('setup.stepFindHead')}</li>
                   <li>{t('setup.stepPaste')}</li>
                   {API_BASE.includes('localhost') && (
-                    <li className="text-amber-700 dark:text-amber-300">{t('setup.stepReplaceLocalhost')}</li>
+                    <li className="text-amber-700">{t('setup.stepReplaceLocalhost')}</li>
                   )}
                   <li>{t('setup.stepSave')}</li>
                   <li>{t('setup.stepVerify')}</li>
@@ -896,9 +896,9 @@ window.__lehkoConfig = {
               </div>
 
               {/* Where to find info */}
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                <h4 className="font-semibold text-green-800 dark:text-green-300 mb-2">💡 {t('setup.whereFindData')}</h4>
-                <ul className="text-sm text-green-800 dark:text-green-300 space-y-1 list-disc list-inside">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <h4 className="font-semibold text-green-800 mb-2">💡 {t('setup.whereFindData')}</h4>
+                <ul className="text-sm text-green-800 space-y-1 list-disc list-inside">
                   <li>{t('setup.whereSiteId')}</li>
                   <li>{t('setup.whereApiUrl')} ({API_BASE})</li>
                   <li>{t('setup.whereConversions')}</li>
@@ -920,21 +920,21 @@ window.__lehkoConfig = {
         {/* Edit Website Modal (conversion URLs, price selector, static price) */}
         {editingWebsite && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">{t('setup.settingsFor')} {editingWebsite.name}</h3>
+                <h3 className="text-xl font-bold text-slate-800">{t('setup.settingsFor')} {editingWebsite.name}</h3>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleCopyConsoleCode(editingWebsite)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/60"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200"
                   >
                     <Code className="w-4 h-4" />
                     <span>{t('setup.consoleCode')}</span>
                   </button>
                   <button
                     onClick={() => setEditingWebsite(null)}
-                    className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -942,119 +942,119 @@ window.__lehkoConfig = {
               </div>
               <form onSubmit={handleSaveWebsite} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('setup.name')}</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">{t('setup.name')}</label>
                   <input
                     type="text"
                     value={editForm.name}
                     onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('setup.domain')}</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">{t('setup.domain')}</label>
                   <input
                     type="text"
                     value={editForm.domain}
                     onChange={(e) => setEditForm((f) => ({ ...f, domain: e.target.value }))}
                     placeholder="example.com"
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">{t('setup.successUrlLabel')}</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">{t('setup.successUrlLabel')}</label>
                   <textarea
                     value={editForm.conversion_urls.join('\n')}
                     onChange={(e) => setEditForm((f) => ({ ...f, conversion_urls: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) }))}
                     placeholder={t('setup.successUrlPlaceholder')}
                     rows={3}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('setup.successUrlHint')}</p>
+                  <p className="text-xs text-slate-500 mt-1">{t('setup.successUrlHint')}</p>
                 </div>
                 {/* Conversion Button Selector */}
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('setup.leadButton')}</label>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{t('setup.leadButton')}</label>
                   {editForm.purchase_button_selector ? (
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-green-600 dark:text-green-400 text-sm">&#10004;</span>
-                      <code className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-600 rounded text-sm font-mono text-slate-700 dark:text-slate-300 truncate">
+                      <span className="text-green-600 text-sm">&#10004;</span>
+                      <code className="flex-1 px-3 py-1.5 bg-white rounded text-sm font-mono text-slate-700 truncate">
                         {editForm.purchase_button_selector}
                       </code>
                       <button
                         type="button"
                         onClick={() => setEditForm(f => ({ ...f, purchase_button_selector: '' }))}
-                        className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                        className="p-1 text-red-500 hover:bg-red-50 rounded"
                         title={t('setup.reset')}
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">{t('setup.leadButtonNotSet')}</p>
+                    <p className="text-sm text-slate-500 mb-2">{t('setup.leadButtonNotSet')}</p>
                   )}
 
                   {/* Manual CSS selector input */}
                   <div className="mb-3">
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t('setup.leadSelectorLabel')}</label>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">{t('setup.leadSelectorLabel')}</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={editForm.purchase_button_selector || ''}
                         onChange={(e) => setEditForm(f => ({ ...f, purchase_button_selector: e.target.value }))}
                         placeholder={t('setup.leadSelectorPlaceholder')}
-                        className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm font-mono"
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800 text-sm font-mono"
                       />
                     </div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    <p className="text-xs text-slate-400 mt-1">
                       {t('setup.leadSelectorHint')}
                     </p>
                   </div>
                 </div>
 
                 {/* Cart Button Selector */}
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('setup.cartButton')}</label>
+                <div className="bg-slate-50 rounded-xl p-4 border border-orange-200">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{t('setup.cartButton')}</label>
                   {editForm.cart_button_selector ? (
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-green-600 dark:text-green-400 text-sm">&#10004;</span>
-                      <code className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-600 rounded text-sm font-mono text-slate-700 dark:text-slate-300 truncate">
+                      <span className="text-green-600 text-sm">&#10004;</span>
+                      <code className="flex-1 px-3 py-1.5 bg-white rounded text-sm font-mono text-slate-700 truncate">
                         {editForm.cart_button_selector}
                       </code>
                       <button
                         type="button"
                         onClick={() => setEditForm(f => ({ ...f, cart_button_selector: '' }))}
-                        className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                        className="p-1 text-red-500 hover:bg-red-50 rounded"
                         title={t('setup.reset')}
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">{t('setup.cartButtonNotSet')}</p>
+                    <p className="text-sm text-slate-500 mb-2">{t('setup.cartButtonNotSet')}</p>
                   )}
                   <div className="mb-1">
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t('setup.leadSelectorLabel')}</label>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">{t('setup.leadSelectorLabel')}</label>
                     <input
                       type="text"
                       value={editForm.cart_button_selector || ''}
                       onChange={(e) => setEditForm(f => ({ ...f, cart_button_selector: e.target.value }))}
                       placeholder={t('setup.cartSelectorPlaceholder')}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm font-mono"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800 text-sm font-mono"
                     />
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    <p className="text-xs text-slate-400 mt-1">
                       {t('setup.cartHint')}
                     </p>
                   </div>
                 </div>
 
                 {/* Код для консолі — першим; потім Visual Mapper */}
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{t('setup.visualMapperLabel')}</label>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{t('setup.visualMapperLabel')}</label>
                   <div className="flex flex-col gap-2">
                     <button
                       type="button"
                       onClick={() => handleCopyConsoleCode(editingWebsite)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors text-sm"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 text-amber-700 font-medium rounded-lg hover:bg-amber-200 transition-colors text-sm"
                       title="Скопіювати код для консолі (F12 → Console)"
                     >
                       <Code className="w-4 h-4" />
@@ -1064,23 +1064,23 @@ window.__lehkoConfig = {
                       type="button"
                       onClick={() => handleConfigureVisualMapper(editingWebsite)}
                       disabled={configuringId === editingWebsite?.id}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium rounded-lg hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors disabled:opacity-50 text-sm"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-100 text-violet-700 font-medium rounded-lg hover:bg-violet-200 transition-colors disabled:opacity-50 text-sm"
                     >
                       <MousePointerClick className="w-4 h-4" />
                       <span>{configuringId === editingWebsite?.id ? t('setup.waiting') : t('setup.visualMapperOpen')}</span>
                     </button>
                   </div>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+                  <p className="text-xs text-slate-400 mt-1.5">
                     {t('setup.visualMapperHint')}
                   </p>
                 </div>
 
                 {/* Price Settings */}
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">{t('setup.priceDetection')}</label>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <label className="block text-sm font-semibold text-slate-700 mb-3">{t('setup.priceDetection')}</label>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t('setup.staticPrice')}</label>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">{t('setup.staticPrice')}</label>
                       <input
                         type="number"
                         step="0.01"
@@ -1088,27 +1088,27 @@ window.__lehkoConfig = {
                         value={editForm.static_price}
                         onChange={(e) => setEditForm((f) => ({ ...f, static_price: e.target.value }))}
                         placeholder={t('setup.staticPricePlaceholder')}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-800 text-sm"
                       />
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('setup.staticPriceHint')}</p>
+                      <p className="text-xs text-slate-400 mt-1">{t('setup.staticPriceHint')}</p>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t('setup.priceSelector')}</label>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">{t('setup.priceSelector')}</label>
                       <input
                         type="text"
                         value={editForm.price_selector}
                         onChange={(e) => setEditForm((f) => ({ ...f, price_selector: e.target.value }))}
                         placeholder={t('setup.priceSelectorPlaceholder')}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-800 text-sm"
                       />
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('setup.priceSelectorHint')}</p>
+                      <p className="text-xs text-slate-400 mt-1">{t('setup.priceSelectorHint')}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setEditingWebsite(null)} className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">{t('common.cancel')}</button>
-                  <button type="submit" className="px-6 py-2 bg-violet-600 dark:bg-violet-500 text-white font-semibold rounded-lg hover:bg-violet-700 dark:hover:bg-violet-600">{t('common.save')}</button>
+                  <button type="button" onClick={() => setEditingWebsite(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">{t('common.cancel')}</button>
+                  <button type="submit" className="px-6 py-2 bg-violet-600 text-white font-semibold rounded-lg hover:bg-violet-700">{t('common.save')}</button>
                 </div>
               </form>
             </div>
@@ -1118,22 +1118,22 @@ window.__lehkoConfig = {
         {/* ═══ CODE TAB ═══ */}
         {activeTab === 'code' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-violet-100 dark:bg-violet-900/30 rounded-xl flex items-center justify-center">
-                <FileCode className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+              <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center">
+                <FileCode className="w-6 h-6 text-violet-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('setup.installTitle')}</h2>
-                <p className="text-slate-600 dark:text-slate-400">{t('setup.installSubtitle')}</p>
+                <h2 className="text-2xl font-bold text-slate-800">{t('setup.installTitle')}</h2>
+                <p className="text-slate-600">{t('setup.installSubtitle')}</p>
               </div>
             </div>
 
             {/* Auto magic banner */}
-            <div className="mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 border-2 border-emerald-300 dark:border-emerald-800">
-              <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-300 mb-2">{t('setup.autoTrackerTitle')}</h3>
-              <p className="text-sm text-emerald-700 dark:text-emerald-400 mb-3">{t('setup.autoTrackerIntro')}</p>
-              <ul className="text-sm text-emerald-700 dark:text-emerald-400 space-y-1.5">
+            <div className="mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 border-2 border-emerald-300">
+              <h3 className="text-lg font-semibold text-emerald-800 mb-2">{t('setup.autoTrackerTitle')}</h3>
+              <p className="text-sm text-emerald-700 mb-3">{t('setup.autoTrackerIntro')}</p>
+              <ul className="text-sm text-emerald-700 space-y-1.5">
                 <li>✅ {t('setup.autoPropagation')}</li>
                 <li>✅ {t('setup.autoCrossPages')}</li>
                 <li>✅ {t('setup.autoFindsButtons')}</li>
@@ -1145,13 +1145,13 @@ window.__lehkoConfig = {
             </div>
 
             {/* How propagation works */}
-            <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
-              <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">{t('setup.howPropagationWorks')}</h3>
-              <div className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
-                <p>1. {t('setup.guideFlowClick')} (<code className="bg-white dark:bg-slate-700 px-1 rounded text-xs">?ref=XXX&click_id=YYY</code>)</p>
+            <div className="mb-6 bg-blue-50 rounded-xl p-5 border border-blue-200">
+              <h3 className="text-sm font-semibold text-blue-800 mb-2">{t('setup.howPropagationWorks')}</h3>
+              <div className="text-sm text-blue-700 space-y-1">
+                <p>1. {t('setup.guideFlowClick')} (<code className="bg-white px-1 rounded text-xs">?ref=XXX&click_id=YYY</code>)</p>
                 <p>2. {t('setup.guideFlowCapture')}</p>
                 <p>3. {t('setup.guideFlowSpread')}</p>
-                <p>4. {t('setup.guideFlowSale')} (<code className="bg-white dark:bg-slate-700 px-1 rounded text-xs">/thank-you?total=25000</code>)</p>
+                <p>4. {t('setup.guideFlowSale')} (<code className="bg-white px-1 rounded text-xs">/thank-you?total=25000</code>)</p>
               </div>
             </div>
 
@@ -1159,11 +1159,11 @@ window.__lehkoConfig = {
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-3">
                 <span className="w-10 h-10 rounded-full bg-violet-600 text-white flex items-center justify-center text-lg font-bold flex-shrink-0">1</span>
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{t('setup.step1AddSite')}</h3>
+                <h3 className="text-lg font-semibold text-slate-800">{t('setup.step1AddSite')}</h3>
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 ml-[52px]">
+              <p className="text-sm text-slate-600 ml-[52px]">
                 {t('setup.step1Prefix')}
-                <button type="button" onClick={() => setActiveTab('websites')} className="text-violet-600 dark:text-violet-400 font-semibold hover:underline">{t('setup.tabMySites')}</button>
+                <button type="button" onClick={() => setActiveTab('websites')} className="text-violet-600 font-semibold hover:underline">{t('setup.tabMySites')}</button>
                 {t('setup.step1Suffix')}
               </p>
             </div>
@@ -1172,9 +1172,9 @@ window.__lehkoConfig = {
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-3">
                 <span className="w-10 h-10 rounded-full bg-violet-600 text-white flex items-center justify-center text-lg font-bold flex-shrink-0">2</span>
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{t('setup.step2PasteCode')}</h3>
+                <h3 className="text-lg font-semibold text-slate-800">{t('setup.step2PasteCode')}</h3>
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 ml-[52px] mb-3">
+              <p className="text-sm text-slate-600 ml-[52px] mb-3">
                 {t('setup.step2Text')}
               </p>
               <div className="ml-[52px] bg-slate-900 rounded-xl p-4 relative">
@@ -1195,12 +1195,12 @@ window.__lehkoConfig = {
                   { name: 'Horoshop', where: t('setup.horoshopWhere') },
                   { name: 'Google Tag Manager', where: '' },
                 ].map(p => (
-                  <div key={p.name} className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
-                    <p className="font-semibold text-sm text-slate-800 dark:text-white">{p.name}</p>
+                  <div key={p.name} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <p className="font-semibold text-sm text-slate-800">{p.name}</p>
                     {p.where ? (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{p.where}</p>
+                      <p className="text-xs text-slate-500 mt-1">{p.where}</p>
                     ) : (
-                      <button type="button" onClick={() => setActiveTab('gtm')} className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 hover:underline">{t('setup.gtmSeparate')}</button>
+                      <button type="button" onClick={() => setActiveTab('gtm')} className="text-xs text-indigo-600 mt-1 hover:underline">{t('setup.gtmSeparate')}</button>
                     )}
                   </div>
                 ))}
@@ -1208,32 +1208,32 @@ window.__lehkoConfig = {
             </div>
 
             {/* Done */}
-            <div className="mb-6 bg-green-50 dark:bg-green-900/10 rounded-xl p-5 border-2 border-green-300 dark:border-green-800">
+            <div className="mb-6 bg-green-50 rounded-xl p-5 border-2 border-green-300">
               <div className="flex items-center gap-3 mb-2">
                 <span className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center text-lg font-bold flex-shrink-0">✓</span>
-                <h3 className="text-lg font-semibold text-green-800 dark:text-green-300">{t('setup.doneTitle')}</h3>
+                <h3 className="text-lg font-semibold text-green-800">{t('setup.doneTitle')}</h3>
               </div>
-              <p className="text-sm text-green-700 dark:text-green-400 ml-[52px] mb-2">
+              <p className="text-sm text-green-700 ml-[52px] mb-2">
                 {t('setup.doneIntro')}
               </p>
-              <ul className="text-sm text-green-700 dark:text-green-400 ml-[52px] space-y-1 list-disc list-inside mb-2">
+              <ul className="text-sm text-green-700 ml-[52px] space-y-1 list-disc list-inside mb-2">
                 <li>{t('setup.doneList1')}</li>
                 <li>{t('setup.doneList2')}</li>
                 <li>{t('setup.doneList3')}</li>
                 <li>{t('setup.doneList4')}</li>
               </ul>
-              <p className="text-sm text-green-700 dark:text-green-400 ml-[52px]">
+              <p className="text-sm text-green-700 ml-[52px]">
                 {t('setup.doneVerify')}{' '}
-                <button type="button" onClick={() => setActiveTab('websites')} className="text-green-800 dark:text-green-300 font-semibold hover:underline">{t('setup.tabMySites')}</button>.
+                <button type="button" onClick={() => setActiveTab('websites')} className="text-green-800 font-semibold hover:underline">{t('setup.tabMySites')}</button>.
               </p>
             </div>
 
             {/* Advanced (collapsed) */}
-            <details className="bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600">
-              <summary className="cursor-pointer p-4 font-semibold text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+            <details className="bg-slate-50 rounded-xl border border-slate-200">
+              <summary className="cursor-pointer p-4 font-semibold text-sm text-slate-700 hover:text-slate-900">
                 {t('setup.advancedTitle')}
               </summary>
-              <div className="px-4 pb-4 space-y-3 text-sm text-slate-600 dark:text-slate-400">
+              <div className="px-4 pb-4 space-y-3 text-sm text-slate-600">
                 <p>{t('setup.advancedVisual')} <MousePointerClick className="w-4 h-4 inline" /></p>
                 <p>{t('setup.advancedSuccess')} <Sliders className="w-4 h-4 inline" /></p>
                 <p>{t('setup.advancedPrice')}</p>
@@ -1250,25 +1250,25 @@ window.__lehkoConfig = {
         {/* ═══ GTM TAB ═══ */}
         {activeTab === 'gtm' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
-                <Tag className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <Tag className="w-6 h-6 text-indigo-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('setup.gtmTitle')}</h2>
-                <p className="text-slate-600 dark:text-slate-400">{t('setup.gtmSubtitle')}</p>
+                <h2 className="text-2xl font-bold text-slate-800">{t('setup.gtmTitle')}</h2>
+                <p className="text-slate-600">{t('setup.gtmSubtitle')}</p>
               </div>
             </div>
 
             {API_BASE.includes('localhost') && (
-              <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border-2 border-amber-400 dark:border-amber-700 text-sm">
-                <h4 className="font-bold text-amber-800 dark:text-amber-300 mb-2">&#x26A0;&#xFE0F; {t('setup.gtmLocalhostTitle')}</h4>
-                <p className="text-amber-700 dark:text-amber-400 mb-2">
+              <div className="mb-6 bg-amber-50 rounded-xl p-4 border-2 border-amber-400 text-sm">
+                <h4 className="font-bold text-amber-800 mb-2">&#x26A0;&#xFE0F; {t('setup.gtmLocalhostTitle')}</h4>
+                <p className="text-amber-700 mb-2">
                   {t('setup.gtmLocalhostDesc')}
                 </p>
-                <p className="text-amber-700 dark:text-amber-400">
-                  <button type="button" onClick={() => setActiveTab('code')} className="text-amber-800 dark:text-amber-300 font-semibold hover:underline">{t('setup.gtmLocalhostTest')}</button>
+                <p className="text-amber-700">
+                  <button type="button" onClick={() => setActiveTab('code')} className="text-amber-800 font-semibold hover:underline">{t('setup.gtmLocalhostTest')}</button>
                 </p>
               </div>
             )}
@@ -1277,14 +1277,14 @@ window.__lehkoConfig = {
               <div>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">1</span>
-                  <h3 className="font-semibold text-slate-800 dark:text-white">{t('setup.gtmStep1')}</h3>
+                  <h3 className="font-semibold text-slate-800">{t('setup.gtmStep1')}</h3>
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">2</span>
-                  <h3 className="font-semibold text-slate-800 dark:text-white">{t('setup.gtmStep2')}</h3>
+                  <h3 className="font-semibold text-slate-800">{t('setup.gtmStep2')}</h3>
                 </div>
 
                 {websites.length > 0 ? (
@@ -1293,9 +1293,9 @@ window.__lehkoConfig = {
                       const wsGtmCode = getGtmCode(website.id);
                       const wsGtmKey = `gtm-code-${website.id}`;
                       return (
-                        <div key={website.id} className="border border-indigo-200 dark:border-indigo-800 rounded-xl overflow-hidden">
-                          <div className="bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2 flex items-center justify-between">
-                            <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                        <div key={website.id} className="border border-indigo-200 rounded-xl overflow-hidden">
+                          <div className="bg-indigo-50 px-4 py-2 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-indigo-700">
                               {website.name} <span className="text-xs opacity-70">({website.domain || `ID: ${website.id}`})</span>
                             </span>
                             <button
@@ -1323,20 +1323,20 @@ window.__lehkoConfig = {
               <div>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">3</span>
-                  <h3 className="font-semibold text-slate-800 dark:text-white">{t('setup.gtmStep3')}</h3>
+                  <h3 className="font-semibold text-slate-800">{t('setup.gtmStep3')}</h3>
                 </div>
-                <p className="ml-11 text-sm text-slate-600 dark:text-slate-400">{t('setup.gtmStep3Desc')}</p>
+                <p className="ml-11 text-sm text-slate-600">{t('setup.gtmStep3Desc')}</p>
               </div>
             </div>
 
-            <div className="mt-6 bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800 text-sm text-green-800 dark:text-green-300">
+            <div className="mt-6 bg-green-50 rounded-xl p-4 border border-green-200 text-sm text-green-800">
               <h4 className="font-semibold mb-2">&#x2705; {t('setup.gtmAdvantageTitle')}</h4>
               <p>{t('setup.gtmAdvantageDesc')}</p>
             </div>
 
-            <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
+            <div className="mt-4 bg-blue-50 rounded-xl p-4 border border-blue-200 text-sm text-blue-800">
               <p>{t('setup.gtmVerify')}{' '}
-                <button type="button" onClick={() => setActiveTab('websites')} className="text-blue-800 dark:text-blue-300 font-semibold hover:underline">{t('setup.tabMySites')}</button>.</p>
+                <button type="button" onClick={() => setActiveTab('websites')} className="text-blue-800 font-semibold hover:underline">{t('setup.tabMySites')}</button>.</p>
             </div>
           </div>
         </div>
@@ -1345,14 +1345,14 @@ window.__lehkoConfig = {
         {/* ═══ GUIDE TAB ═══ */}
         {activeTab === 'guide' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8">
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <BookOpen className="w-6 h-6 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t('setup.guideTitle')}</h2>
-                <p className="text-slate-600 dark:text-slate-400">{t('setup.guideSubtitle')}</p>
+                <h2 className="text-2xl font-bold text-slate-800">{t('setup.guideTitle')}</h2>
+                <p className="text-slate-600">{t('setup.guideSubtitle')}</p>
               </div>
             </div>
 
@@ -1366,11 +1366,11 @@ window.__lehkoConfig = {
                   { step: '4', icon: '🖱️', titleKey: 'guideStep4', descKey: 'guideFlowLead' },
                   { step: '5', icon: '💰', titleKey: 'guideStep5', descKey: 'guideFlowSale' },
                 ].map((item, i) => (
-                  <div key={i} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600 text-center">
+                  <div key={i} className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-center">
                     <div className="text-2xl mb-2">{item.icon}</div>
-                    <div className="text-xs font-bold text-violet-600 dark:text-violet-400 mb-1">{t('setup.stepLabel')} {item.step}</div>
-                    <h4 className="font-semibold text-slate-800 dark:text-white mb-1">{t('setup.' + item.titleKey)}</h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">{t('setup.' + item.descKey)}</p>
+                    <div className="text-xs font-bold text-violet-600 mb-1">{t('setup.stepLabel')} {item.step}</div>
+                    <h4 className="font-semibold text-slate-800 mb-1">{t('setup.' + item.titleKey)}</h4>
+                    <p className="text-xs text-slate-600">{t('setup.' + item.descKey)}</p>
                   </div>
                 ))}
               </div>
@@ -1378,45 +1378,37 @@ window.__lehkoConfig = {
 
             {/* How confirmation works */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">{t('setup.howSaleDetected')}</h3>
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">{t('setup.howSaleDetected')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
-                  <h4 className="font-semibold text-emerald-800 dark:text-emerald-300 mb-2">1. {t('setup.saleMethod1')}</h4>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">{t('setup.saleMethod1Desc')}</p>
+                <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                  <h4 className="font-semibold text-emerald-800 mb-2">1. {t('setup.saleMethod1')}</h4>
+                  <p className="text-sm text-slate-600 mb-2">{t('setup.saleMethod1Desc')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {['/thank-you', '/success', '/order-complete', '/confirmation'].map(u => (
-                      <code key={u} className="text-xs bg-white dark:bg-slate-600 px-2 py-0.5 rounded text-slate-600 dark:text-slate-400">{u}</code>
+                      <code key={u} className="text-xs bg-white px-2 py-0.5 rounded text-slate-600">{u}</code>
                     ))}
                   </div>
                   </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-                  <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">2. {t('setup.saleMethod2')}</h4>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">{t('setup.saleMethod2Desc')}</p>
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-2">2. {t('setup.saleMethod2')}</h4>
+                  <p className="text-sm text-slate-600 mb-2">{t('setup.saleMethod2Desc')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {['Дякуємо за замовлення', 'Order confirmed', 'Оплата успішна'].map((phrase) => (
-                      <span key={phrase} className="text-xs bg-white dark:bg-slate-600 px-2 py-0.5 rounded text-slate-600 dark:text-slate-400 italic">&quot;{phrase}&quot;</span>
+                      <span key={phrase} className="text-xs bg-white px-2 py-0.5 rounded text-slate-600 italic">&quot;{phrase}&quot;</span>
                     ))}
                   </div>
                 </div>
-                <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-4 border border-violet-200 dark:border-violet-800">
-                  <h4 className="font-semibold text-violet-800 dark:text-violet-300 mb-2">3. {t('setup.saleMethod3')}</h4>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{t('setup.saleMethod3Desc')}</p>
+                <div className="bg-violet-50 rounded-xl p-4 border border-violet-200">
+                  <h4 className="font-semibold text-violet-800 mb-2">3. {t('setup.saleMethod3')}</h4>
+                  <p className="text-sm text-slate-600">{t('setup.saleMethod3Desc')}</p>
                 </div>
-              </div>
-            </div>
-
-            {/* For client */}
-            <div className="mb-8 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl p-6 border border-emerald-200 dark:border-emerald-800">
-              <h3 className="font-semibold text-emerald-800 dark:text-emerald-300 mb-3">{t('setup.whatToTellClient')}</h3>
-              <div className="bg-white dark:bg-slate-700 rounded-lg p-4 text-sm text-slate-600 dark:text-slate-400 italic">
-                {t('setup.clientPhrase')}
               </div>
             </div>
 
             {/* Verification */}
             <div>
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-3">{t('setup.verifyTitle')}</h3>
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
+              <h3 className="text-lg font-semibold text-slate-800 mb-3">{t('setup.verifyTitle')}</h3>
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 text-sm text-blue-800">
                 {t('setup.verifyDesc')}
               </div>
             </div>
@@ -1425,13 +1417,13 @@ window.__lehkoConfig = {
         )}
 
         {/* Support */}
-        <div className="mt-8 bg-slate-50 dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 text-center">
-          <p className="text-slate-600 dark:text-slate-400 mb-2">
+        <div className="mt-8 bg-slate-50 rounded-xl p-6 border border-slate-200 text-center">
+          <p className="text-slate-600 mb-2">
             {t('setup.supportNeedHelp')}
           </p>
           <a
             href="mailto:support@example.com"
-            className="text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium inline-flex items-center"
+            className="text-violet-600 hover:text-violet-700 font-medium inline-flex items-center"
           >
             <ExternalLink className="w-4 h-4 mr-1" />
             {t('setup.contactSupport')}
@@ -1441,4 +1433,5 @@ window.__lehkoConfig = {
     </Layout>
   );
 }
+
 

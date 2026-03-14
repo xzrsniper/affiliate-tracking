@@ -114,7 +114,7 @@
   "layout": {
     "dashboard": "Dashboard",
     "admin": "Admin",
-    "setup": "Setup",
+    "setup": "Tracker",
     "settings": "Settings",
     "superAdmin": "Super Admin",
     "user": "User"
@@ -171,7 +171,9 @@
     "successUpdate": "Link updated successfully!",
     "errorUpdate": "Failed to update link",
     "successDelete": "Link deleted successfully!",
+    "successBulkDelete": "Deleted {{count}} links successfully",
     "errorDelete": "Failed to delete link",
+    "errorBulkDelete": "Failed to delete selected links",
     "linksCount_one": "{{count}} link",
     "linksCount_few": "{{count}} links",
     "linksCount_many": "{{count}} links",
@@ -195,7 +197,13 @@
     "tableSales": "Sales",
     "tableCr": "CR%",
     "tableRevenue": "Revenue",
+    "tableAvgTime": "Avg time",
+    "tableBounceRate": "Bounce rate",
+    "tableAvgCheck": "Avg check",
     "tableActions": "Actions",
+    "selectAll": "Select all",
+    "deleteSelected": "Delete selected",
+    "selectedCount": "Selected: {{count}}",
     "codeConnected": "Code connected",
     "codeNotConnected": "Code not connected",
     "copyTrackingUrl": "Copy tracking URL",
@@ -208,6 +216,8 @@
     "deleteConfirmTitle": "Delete link?",
     "deleteConfirmDesc": "This action cannot be undone",
     "deleteConfirmText": "Are you sure you want to delete this tracking link? All click and conversion data will be lost.",
+    "deleteBulkConfirmTitle": "Delete selected links?",
+    "deleteBulkConfirmText": "Are you sure you want to delete {{count}} links? All click and conversion data for them will be lost.",
     "notSpecified": "Not specified",
     "snapshotFilter": "Time snapshot",
     "snapshotDate": "Date",
@@ -266,6 +276,10 @@
   "settings": {
     "title": "Settings",
     "subtitle": "Manage your account settings",
+    "tabAccount": "Account",
+    "tabSecurity": "Security",
+    "tabNotifications": "Notifications",
+    "tabBilling": "Billing",
     "accountInfo": "Account information",
     "accountDetails": "Your account details",
     "email": "Email",
@@ -292,7 +306,9 @@
     "setPasswordDesc": "You signed in via Google. Set a password to also sign in with email and password.",
     "setPasswordBtn": "Set password",
     "setPasswordSuccess": "Password set! You can now sign in with email and password.",
-    "setPasswordError": "Failed to set password. Please try again."
+    "setPasswordError": "Failed to set password. Please try again.",
+    "comingSoonBadge": "Coming soon",
+    "comingSoonText": "This section is not available yet. The interface is prepared, and the functionality will appear in a future update."
   },
   "confirmPasswordChange": {
     "title": "Password change confirmation",
@@ -314,7 +330,7 @@
     "successDesc": "Your password has been changed successfully. You can now sign in with your new password."
   },
   "setup": {
-    "title": "Tracking Setup",
+    "title": "Tracker",
     "subtitle": "Instructions for installing the tracking system on your site",
     "tabMySites": "My sites",
     "tabInstall": "Installation",

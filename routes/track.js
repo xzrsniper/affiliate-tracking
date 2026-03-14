@@ -584,6 +584,37 @@ router.get('/view/:code', async (req, res, next) => {
   }
 });
 
+router.post('/session', async (req, res, next) => {
+  try {
+    const clickId = parseInt(req.body.click_id ?? req.body.clickId ?? 0, 10);
+    const rawDuration = parseInt(req.body.duration_seconds ?? req.body.durationSeconds ?? 0, 10);
+    const durationSeconds = Number.isFinite(rawDuration) ? Math.max(0, Math.min(rawDuration, 86400)) : 0;
+    const hadEngagement = req.body.had_engagement === true || req.body.had_engagement === 'true' || req.body.hadEngagement === true || req.body.hadEngagement === 'true';
+
+    if (!clickId) {
+      return res.status(400).json({ error: 'click_id is required' });
+    }
+
+    const click = await Click.findByPk(clickId);
+    if (!click) {
+      return res.status(404).json({ error: 'Click not found' });
+    }
+
+    click.session_duration_seconds = Math.max(click.session_duration_seconds || 0, durationSeconds);
+    click.had_engagement = Boolean(click.had_engagement || hadEngagement);
+    await click.save();
+
+    res.json({
+      success: true,
+      click_id: click.id,
+      session_duration_seconds: click.session_duration_seconds,
+      had_engagement: click.had_engagement
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 /**
  * POST /api/track/conversion
  * Track a conversion (purchase)
