@@ -1,54 +1,46 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext.jsx';
 import {
   Check,
   ChevronDown,
   ArrowRight,
   Sparkles,
-  Play
+  Play,
+  Sun,
+  Moon
 } from 'lucide-react';
 import Logo from '../components/Logo.jsx';
 
 export default function Home() {
   const { t, i18n } = useTranslation();
+  const { theme, toggleTheme } = useTheme();
   const isUk = i18n.language === 'uk';
   const [faqOpen, setFaqOpen] = useState(0);
 
   const budgetPoints = [
-    'Ви не оцінюєте рекламу по прибутку, а тільки по кліках',
-    'Ви не знаєте, яке джерело трафіку реально продає',
-    'У вас 3-5 різних звітів замість одного',
-    'Ви довіряєте скріншотам від підрядників',
-    'Ви не рахуєте ROMI по кожному каналу'
+    t('home.budget1'),
+    t('home.budget2'),
+    t('home.budget3'),
+    t('home.budget4'),
+    t('home.budget5')
   ];
 
   const benefits = [
-    'Автоматичне відстеження кліків та конверсій',
-    'Підтримка visitor fingerprint для унікальних відвідувачів',
-    'Гнучкі налаштування для різних джерел трафіку',
-    'API для інтеграції з вашими системами',
-    'Детальна статистика та звіти',
-    'Безкоштовний старт з можливістю масштабування'
+    t('home.benefit1'),
+    t('home.benefit2'),
+    t('home.benefit3'),
+    t('home.benefit4'),
+    t('home.benefit5'),
+    t('home.benefit6')
   ];
 
   const faqItems = [
-    {
-      q: 'Як TrackFlow впливає на швидкість завантаження мого сайту?',
-      a: 'Практично ніяк. Наш скрипт оптимізований і завантажується асинхронно, тому не блокує рендер сторінки.'
-    },
-    {
-      q: 'Чи потрібно бути програмістом, щоб усе налаштувати?',
-      a: 'Ні. У більшості випадків достатньо вставити 1 фрагмент коду або додати тег через GTM.'
-    },
-    {
-      q: 'Чим це краще за стандартний GA4?',
-      a: 'TrackFlow показує бізнес-метрики в одному місці: конверсії, виручку, ROMI та джерела трафіку без зайвої складності.'
-    },
-    {
-      q: 'Чи можна підключити декілька сайтів до одного кабінету?',
-      a: 'Так, ви можете вести кілька проектів в одному акаунті з розділеною аналітикою по кожному сайту.'
-    }
+    { q: t('home.faqQ1'), a: t('home.faqA1') },
+    { q: t('home.faqQ2'), a: t('home.faqA2') },
+    { q: t('home.faqQ3'), a: t('home.faqA3') },
+    { q: t('home.faqQ4'), a: t('home.faqA4') }
   ];
 
   return (
@@ -57,12 +49,19 @@ export default function Home() {
         <div className="mx-auto flex h-[68px] w-full max-w-[1280px] items-center justify-between px-4 sm:px-8 lg:px-12">
           <Logo size="md" showText={true} />
           <div className="hidden items-center gap-1 md:flex">
-            <a href="#features" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">Features</a>
-            <a href="#pricing" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">Pricing</a>
-            <Link to="/guide" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">Guide</Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">Support</a>
+            <a href="#features" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">{t('home.navFeatures')}</a>
+            <a href="#pricing" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">{t('home.navPricing')}</a>
+            <Link to="/guide" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">{t('home.navGuide')}</Link>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-white hover:text-slate-900">{t('home.navSupport')}</a>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              className="rounded-lg p-2 text-slate-600 hover:bg-white hover:text-slate-900"
+              title={theme === 'dark' ? t('common.lightTheme') : t('common.darkTheme')}
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
             <button
               onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')}
               className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 hover:text-slate-900"
@@ -70,10 +69,10 @@ export default function Home() {
               {isUk ? 'EN' : 'УКР'}
             </button>
             <Link to="/login" className="hidden rounded-[9px] border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:block">
-              Sign in
+              {t('home.signIn')}
             </Link>
             <Link to="/login" className="rounded-[9px] bg-violet-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-800 shadow-[0_6px_18px_rgba(109,40,217,0.22)]">
-              Start free
+              {t('home.startFree')}
             </Link>
           </div>
         </div>
@@ -82,21 +81,21 @@ export default function Home() {
       <section className="mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-4 pb-16 pt-20 sm:px-8 lg:grid-cols-2 lg:gap-14 lg:px-12 lg:pt-24">
         <div>
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-            <Sparkles className="h-3.5 w-3.5" /> New version is live
+            <Sparkles className="h-3.5 w-3.5" /> {t('home.newVersionLive')}
           </div>
           <h1 className="mb-5 font-display text-[44px] font-extrabold leading-[1.1] tracking-[-0.03em] text-slate-900 sm:text-[56px]">
-            Track every click.<br />
-            <span className="bg-gradient-to-br from-violet-900 to-violet-500 bg-clip-text text-transparent">Grow every sale.</span>
+            {t('home.heroTitleLine1')}<br />
+            <span className="bg-gradient-to-br from-violet-900 to-violet-500 bg-clip-text text-transparent">{t('home.heroTitleLine2')}</span>
           </h1>
           <p className="mb-9 max-w-[500px] text-[17px] leading-[1.75] text-slate-600">
-            Affiliate and UTM tracking platform with real-time analytics, conversion attribution, and revenue clarity.
+            {t('home.heroDescriptionShort')}
           </p>
           <div className="mb-8 flex flex-wrap gap-3">
             <Link to="/login" className="inline-flex items-center gap-2 rounded-[11px] bg-violet-700 px-6 py-3 font-semibold text-white transition hover:bg-violet-800 shadow-[0_6px_18px_rgba(109,40,217,0.22)]">
-              Start free <ArrowRight className="h-4 w-4" />
+              {t('home.startFree')} <ArrowRight className="h-4 w-4" />
             </Link>
             <button className="inline-flex items-center gap-2 rounded-[11px] border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-100">
-              <Play className="h-4 w-4" /> Watch demo
+              <Play className="h-4 w-4" /> {t('home.watchDemo')}
             </button>
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-600">
@@ -106,28 +105,28 @@ export default function Home() {
               <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-sky-300">Д</span>
               <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-rose-300">С</span>
             </div>
-            <span>Trusted by <strong className="text-slate-800">1000+ teams</strong></span>
+            <span>{t('home.trustedBy')} <strong className="text-slate-800">1000+ {t('home.teams')}</strong></span>
           </div>
         </div>
 
         <div className="relative rounded-[20px] border border-[#d6e3e8] bg-white p-5 shadow-[0_28px_70px_rgba(11,37,48,0.16),0_4px_18px_rgba(11,37,48,0.06)]">
           <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-800">Campaign overview</h3>
-            <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">Live</span>
+            <h3 className="text-sm font-bold text-slate-800">{t('home.campaignOverview')}</h3>
+            <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">{t('home.live')}</span>
           </div>
           <div className="mb-4 grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Clicks</p>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">{t('home.clicks')}</p>
               <p className="text-xl font-extrabold text-slate-900">4,821</p>
               <p className="text-[11px] font-semibold text-green-600">+18.4%</p>
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Conversions</p>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">{t('home.conversions')}</p>
               <p className="text-xl font-extrabold text-violet-600">312</p>
               <p className="text-[11px] font-semibold text-green-600">+7.2%</p>
             </div>
             <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Revenue</p>
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">{t('home.revenue')}</p>
               <p className="text-xl font-extrabold text-amber-600">$2,140</p>
               <p className="text-[11px] font-semibold text-green-600">+23.1%</p>
             </div>
@@ -138,13 +137,13 @@ export default function Home() {
             ))}
           </div>
           <div className="space-y-2 text-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2"><span className="font-medium text-slate-700">Google Ads</span><span className="font-semibold text-violet-600">2,144</span></div>
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2"><span className="font-medium text-slate-700">Facebook</span><span className="font-semibold text-violet-600">1,390</span></div>
-            <div className="flex items-center justify-between"><span className="font-medium text-slate-700">Telegram</span><span className="font-semibold text-violet-600">744</span></div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2"><span className="font-medium text-slate-700">{t('home.googleAds')}</span><span className="font-semibold text-violet-600">2,144</span></div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2"><span className="font-medium text-slate-700">{t('home.facebook')}</span><span className="font-semibold text-violet-600">1,390</span></div>
+            <div className="flex items-center justify-between"><span className="font-medium text-slate-700">{t('home.telegram')}</span><span className="font-semibold text-violet-600">744</span></div>
           </div>
           <div className="absolute -bottom-4 -left-4 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg">
-            <p className="text-xs font-semibold text-slate-800">Attribution live</p>
-            <p className="text-xs text-slate-500">Real-time updates enabled</p>
+            <p className="text-xs font-semibold text-slate-800">{t('home.attributionLive')}</p>
+            <p className="text-xs text-slate-500">{t('home.realtimeUpdatesEnabled')}</p>
           </div>
         </div>
       </section>
@@ -163,7 +162,7 @@ export default function Home() {
       <section className="bg-gradient-to-r from-violet-600 to-indigo-500 py-16">
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
           <div>
-            <h2 className="mb-6 text-3xl font-extrabold text-white">Ви втрачаєте бюджет якщо...</h2>
+            <h2 className="mb-6 text-3xl font-extrabold text-white">{t('home.budgetTitle')}</h2>
             <ul className="space-y-3">
               {budgetPoints.map((text) => (
                 <li key={text} className="flex items-start gap-3 text-white/95">
@@ -177,27 +176,25 @@ export default function Home() {
           </div>
           <div className="rounded-3xl border border-white/20 bg-white/10 p-8 text-center text-white backdrop-blur">
             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20">▶</div>
-            <p className="text-lg leading-relaxed">
-              TrackFlow об'єднує всі джерела трафіку в один центр контролю та показує тільки те, що має значення - продажі та прибуток.
-            </p>
+            <p className="text-lg leading-relaxed">{t('home.valueProp')}</p>
           </div>
         </div>
       </section>
 
       <section id="features" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mb-12">
-          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">Функції</span>
-          <h2 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900">Все що вам потрібно<br />для зростання</h2>
-          <p className="max-w-2xl text-lg text-slate-600">Від базового трекінгу до глибокої аналітики - TrackFlow дає повну картину маркетингу.</p>
+          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('home.navFeatures')}</span>
+          <h2 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900">{t('home.featuresSectionTitle')}</h2>
+          <p className="max-w-2xl text-lg text-slate-600">{t('home.featuresSectionSubtitle')}</p>
         </div>
 
         <div className="mb-16 grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-200 bg-white p-7">
             {[
-              ['Google Ads', '85%', '$1,240'],
-              ['Facebook', '60%', '$890'],
-              ['Telegram', '40%', '$580'],
-              ['Email', '25%', '$340']
+              [t('home.googleAds'), '85%', '$1,240'],
+              [t('home.facebook'), '60%', '$890'],
+              [t('home.telegram'), '40%', '$580'],
+              [t('home.email'), '25%', '$340']
             ].map((row) => (
               <div key={row[0]} className="mb-3 flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50 p-3 last:mb-0">
                 <span className="w-24 text-sm font-semibold text-slate-700">{row[0]}</span>
@@ -207,48 +204,48 @@ export default function Home() {
             ))}
           </div>
           <div>
-            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900">Знай звідки приходять твої <span className="text-violet-600">гроші</span></h3>
-            <p className="mb-5 leading-relaxed text-slate-600">Точна атрибуція за всіма каналами: Google, Facebook, email, Telegram, органіка. Розуміння ROI кожного каналу - ключ до зростання.</p>
+            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900">{t('home.moneyFromTitle')}</h3>
+            <p className="mb-5 leading-relaxed text-slate-600">{t('home.moneyFromDesc')}</p>
             <ul className="space-y-2 text-slate-700">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />UTM-параметри та кастомні теги</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Multi-touch атрибуція</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Порівняння по часових проміжках</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet1')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet2')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet3')}</li>
             </ul>
           </div>
         </div>
 
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div>
-            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900">Інтеграція за <span className="text-violet-600">5 хвилин</span></h3>
-            <p className="mb-5 leading-relaxed text-slate-600">Один рядок коду на сайті - і ти вже відстежуєш. Підтримка GTM, WordPress, Shopify та будь-якого іншого сайту.</p>
+            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900">{t('home.integration5minTitle')}</h3>
+            <p className="mb-5 leading-relaxed text-slate-600">{t('home.integration5minDesc')}</p>
             <ul className="space-y-2 text-slate-700">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />JavaScript сніпет в 1 рядок</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Google Tag Manager рецепт</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />REST API для власних інтеграцій</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet1')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet2')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet3')}</li>
             </ul>
           </div>
           <div className="rounded-3xl bg-slate-900 p-6 font-mono text-sm text-violet-200 shadow-xl">
-            <p className="mb-2 text-slate-400">&lt;!-- Додай на сайт --&gt;</p>
+            <p className="mb-2 text-slate-400">&lt;!-- {t('home.addToSite')} --&gt;</p>
             <p>&lt;script src="https://cdn.trckflw.io/pixel.js"</p>
             <p className="pl-3">data-site-id="your-id"&gt;&lt;/script&gt;</p>
-            <p className="mt-3 text-slate-400">&lt;!-- Ось і все! --&gt;</p>
+            <p className="mt-3 text-slate-400">&lt;!-- {t('home.thatsAll')} --&gt;</p>
           </div>
         </div>
       </section>
 
       <section className="border-y border-slate-200 bg-white py-14">
         <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
-          <h3 className="mb-2 text-3xl font-extrabold tracking-tight text-slate-900">Готовий почати з <span className="text-violet-600">TrackFlow</span>?</h3>
-          <p className="mb-6 text-slate-600">Безкоштовно. Кредитна картка не потрібна. Реєстрація за 30 секунд.</p>
-          <Link to="/login" className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-7 py-3 font-semibold text-white transition hover:bg-violet-700">Створити акаунт <ArrowRight className="h-4 w-4" /></Link>
+          <h3 className="mb-2 text-3xl font-extrabold tracking-tight text-slate-900">{t('home.ctaTitle')}</h3>
+          <p className="mb-6 text-slate-600">{t('home.register30secCardless')}</p>
+          <Link to="/login" className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-7 py-3 font-semibold text-white transition hover:bg-violet-700">{t('home.createAccount')} <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </section>
 
       <section className="bg-gradient-to-r from-indigo-500 to-violet-600 py-16">
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
           <div>
-            <h2 className="mb-4 text-3xl font-extrabold text-white">Чому бізнеси обирають<br />TrackFlow?</h2>
-            <p className="mb-6 text-white/80">Професійна система трекінгу реклами та обліку трафіку з повним контролем конверсій, доходу та окупності.</p>
+            <h2 className="mb-4 text-3xl font-extrabold text-white">{t('home.whyTitle')}</h2>
+            <p className="mb-6 text-white/80">{t('home.whySubtitle')}</p>
             <ul className="space-y-2">
               {benefits.map((benefit) => (
                 <li key={benefit} className="flex items-start gap-2 text-white/95">
@@ -259,59 +256,59 @@ export default function Home() {
             </ul>
           </div>
           <div className="space-y-4">
-            <div className="flex items-center gap-4 rounded-2xl border border-white/25 bg-white/10 p-5 text-white backdrop-blur"><div className="text-3xl">👥</div><div><div className="text-3xl font-extrabold">1000+</div><div className="text-white/80">Активних користувачів</div></div></div>
-            <div className="flex items-center gap-4 rounded-2xl border border-white/25 bg-white/10 p-5 text-white backdrop-blur"><div className="text-3xl">📈</div><div><div className="text-3xl font-extrabold">1M+</div><div className="text-white/80">Відстежених кліків</div></div></div>
-            <div className="flex items-center gap-4 rounded-2xl border border-white/25 bg-white/10 p-5 text-white backdrop-blur"><div className="text-3xl">💵</div><div><div className="text-3xl font-extrabold">$10M+</div><div className="text-white/80">Відстежених доходів</div></div></div>
+            <div className="flex items-center gap-4 rounded-2xl border border-white/25 bg-white/10 p-5 text-white backdrop-blur"><div className="text-3xl">👥</div><div><div className="text-3xl font-extrabold">1000+</div><div className="text-white/80">{t('home.activeUsers')}</div></div></div>
+            <div className="flex items-center gap-4 rounded-2xl border border-white/25 bg-white/10 p-5 text-white backdrop-blur"><div className="text-3xl">📈</div><div><div className="text-3xl font-extrabold">1M+</div><div className="text-white/80">{t('home.trackedClicks')}</div></div></div>
+            <div className="flex items-center gap-4 rounded-2xl border border-white/25 bg-white/10 p-5 text-white backdrop-blur"><div className="text-3xl">💵</div><div><div className="text-3xl font-extrabold">$10M+</div><div className="text-white/80">{t('home.trackedRevenue')}</div></div></div>
           </div>
         </div>
       </section>
 
       <section id="pricing" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
-          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">Тарифи</span>
-          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Прозорі ціни без сюрпризів</h2>
+          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('home.navPricing')}</span>
+          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">{t('home.pricingTitle')}</h2>
         </div>
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-white p-7">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">Старт</p>
-            <p className="mb-1 text-4xl font-extrabold tracking-tight">Безкоштовно</p>
-            <p className="mb-5 text-sm text-slate-500">Ідеально для початку</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('home.planStarter')}</p>
+            <p className="mb-1 text-4xl font-extrabold tracking-tight">{t('home.planStarterPrice')}</p>
+            <p className="mb-5 text-sm text-slate-500">{t('home.planStarterDesc')}</p>
             <ul className="mb-6 space-y-2 text-sm text-slate-700">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />До 10,000 кліків/міс</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />1 сайт</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Базова аналітика</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />30 днів зберігання</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planStarterItem1')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planStarterItem2')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planStarterItem3')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planStarterItem4')}</li>
             </ul>
-            <Link to="/login" className="block rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center font-semibold text-slate-700 transition hover:bg-slate-100">Почати</Link>
+            <Link to="/login" className="block rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center font-semibold text-slate-700 transition hover:bg-slate-100">{t('home.planStarterAction')}</Link>
           </div>
 
           <div className="relative rounded-3xl border-2 border-violet-600 bg-white p-7 shadow-lg shadow-violet-200/60">
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">Популярний</span>
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-violet-700">Про</p>
-            <p className="mb-1 text-5xl font-extrabold tracking-tight">$29<span className="text-base font-medium text-slate-500">/міс</span></p>
-            <p className="mb-5 text-sm text-slate-500">Для серйозних маркетологів</p>
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">{t('home.planPopular')}</span>
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-violet-700">{t('home.planPro')}</p>
+            <p className="mb-1 text-5xl font-extrabold tracking-tight">{t('home.planProPrice')}<span className="text-base font-medium text-slate-500">{t('home.perMonth')}</span></p>
+            <p className="mb-5 text-sm text-slate-500">{t('home.planProDesc')}</p>
             <ul className="mb-6 space-y-2 text-sm text-slate-700">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />До 500,000 кліків/міс</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />10 сайтів</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Розширена аналітика</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />1 рік зберігання</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Email звіти</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planProItem1')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planProItem2')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planProItem3')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planProItem4')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planProItem5')}</li>
             </ul>
-            <Link to="/login" className="block rounded-xl bg-violet-600 px-4 py-2.5 text-center font-semibold text-white transition hover:bg-violet-700">Обрати план</Link>
+            <Link to="/login" className="block rounded-xl bg-violet-600 px-4 py-2.5 text-center font-semibold text-white transition hover:bg-violet-700">{t('home.planProAction')}</Link>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-7">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">Агентство</p>
-            <p className="mb-1 text-5xl font-extrabold tracking-tight">$99<span className="text-base font-medium text-slate-500">/міс</span></p>
-            <p className="mb-5 text-sm text-slate-500">Для команд та агентств</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('home.planAgency')}</p>
+            <p className="mb-1 text-5xl font-extrabold tracking-tight">{t('home.planAgencyPrice')}<span className="text-base font-medium text-slate-500">{t('home.perMonth')}</span></p>
+            <p className="mb-5 text-sm text-slate-500">{t('home.planAgencyDesc')}</p>
             <ul className="mb-6 space-y-2 text-sm text-slate-700">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Необмежено кліків</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Необмежено сайтів</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />White label</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Командний доступ</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Пріоритетна підтримка</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planAgencyItem1')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planAgencyItem2')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planAgencyItem3')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planAgencyItem4')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.planAgencyItem5')}</li>
             </ul>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center font-semibold text-slate-700 transition hover:bg-slate-100">Контакти</a>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center font-semibold text-slate-700 transition hover:bg-slate-100">{t('home.navContacts')}</a>
           </div>
         </div>
       </section>
@@ -319,8 +316,8 @@ export default function Home() {
       <section className="bg-white py-16">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10 text-center">
-            <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">FAQ</span>
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Часті запитання</h2>
+            <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('common.faq')}</span>
+            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">{t('common.faq')}</h2>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white">
             {faqItems.map((item, idx) => {
@@ -335,9 +332,7 @@ export default function Home() {
                     <span className={`font-semibold ${open ? 'text-violet-700' : 'text-slate-800'}`}>{item.q}</span>
                     <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
                   </button>
-                  {open && (
-                    <div className="px-5 pb-4 text-slate-600">{item.a}</div>
-                  )}
+                  {open && <div className="px-5 pb-4 text-slate-600">{item.a}</div>}
                 </div>
               );
             })}
@@ -348,12 +343,12 @@ export default function Home() {
       <section className="bg-gradient-to-r from-violet-600 to-indigo-600 py-14">
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-5 px-4 sm:px-6 lg:flex-row lg:items-center lg:px-8">
           <div>
-            <h2 className="text-3xl font-extrabold tracking-tight text-white">Готовий масштабувати свої кампанії?</h2>
-            <p className="mt-1 text-white/85">Реєстрація за 30 секунд. Кредитна картка не потрібна.</p>
+            <h2 className="text-3xl font-extrabold tracking-tight text-white">{t('home.readyScale')}</h2>
+            <p className="mt-1 text-white/85">{t('home.register30secCardless')}</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link to="/login" className="rounded-xl bg-white px-6 py-3 font-semibold text-violet-700 transition hover:bg-slate-100">Почати безкоштовно</Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">Поговорити з нами</a>
+            <Link to="/login" className="rounded-xl bg-white px-6 py-3 font-semibold text-violet-700 transition hover:bg-slate-100">{t('home.startFree')}</Link>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">{t('home.talkToUs')}</a>
           </div>
         </div>
       </section>
@@ -362,15 +357,14 @@ export default function Home() {
         <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 px-4 text-sm text-slate-500 sm:px-6 lg:flex-row lg:items-center lg:px-8">
           <Logo size="sm" showText={true} />
           <div className="flex flex-wrap gap-5">
-            <a href="#features" className="hover:text-slate-800">Функції</a>
-            <a href="#pricing" className="hover:text-slate-800">Ціни</a>
-            <Link to="/guide" className="hover:text-slate-800">Docs</Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800">Підтримка</a>
+            <a href="#features" className="hover:text-slate-800">{t('home.navFeatures')}</a>
+            <a href="#pricing" className="hover:text-slate-800">{t('home.navPricing')}</a>
+            <Link to="/guide" className="hover:text-slate-800">{t('common.documentation')}</Link>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800">{t('home.navSupport')}</a>
           </div>
-          <span>© 2026 TrackFlow. Всі права захищені.</span>
+          <span>© 2026 TrackFlow. {t('common.allRightsReserved')}</span>
         </div>
       </footer>
     </div>
   );
 }
-
