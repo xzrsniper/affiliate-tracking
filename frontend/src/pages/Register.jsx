@@ -3,20 +3,24 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../config/api.js';
 import { setAuthToken, setUser } from '../utils/auth.js';
 
+
 export default function Register() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    agree: false
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+
   const handleChange = (e) => {
+    const { name, type, checked, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     });
     setError('');
   };
@@ -25,6 +29,7 @@ export default function Register() {
     e.preventDefault();
     setError('');
 
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -32,6 +37,11 @@ export default function Register() {
 
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (!formData.agree) {
+      setError('Ви повинні погодитися з Угодою користувача, Політикою конфіденційності та Політикою повернення коштів');
       return;
     }
 
@@ -126,6 +136,19 @@ export default function Register() {
           </div>
 
           <div>
+            <label className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                name="agree"
+                checked={formData.agree}
+                onChange={handleChange}
+                className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                required
+              />
+              <span className="ml-2 text-sm text-gray-700">
+                Я погоджуюся з <a href="/user-agreement" target="_blank" rel="noopener noreferrer" className="underline">Угодою користувача</a>, <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline">Політикою конфіденційності</a> та <a href="/refund-policy" target="_blank" rel="noopener noreferrer" className="underline">Політикою повернення коштів</a>
+              </span>
+            </label>
             <button
               type="submit"
               disabled={loading}
