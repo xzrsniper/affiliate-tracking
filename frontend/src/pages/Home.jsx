@@ -312,7 +312,9 @@ export default function Home() {
             <p className="mt-1 text-white/85">{t('home.register30secCardless')}</p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link to="/login" className="rounded-xl bg-white px-6 py-3 font-semibold text-violet-700 transition hover:bg-slate-100">{t('home.startFree')}</Link>
+              <Link to="/login" className="rounded-xl border border-white/60 bg-white/12 px-6 py-3 font-semibold text-slate-100 backdrop-blur-sm transition hover:bg-white/18">
+                {t('home.startFree')}
+              </Link>
             <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">{t('home.talkToUs')}</a>
           </div>
         </div>
