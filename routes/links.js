@@ -324,7 +324,8 @@ router.get('/my-links', async (req, res, next) => {
           SUM(CASE WHEN event_type = 'lead' THEN 1 ELSE 0 END) as leads,
           SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN 1 ELSE 0 END) as sales,
           SUM(CASE WHEN event_type = 'cart' THEN 1 ELSE 0 END) as carts,
-          COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue
+          COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue,
+          COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) as lead_revenue
         FROM conversions
         WHERE link_id IN (?)${snapshotCondition}
         GROUP BY link_id
@@ -385,6 +386,7 @@ router.get('/my-links', async (req, res, next) => {
       const totalSales = parseInt(conversionStats?.sales || 0);
       const totalCarts = parseInt(conversionStats?.carts || 0);
       const salesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
+      const leadRevenue = parseFloat(conversionStats?.lead_revenue || 0);
       const measuredSessions = parseInt(clickStats?.measured_sessions || 0);
       const avgSessionSeconds = parseFloat(clickStats?.avg_session_seconds || 0);
       const bounces = parseInt(clickStats?.bounces || 0);
@@ -429,6 +431,7 @@ router.get('/my-links', async (req, res, next) => {
           carts: totalCarts,
           total_revenue: parseFloat(totalRevenue.toFixed(2)),
           sales_revenue: parseFloat(salesRevenue.toFixed(2)),
+          lead_revenue: parseFloat(leadRevenue.toFixed(2)),
           avg_session_seconds: parseFloat(avgSessionSeconds.toFixed(2)),
           bounce_rate: parseFloat(bounceRate.toFixed(2)),
           average_check: parseFloat(averageCheck.toFixed(2)),
