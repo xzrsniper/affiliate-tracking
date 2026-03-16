@@ -372,6 +372,8 @@ export default function Dashboard() {
         return link.stats?.average_check || 0;
       case 'revenue':
         return link.stats?.sales_revenue ?? 0;
+      case 'leadRevenue':
+        return link.stats?.lead_revenue ?? 0;
       default:
         return '';
     }
@@ -1175,8 +1177,22 @@ export default function Dashboard() {
                             onClick={() => handleSort('revenue')}
                             className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                           >
-                            <span>{t('dashboard.tableRevenue')}</span>
+                            <span>{t('dashboard.tableRevenueSales', 'Дохід (оплата)')}</span>
                             {sortColumn === 'revenue' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('leadRevenue')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableRevenueLeads', 'Дохід (ліди)')}</span>
+                            {sortColumn === 'leadRevenue' ? (
                               <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
                               <span className="text-slate-400">↕</span>
@@ -1223,15 +1239,11 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatDuration(avgTime)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatPercent(bounceRate)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{averageCheck.toLocaleString()} {isUk ? '₴' : '$'}</td>
-                            <td className="px-4 py-4">
-                              <div className="font-bold text-emerald-600">
-                                {isUk ? '₴' : '$'}{revenue.toLocaleString()}
-                              </div>
-                              {leadRevenue > 0 && (
-                                <div className="text-xs text-slate-400 font-medium mt-1">
-                                  {isUk ? '₴' : '$'}{leadRevenue.toLocaleString()} {t('dashboard.leadRevenueLabel', 'ліди')}
-                                </div>
-                              )}
+                            <td className="px-4 py-4 font-bold text-emerald-600">
+                              {isUk ? '₴' : '$'}{revenue.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-4 font-bold text-slate-400">
+                              {leadRevenue > 0 ? `${isUk ? '₴' : '$'}${leadRevenue.toLocaleString()}` : ''}
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
