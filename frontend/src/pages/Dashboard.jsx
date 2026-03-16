@@ -1195,6 +1195,7 @@ export default function Dashboard() {
                         const bounceRate = link.stats?.bounce_rate || 0;
                         const averageCheck = link.stats?.average_check || 0;
                         const revenue = link.stats?.sales_revenue ?? 0;
+                        const leadRevenue = link.stats?.lead_revenue ?? 0;
                         const isUk = i18n.language === 'uk';
                         return (
                           <tr key={link.id} className="border-b border-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/70">
@@ -1222,7 +1223,16 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatDuration(avgTime)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatPercent(bounceRate)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{averageCheck.toLocaleString()} {isUk ? '₴' : '$'}</td>
-                            <td className="px-4 py-4 font-bold text-emerald-600">{isUk ? '₴' : '$'}{revenue.toLocaleString()}</td>
+                            <td className="px-4 py-4">
+                              <div className="font-bold text-emerald-600">
+                                {isUk ? '₴' : '$'}{revenue.toLocaleString()}
+                              </div>
+                              {leadRevenue > 0 && (
+                                <div className="text-xs text-slate-400 font-medium mt-1">
+                                  {isUk ? '₴' : '$'}{leadRevenue.toLocaleString()} {t('dashboard.leadRevenueLabel', 'ліди')}
+                                </div>
+                              )}
+                            </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
                                 <button
