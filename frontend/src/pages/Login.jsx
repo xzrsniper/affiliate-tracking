@@ -636,7 +636,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isRegister && !formData.agree)}
               className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold py-2.5 px-4 rounded-[10px] hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_6px_18px_rgba(109,40,217,0.22)]"
             >
               {loading
