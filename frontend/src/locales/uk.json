@@ -291,6 +291,8 @@
     "userFallback": "Користувач"
   },
   "layout": {
+    "menu": "Меню",
+    "resources": "Ресурси",
     "dashboard": "Головна",
     "admin": "Адмін",
     "setup": "Трекер",

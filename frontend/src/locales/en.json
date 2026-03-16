@@ -291,6 +291,8 @@
     "userFallback": "User"
   },
   "layout": {
+    "menu": "Menu",
+    "resources": "Resources",
     "dashboard": "Dashboard",
     "admin": "Admin",
     "setup": "Tracker",

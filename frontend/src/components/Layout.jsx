@@ -46,7 +46,7 @@ export default function Layout({ children }) {
         </div>
 
         <div className="px-3 pt-4 pb-2">
-          <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Menu</p>
+          <p className="px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{t('layout.menu')}</p>
         </div>
         <nav className="px-3 pb-3 lg:block flex gap-2 overflow-x-auto lg:space-y-1">
           {navItems.map((item) => {
@@ -71,14 +71,14 @@ export default function Layout({ children }) {
 
         <div className="mt-auto px-3 pb-3">
           <div className="px-2 pt-2 pb-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Resources</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{t('layout.resources')}</p>
           </div>
           <a
             href="/guide"
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           >
             <FileText className="w-4 h-4" />
-            <span>Documentation</span>
+            <span>{t('common.documentation')}</span>
           </a>
           <a
             href="https://t.me/hodunkooo"
@@ -87,7 +87,7 @@ export default function Layout({ children }) {
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
           >
             <MessageCircle className="w-4 h-4" />
-            <span>Support</span>
+            <span>{t('home.navSupport')}</span>
           </a>
           <div className="mt-1 space-y-1">
             <button
