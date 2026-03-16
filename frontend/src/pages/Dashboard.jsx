@@ -620,6 +620,10 @@ export default function Dashboard() {
                   padding: '8px 12px'
                 }}
                 labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
+                formatter={(value, name) => [
+                  value,
+                  name === 'clicks' ? t('dashboard.totalClicks') : t('dashboard.uniqueClicks')
+                ]}
               />
               <Legend
                 verticalAlign="top"

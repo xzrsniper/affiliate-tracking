@@ -92,7 +92,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Google login error:', err);
-      setError(err.response?.data?.error || 'Google sign in failed. Please try again.');
+      setError(err.response?.data?.error || t('login.googleSignInFailed'));
     } finally {
       setGoogleLoading(false);
     }
@@ -144,15 +144,15 @@ export default function Login() {
   const handleGoogleButtonClick = () => {
     if (!resolvedGoogleClientId) {
       if (!publicConfigFetched) {
-        setError('Завантаження налаштувань Google... Зачекайте кілька секунд.');
+        setError(t('login.loadingSettings'));
         return;
       }
-      setError('Google OAuth не налаштовано. Додайте GOOGLE_CLIENT_ID_PUBLIC у .env на сервері або VITE_GOOGLE_CLIENT_ID при збірці.');
+      setError(t('login.googleNotConfigured'));
       return;
     }
 
     if (!window.google || !window.google.accounts) {
-      setError('Google Sign-In завантажується... Будь ласка, зачекайте кілька секунд і спробуйте знову.');
+      setError(t('login.googleLoading'));
       return;
     }
 
@@ -235,7 +235,7 @@ export default function Login() {
             console.error('Google login error:', err);
             console.error('Error response:', err.response);
             console.error('Error response data:', err.response?.data);
-            const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Google sign in failed. Please try again.';
+            const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || t('login.googleSignInFailed');
             setError(errorMessage);
             setGoogleLoading(false);
           }
@@ -247,7 +247,7 @@ export default function Login() {
       
     } catch (error) {
       console.error('Error with Google Sign-In:', error);
-      setError('Помилка ініціалізації Google Sign-In. Спробуйте оновити сторінку.');
+      setError(t('login.googleError'));
       setGoogleLoading(false);
     }
   };
@@ -303,11 +303,11 @@ export default function Login() {
       } else if (code === 'ACCOUNT_BANNED') {
         errorMsg = t('login.accountBanned');
       } else if (err.response) {
-        errorMsg = err.response?.data?.error || (isRegister ? t('login.register') : t('login.signIn')) + ' failed.';
+        errorMsg = err.response?.data?.error || (isRegister ? t('login.registerFailed') : t('login.signInFailed'));
       } else if (err.request) {
-        errorMsg = 'Cannot connect to server. Please make sure the backend is running on http://localhost:3000';
+        errorMsg = t('login.serverConnectionError');
       } else {
-        errorMsg = err.message || (isRegister ? 'Registration' : 'Login') + ' failed.';
+        errorMsg = err.message || (isRegister ? t('login.registerFailed') : t('login.signInFailed'));
       }
       setError(errorMsg);
       // Trigger shake animation
@@ -367,31 +367,31 @@ export default function Login() {
               <Logo size="lg" showText={true} linkTo={null} className="text-white [&>span]:text-white" />
             </div>
             <h1 className="text-[50px] font-extrabold leading-[1.08] tracking-[-0.03em] mb-4">
-              Track every click.<br />Grow every sale.
+              {t('login.marketingHeadlineLine1')}<br />{t('login.marketingHeadlineLine2')}
             </h1>
             <p className="text-white/75 text-[15px] leading-relaxed mb-10 max-w-md">
-              Affiliate & UTM tracking platform for modern marketers. Real-time analytics, custom links, and conversion insights.
+              {t('login.marketingSubline')}
             </p>
             <ul className="space-y-3 text-white/90 text-sm">
-              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Custom short links with UTM builder</li>
-              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Real-time click & conversion tracking</li>
-              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Add-to-cart & revenue attribution</li>
-              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Google Tag Manager integration</li>
-              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>Multi-user affiliate management</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>{t('login.marketingBullet1')}</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>{t('login.marketingBullet2')}</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>{t('login.marketingBullet3')}</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>{t('login.marketingBullet4')}</li>
+              <li className="flex items-center gap-3"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-[11px]">✓</span>{t('login.marketingBullet5')}</li>
             </ul>
 
             <div className="mt-12 grid grid-cols-3 gap-5 max-w-md">
               <div className="rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-center backdrop-blur">
                 <p className="text-2xl font-extrabold leading-none">2.4M</p>
-                <p className="mt-1 text-xs text-white/75">Clicks tracked</p>
+                <p className="mt-1 text-xs text-white/75">{t('login.metricClicksTracked')}</p>
               </div>
               <div className="rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-center backdrop-blur">
                 <p className="text-2xl font-extrabold leading-none">18K</p>
-                <p className="mt-1 text-xs text-white/75">Conversions</p>
+                <p className="mt-1 text-xs text-white/75">{t('login.metricConversions')}</p>
               </div>
               <div className="rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-center backdrop-blur">
                 <p className="text-2xl font-extrabold leading-none">99.9%</p>
-                <p className="mt-1 text-xs text-white/75">Uptime</p>
+                <p className="mt-1 text-xs text-white/75">{t('login.metricUptime')}</p>
               </div>
             </div>
           </div>
@@ -413,22 +413,22 @@ export default function Login() {
         <div className="bg-white rounded-[20px] border border-slate-300 p-10 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
           {!showCheckEmail && !showForgotPassword && (
             <div className="mb-6">
-              <h2 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">Welcome back</h2>
-              <p className="text-slate-500 mt-1 text-sm">Sign in to your TrackFlow account</p>
+              <h2 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">{t('login.welcomeBack')}</h2>
+              <p className="text-slate-500 mt-1 text-sm">{t('login.signInTrackFlow')}</p>
               <div className="mt-5 rounded-[10px] bg-slate-100 p-[3px] grid grid-cols-2 gap-1">
                 <button
                   type="button"
                   onClick={() => { setIsRegister(false); setError(''); setEmailNotVerifiedEmail(''); }}
                   className={`rounded-lg py-2 text-sm font-medium transition ${!isRegister ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  Sign In
+                  {t('login.signIn')}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setIsRegister(true); setError(''); setEmailNotVerifiedEmail(''); }}
                   className={`rounded-lg py-2 text-sm font-medium transition ${isRegister ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  Create Account
+                  {t('login.createAccount')}
                 </button>
               </div>
             </div>
@@ -503,7 +503,7 @@ export default function Login() {
                       type="email"
                       required
                       className="w-full px-3 py-2.5 bg-white rounded-[10px] border border-slate-300 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
-                      placeholder="you@example.com"
+                      placeholder={t('login.emailExample')}
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                     />
