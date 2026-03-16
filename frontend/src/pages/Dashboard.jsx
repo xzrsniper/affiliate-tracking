@@ -347,18 +347,45 @@ export default function Dashboard() {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
       return;
     }
-
     setSortColumn(column);
     setSortDirection('asc');
   };
 
-  const sortedFilteredLinks = [...filteredLinks].sort((a, b) => {
-    if (sortColumn !== 'source') return 0;
+  // Helper for sorting by different types
+  const getSortValue = (link, column) => {
+    switch (column) {
+      case 'name':
+        return (link.name || link.unique_code || '').toLowerCase();
+      case 'source':
+        return getSourceTypeLabel(link.source_type).toLowerCase();
+      case 'clicks':
+        return link.stats?.total_clicks || 0;
+      case 'unique':
+        return link.stats?.unique_clicks || 0;
+      case 'carts':
+        return link.stats?.carts || 0;
+      case 'avgTime':
+        return link.stats?.avg_session_seconds || 0;
+      case 'bounceRate':
+        return link.stats?.bounce_rate || 0;
+      case 'avgCheck':
+        return link.stats?.average_check || 0;
+      case 'revenue':
+        return link.stats?.sales_revenue ?? 0;
+      default:
+        return '';
+    }
+  };
 
-    const sourceA = getSourceTypeLabel(a.source_type).toLowerCase();
-    const sourceB = getSourceTypeLabel(b.source_type).toLowerCase();
-    if (sourceA < sourceB) return sortDirection === 'asc' ? -1 : 1;
-    if (sourceA > sourceB) return sortDirection === 'asc' ? 1 : -1;
+  const sortedFilteredLinks = [...filteredLinks].sort((a, b) => {
+    if (!sortColumn) return 0;
+    const valA = getSortValue(a, sortColumn);
+    const valB = getSortValue(b, sortColumn);
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      return sortDirection === 'asc' ? valA - valB : valB - valA;
+    }
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
     return 0;
   });
 
@@ -1030,7 +1057,20 @@ export default function Dashboard() {
                             className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
                           />
                         </th>
-                        <th className="text-left px-5 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableLinkUrl')}</th>
+                        <th className="text-left px-5 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('name')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableLinkUrl')}</span>
+                            {sortColumn === 'name' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
                           <button
                             type="button"
@@ -1045,13 +1085,104 @@ export default function Dashboard() {
                             )}
                           </button>
                         </th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableClicks')}</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableUnique')}</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableCart')}</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableAvgTime')}</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableBounceRate')}</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableAvgCheck')}</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableRevenue')}</th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('clicks')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableClicks')}</span>
+                            {sortColumn === 'clicks' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('unique')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableUnique')}</span>
+                            {sortColumn === 'unique' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('carts')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableCart')}</span>
+                            {sortColumn === 'carts' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('avgTime')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableAvgTime')}</span>
+                            {sortColumn === 'avgTime' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('bounceRate')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableBounceRate')}</span>
+                            {sortColumn === 'bounceRate' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('avgCheck')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableAvgCheck')}</span>
+                            {sortColumn === 'avgCheck' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleSort('revenue')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                          >
+                            <span>{t('dashboard.tableRevenue')}</span>
+                            {sortColumn === 'revenue' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableActions')}</th>
                       </tr>
                     </thead>
