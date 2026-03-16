@@ -106,7 +106,6 @@ export default function Dashboard() {
     const intervalId = window.setInterval(() => {
       if (document.hidden) return;
       fetchLinks(false, '', timeRange);
-      fetchChartData(i18n.language, '', sourceFilter, timeRange);
     }, 15000);
 
     return () => window.clearInterval(intervalId);
