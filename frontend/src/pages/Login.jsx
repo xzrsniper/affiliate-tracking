@@ -601,20 +601,37 @@ export default function Login() {
             </div>
 
             {isRegister && (
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
-                  {t('login.confirmPasswordLabel')}
+              <>
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
+                    {t('login.confirmPasswordLabel')}
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    required={isRegister}
+                    className="w-full px-3 py-2.5 bg-white rounded-[10px] border border-slate-300 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
+                    placeholder="••••••••"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                  />
+                </div>
+                <label className="flex items-center mt-4 mb-2 select-none">
+                  <input
+                    type="checkbox"
+                    name="agree"
+                    checked={formData.agree}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-violet-600 border-slate-300 rounded focus:ring-violet-500"
+                    required={isRegister}
+                  />
+                  <span className="ml-2 text-xs text-slate-600">
+                    Я погоджуюся з <a href="/user-agreement" target="_blank" rel="noopener noreferrer" className="underline">Угодою користувача</a>, <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline">Політикою конфіденційності</a> та <a href="/refund-policy" target="_blank" rel="noopener noreferrer" className="underline">Політикою повернення коштів</a>
+                  </span>
                 </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  required={isRegister}
-                  className="w-full px-3 py-2.5 bg-white rounded-[10px] border border-slate-300 focus:ring-2 focus:ring-violet-500 transition-all text-slate-900 placeholder-slate-400"
-                  placeholder="••••••••"
-                />
-              </div>
+              </>
             )}
 
             <button
