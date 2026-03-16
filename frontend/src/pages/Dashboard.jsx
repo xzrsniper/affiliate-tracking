@@ -148,7 +148,7 @@ export default function Dashboard() {
       setLinks(response.data.links || []);
       setLastUpdated(new Date());
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load links');
+      setError(err.response?.data?.error || t('dashboard.errorLoadLinks'));
     } finally {
       if (showLoading) {
         setLoading(false);
@@ -387,7 +387,7 @@ export default function Dashboard() {
       <div className="mb-5 rounded-xl border border-slate-200 bg-white/80 dark:bg-slate-900/70 px-5 py-4 backdrop-blur">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">Dashboard</h1>
+            <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
             <p className="text-sm text-slate-600">{currentDate}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -424,11 +424,11 @@ export default function Dashboard() {
           </div>
 
           {[
-            { key: 'all', label: 'All time' },
-            { key: 'today', label: 'Today' },
-            { key: '7d', label: '7 days' },
-            { key: '30d', label: '30 days' },
-            { key: 'custom', label: 'Custom' }
+            { key: 'all', label: t('dashboard.rangeAll') },
+            { key: 'today', label: t('dashboard.rangeToday') },
+            { key: '7d', label: t('dashboard.range7d') },
+            { key: '30d', label: t('dashboard.range30d') },
+            { key: 'custom', label: t('dashboard.rangeCustom') }
           ].map((period) => (
             <button
               key={period.key}
@@ -450,7 +450,7 @@ export default function Dashboard() {
             onChange={(e) => setSourceFilter(e.target.value)}
             className="px-3 py-2 bg-white rounded-lg border border-slate-200 focus:ring-2 focus:ring-violet-500 text-sm text-slate-900"
           >
-            <option value="">All links</option>
+            <option value="">{t('dashboard.allLinks')}</option>
             <option value="social_media">{t('dashboard.sourceSocial')}</option>
             <option value="email_marketing">{t('dashboard.sourceEmail')}</option>
             <option value="bloggers_influencers">{t('dashboard.sourceBloggers')}</option>
@@ -980,7 +980,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <>
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-                  <h3 className="text-2xl font-bold text-slate-900">Your Tracking Links</h3>
+                  <h3 className="text-2xl font-bold text-slate-900">{t('dashboard.linksSectionTitle')}</h3>
                   <div className="flex items-center gap-2">
                     {selectedLinkIds.length > 0 && (
                       <button
@@ -998,7 +998,7 @@ export default function Dashboard() {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search links..."
+                        placeholder={t('common.search')}
                         className="pl-9 pr-3 py-2 w-52 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400"
                       />
                     </div>
@@ -1007,7 +1007,7 @@ export default function Dashboard() {
                         onClick={() => setShowCreateForm(!showCreateForm)}
                         className="px-4 py-2 bg-violet-700 text-white rounded-lg font-semibold hover:bg-violet-800 transition-colors"
                       >
-                        + New Link
+                        + {t('dashboard.newLinkShort')}
                       </button>
                     )}
                   </div>
@@ -1026,14 +1026,14 @@ export default function Dashboard() {
                             className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
                           />
                         </th>
-                        <th className="text-left px-5 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">Link / URL</th>
+                        <th className="text-left px-5 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableLinkUrl')}</th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
                           <button
                             type="button"
                             onClick={() => handleSort('source')}
                             className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                           >
-                            <span>Source</span>
+                            <span>{t('dashboard.tableSource')}</span>
                             {sortColumn === 'source' ? (
                               <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
@@ -1041,14 +1041,14 @@ export default function Dashboard() {
                             )}
                           </button>
                         </th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">Clicks</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">Unique</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">Carts</th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableClicks')}</th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableUnique')}</th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableCart')}</th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableAvgTime')}</th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableBounceRate')}</th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableAvgCheck')}</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">Revenue</th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">Actions</th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableRevenue')}</th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableActions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1097,19 +1097,19 @@ export default function Dashboard() {
                                   }}
                                   className="px-3 py-1.5 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50 text-sm"
                                 >
-                                  {copiedLinkId === link.id ? 'Copied' : 'Copy'}
+                                  {copiedLinkId === link.id ? t('common.copied') : t('common.copy')}
                                 </button>
                                 <button
                                   onClick={() => handleEditLink(link)}
                                   className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm"
                                 >
-                                  Edit
+                                  {t('common.edit')}
                                 </button>
                                 <button
                                   onClick={() => openDeleteConfirmation([link.id])}
                                   className="px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 text-sm"
                                 >
-                                  Delete
+                                  {t('common.delete')}
                                 </button>
                               </div>
                             </td>
@@ -1122,7 +1122,7 @@ export default function Dashboard() {
 
                 <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between text-sm text-slate-500">
                   <div className="flex items-center gap-4">
-                    <span>Showing {filteredLinks.length} of {sourceFilteredLinks.length} links</span>
+                    <span>{t('dashboard.showingLinks', { shown: filteredLinks.length, total: sourceFilteredLinks.length })}</span>
                     {selectedLinkIds.length > 0 && <span>{t('dashboard.selectedCount', { count: selectedLinkIds.length })}</span>}
                   </div>
                   <div className="flex gap-1">
@@ -1176,13 +1176,13 @@ export default function Dashboard() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">URL</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t('dashboard.targetUrlLabel')}</label>
                 <input
                   type="url"
                   required
                   value={editForm.original_url}
                   onChange={(e) => setEditForm({ ...editForm, original_url: e.target.value })}
-                  placeholder="https://example.com"
+                  placeholder={t('dashboard.targetUrlPlaceholder')}
                   className="w-full px-4 py-2.5 bg-white rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 />
               </div>
