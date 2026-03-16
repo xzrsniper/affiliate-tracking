@@ -85,30 +85,43 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!isMountedRef.current) return;
-    fetchChartData(i18n.language, activeSnapshot, sourceFilter);
+    fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
   }, [sourceFilter]);
+
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (timeRange === 'custom') {
+      setActiveSnapshot('');
+      return;
+    }
+
+    setActiveSnapshot('');
+    fetchLinks(true, '', timeRange);
+    fetchChartData(i18n.language, '', sourceFilter, timeRange);
+  }, [timeRange]);
 
   useEffect(() => {
     if (!isMountedRef.current || activeSnapshot) return;
 
     const intervalId = window.setInterval(() => {
       if (document.hidden) return;
-      fetchLinks(false);
-      fetchChartData(i18n.language, '', sourceFilter);
+      fetchLinks(false, '', timeRange);
+      fetchChartData(i18n.language, '', sourceFilter, timeRange);
     }, 15000);
 
     return () => window.clearInterval(intervalId);
-  }, [activeSnapshot, sourceFilter, i18n.language]);
+  }, [activeSnapshot, sourceFilter, i18n.language, timeRange]);
 
   useEffect(() => {
     setSelectedLinkIds((prev) => prev.filter((id) => links.some((link) => link.id === id)));
   }, [links]);
 
-  const fetchChartData = async (lang, snapshot = '', selectedSource = '') => {
+  const fetchChartData = async (lang, snapshot = '', selectedSource = '', range = timeRange) => {
     try {
       setChartLoading(true);
       const params = {};
       if (snapshot) params.snapshot = snapshot;
+      if (!snapshot && range && range !== 'custom') params.range = range;
       if (selectedSource) params.source_type = selectedSource;
       const response = await api.get('/api/links/clicks-chart', { params });
       const raw = response.data.data || [];
@@ -126,12 +139,12 @@ export default function Dashboard() {
     }
   };
 
-  const fetchLinks = async (showLoading = true, snapshot = '') => {
+  const fetchLinks = async (showLoading = true, snapshot = '', range = timeRange) => {
     try {
       if (showLoading) {
         setLoading(true);
       }
-      const params = snapshot ? { snapshot } : {};
+      const params = snapshot ? { snapshot } : (range && range !== 'custom' ? { range } : {});
       const response = await api.get('/api/links/my-links', { params });
       setLinks(response.data.links || []);
       setLastUpdated(new Date());
@@ -149,6 +162,7 @@ export default function Dashboard() {
     if (snapshotDate && snapshotHour !== '') {
       const snap = `${snapshotDate}T${snapshotHour.padStart(2, '0')}`;
       setActiveSnapshot(snap);
+      setTimeRange('custom');
       fetchLinks(true, snap);
       fetchChartData(i18n.language, snap, sourceFilter);
     }
@@ -159,8 +173,9 @@ export default function Dashboard() {
     setSnapshotDate('');
     setSnapshotHour('');
     setActiveSnapshot('');
-    fetchLinks(true);
-    fetchChartData(i18n.language, '', sourceFilter);
+    setTimeRange('7d');
+    fetchLinks(true, '', '7d');
+    fetchChartData(i18n.language, '', sourceFilter, '7d');
   };
 
   const handleCreateLink = async (e) => {
@@ -379,8 +394,8 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                fetchLinks(true, activeSnapshot);
-                fetchChartData(i18n.language, activeSnapshot, sourceFilter);
+                fetchLinks(true, activeSnapshot, timeRange);
+                fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
               }}
               disabled={loading}
               className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-50"
@@ -557,7 +572,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">{t('dashboard.clicksChartTitle')}</h3>
           <button
-            onClick={() => fetchChartData(i18n.language, activeSnapshot, sourceFilter)}
+            onClick={() => fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange)}
             disabled={chartLoading}
             className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
             title={t('dashboard.refreshChart')}
@@ -925,7 +940,7 @@ export default function Dashboard() {
             <button
               onClick={() => {
                 setCreatedLink(null);
-                fetchLinks(true, activeSnapshot);
+                fetchLinks(true, activeSnapshot, timeRange);
               }}
               className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all"
             >

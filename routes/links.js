@@ -67,6 +67,20 @@ function normalizeDomain(domain) {
     .replace(/^www\./, '');
 }
 
+function buildRangeCondition(range = '7d') {
+  switch (range) {
+    case 'all':
+      return '';
+    case 'today':
+      return ' AND created_at >= CURDATE()';
+    case '30d':
+      return ' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+    case '7d':
+    default:
+      return ' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  }
+}
+
 // All routes require authentication
 router.use(authenticate);
 
@@ -174,7 +188,7 @@ router.post('/create', async (req, res, next) => {
  */
 router.get('/clicks-chart', async (req, res, next) => {
   try {
-    const { source_type } = req.query;
+    const { source_type, range = '7d' } = req.query;
 
     // Get all link IDs for this user
     const userLinks = await Link.findAll({
@@ -204,7 +218,7 @@ router.get('/clicks-chart', async (req, res, next) => {
       snapshotCondition = ' AND created_at >= ? AND created_at <= ?';
       replacements.push(startStr, snapshotEnd);
     } else {
-      snapshotCondition = ' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+      snapshotCondition = buildRangeCondition(range);
     }
 
     // Get hourly click data
@@ -236,7 +250,7 @@ router.get('/clicks-chart', async (req, res, next) => {
 router.get('/my-links', async (req, res, next) => {
   try {
     // Build snapshot filter
-    const { snapshot } = req.query;
+    const { snapshot, range = '7d' } = req.query;
     let snapshotCondition = '';
     const snapshotReplacements = [];
 
@@ -245,6 +259,8 @@ router.get('/my-links', async (req, res, next) => {
       const snapshotEnd = `${snapshot.replace('T', ' ')}:59:59`;
       snapshotCondition = ' AND created_at <= ?';
       snapshotReplacements.push(snapshotEnd);
+    } else {
+      snapshotCondition = buildRangeCondition(range);
     }
 
     const links = await Link.findAll({
