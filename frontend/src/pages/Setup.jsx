@@ -1055,7 +1055,7 @@ window.__lehkoConfig = {
                       type="button"
                       onClick={() => handleCopyConsoleCode(editingWebsite)}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-100 text-amber-700 font-medium rounded-lg hover:bg-amber-200 transition-colors text-sm"
-                      title="Скопіювати код для консолі (F12 → Console)"
+                      title={t('setup.consoleCodeCopy')}
                     >
                       <Code className="w-4 h-4" />
                       <span>{t('setup.consoleCodeCopy')}</span>

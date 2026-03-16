@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
 import { Code } from 'lucide-react';
@@ -6,6 +7,7 @@ import { Code } from 'lucide-react';
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export default function ConsoleCode() {
+  const { t } = useTranslation();
   const [sites, setSites] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [snippet, setSnippet] = useState('');
@@ -19,40 +21,40 @@ export default function ConsoleCode() {
         setSites(list);
         if (list.length && !selectedId) setSelectedId(String(list[0].id));
       })
-      .catch(() => setMessage({ text: 'Увійдіть у LehkoTrack. Список сайтів не завантажився.', error: true }));
+      .catch(() => setMessage({ text: t('consoleCode.loginAndReload'), error: true }));
   }, []);
 
   const handleGetCode = () => {
     if (!selectedId) {
-      setMessage({ text: 'Оберіть сайт', error: true });
+      setMessage({ text: t('consoleCode.selectSite'), error: true });
       return;
     }
     setLoading(true);
-    setMessage({ text: 'Завантаження…', error: false });
+    setMessage({ text: t('consoleCode.loading'), error: false });
     api.post(`/api/websites/${selectedId}/configure-session`)
       .then((res) => {
         const configUrl = res.data?.configUrl || '';
         const codeMatch = configUrl.match(/lehko_cfg=([^&]+)/);
         const code = codeMatch ? codeMatch[1] : '';
         if (!code) {
-          setMessage({ text: 'Помилка формату посилання', error: true });
+          setMessage({ text: t('consoleCode.badLinkFormat'), error: true });
           setLoading(false);
           return;
         }
         const mapperUrl = `${API_BASE.replace(/\/$/, '')}/api/track/mapper/${code}`;
         const s = `var s=document.createElement('script');s.src='${mapperUrl}';document.head.appendChild(s);`;
         setSnippet(s);
-        setMessage({ text: 'Код готовий. Натисніть «Скопіювати в буфер».', error: false });
+        setMessage({ text: t('consoleCode.codeReady'), error: false });
       })
-      .catch((err) => setMessage({ text: err.response?.data?.error || 'Помилка', error: true }))
+      .catch((err) => setMessage({ text: err.response?.data?.error || t('consoleCode.errorGeneric'), error: true }))
       .finally(() => setLoading(false));
   };
 
   const handleCopy = () => {
     if (!snippet) return;
     navigator.clipboard.writeText(snippet)
-      .then(() => setMessage({ text: 'Скопійовано!', error: false }))
-      .catch(() => setMessage({ text: 'Не вдалося скопіювати', error: true }));
+      .then(() => setMessage({ text: t('common.copied'), error: false }))
+      .catch(() => setMessage({ text: t('consoleCode.copyFailed'), error: true }));
   };
 
   return (
@@ -60,10 +62,10 @@ export default function ConsoleCode() {
       <div className="max-w-xl mx-auto p-6">
         <h1 className="text-xl font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
           <Code className="w-6 h-6 text-amber-500" />
-          Код для консолі (Visual Mapper)
+          {t('consoleCode.title')}
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-          Оберіть сайт, натисніть «Отримати код». На сайті клієнта: F12 → Console → вставте код → Enter. Код дійсний 10 хв.
+          {t('consoleCode.subtitle')}
         </p>
         <div className="space-y-3">
           <select
@@ -71,7 +73,7 @@ export default function ConsoleCode() {
             onChange={(e) => setSelectedId(e.target.value)}
             className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
           >
-            <option value="">— Оберіть сайт —</option>
+            <option value="">{t('consoleCode.selectSiteOption')}</option>
             {sites.map((w) => (
               <option key={w.id} value={w.id}>{w.name || w.domain || w.id}</option>
             ))}
@@ -82,12 +84,12 @@ export default function ConsoleCode() {
             disabled={loading}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-medium rounded-lg"
           >
-            Отримати код
+            {t('consoleCode.getCode')}
           </button>
           <textarea
             readOnly
             value={snippet}
-            placeholder="Тут з'явиться код після натискання «Отримати код»"
+            placeholder={t('consoleCode.codePlaceholder')}
             rows={4}
             className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-white font-mono text-sm"
           />
@@ -97,7 +99,7 @@ export default function ConsoleCode() {
             disabled={!snippet}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-600 hover:bg-slate-700 disabled:opacity-50 text-white font-medium rounded-lg"
           >
-            Скопіювати в буфер
+            {t('consoleCode.copyToClipboard')}
           </button>
         </div>
         {message.text && (

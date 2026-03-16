@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
 import {
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 
 export default function Admin() {
+  const { t, i18n } = useTranslation();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,7 +55,7 @@ export default function Admin() {
       console.error('Error request:', err.request);
       console.error('Error message:', err.message);
       
-      let errorMessage = 'Failed to load users';
+      let errorMessage = t('admin.errorLoadUsers');
       
       if (err.response) {
         // Server responded with error
@@ -66,10 +68,10 @@ export default function Admin() {
         }
       } else if (err.request) {
         // Request was made but no response received
-        errorMessage = 'Network error: Cannot connect to server. Please make sure the backend is running on http://localhost:3000';
+        errorMessage = t('admin.networkError');
       } else {
         // Something else happened
-        errorMessage = err.message || 'Failed to load users';
+        errorMessage = err.message || t('admin.errorLoadUsers');
       }
       
       setError(errorMessage);
@@ -85,14 +87,14 @@ export default function Admin() {
       });
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update user');
+      setError(err.response?.data?.error || t('admin.errorUpdateUser'));
     }
   };
 
   const handleUpdateLinkLimit = async (userId) => {
     const nextLimit = limitEdits[userId];
     if (nextLimit === '' || Number(nextLimit) < 0 || Number.isNaN(Number(nextLimit))) {
-      setError('Please enter a valid link limit (>= 0)');
+      setError(t('admin.validLinkLimit'));
       return;
     }
 
@@ -103,7 +105,7 @@ export default function Admin() {
       });
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update link limit');
+      setError(err.response?.data?.error || t('admin.errorUpdateLimit'));
     } finally {
       setUpdating(false);
     }
@@ -114,13 +116,13 @@ export default function Admin() {
       const response = await api.get(`/api/admin/users/${userId}/impersonate`);
       setViewingUser(response.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load user data');
+      setError(err.response?.data?.error || t('admin.errorLoadUserData'));
     }
   };
 
   const getDisplayName = (user) => {
     if (user.name && String(user.name).trim()) return user.name;
-    const emailPrefix = String(user.email || '').split('@')[0] || 'User';
+    const emailPrefix = String(user.email || '').split('@')[0] || t('admin.userFallback');
     return emailPrefix
       .split(/[._-]/)
       .filter(Boolean)
@@ -156,12 +158,12 @@ export default function Admin() {
       <div className="max-w-none">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 dark:bg-slate-900/70 px-5 py-4 backdrop-blur">
           <div>
-            <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">Admin Panel</h1>
-            <p className="text-sm text-slate-600">Manage users, roles, and platform settings</p>
+            <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('admin.title')}</h1>
+            <p className="text-sm text-slate-600">{t('admin.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">Export CSV</button>
-            <button className="px-3 py-2 text-sm font-semibold rounded-lg bg-violet-700 text-white hover:bg-violet-800 transition-colors">Invite User</button>
+            <button className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">{t('admin.exportCsv')}</button>
+            <button className="px-3 py-2 text-sm font-semibold rounded-lg bg-violet-700 text-white hover:bg-violet-800 transition-colors">{t('admin.inviteUser')}</button>
           </div>
         </div>
 
@@ -170,28 +172,28 @@ export default function Admin() {
             <div className="h-10 w-10 rounded-lg bg-violet-100 flex items-center justify-center text-lg">👥</div>
             <div>
               <p className="text-2xl font-bold text-slate-900 leading-none">{users.length}</p>
-              <p className="text-xs text-slate-500 mt-1">Total Users</p>
+              <p className="text-xs text-slate-500 mt-1">{t('admin.totalUsers')}</p>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center text-lg">✅</div>
             <div>
               <p className="text-2xl font-bold text-slate-900 leading-none">{users.filter(u => !u.is_banned).length}</p>
-              <p className="text-xs text-slate-500 mt-1">Active</p>
+              <p className="text-xs text-slate-500 mt-1">{t('admin.active')}</p>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center text-lg">🔗</div>
             <div>
               <p className="text-2xl font-bold text-slate-900 leading-none">{users.reduce((sum, u) => sum + (u.link_count || 0), 0)}</p>
-              <p className="text-xs text-slate-500 mt-1">Total Links</p>
+              <p className="text-xs text-slate-500 mt-1">{t('admin.totalLinks')}</p>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center text-lg">🚫</div>
             <div>
               <p className="text-2xl font-bold text-slate-900 leading-none">{users.filter(u => u.is_banned).length}</p>
-              <p className="text-xs text-slate-500 mt-1">Banned</p>
+              <p className="text-xs text-slate-500 mt-1">{t('admin.banned')}</p>
             </div>
           </div>
         </div>
@@ -201,7 +203,7 @@ export default function Admin() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by name or email..."
+              placeholder={t('admin.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 text-sm text-slate-900 placeholder-slate-400"
@@ -213,9 +215,9 @@ export default function Admin() {
             onChange={(e) => setRoleFilter(e.target.value)}
             className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700"
           >
-            <option value="all">All roles</option>
-            <option value="super_admin">Super Admin</option>
-            <option value="user">Affiliate</option>
+            <option value="all">{t('admin.allRoles')}</option>
+            <option value="super_admin">{t('layout.superAdmin')}</option>
+            <option value="user">{t('admin.affiliate')}</option>
           </select>
 
           <select
@@ -223,10 +225,10 @@ export default function Admin() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700"
           >
-            <option value="all">All status</option>
-            <option value="active">Active</option>
-            <option value="unverified">Unverified</option>
-            <option value="banned">Banned</option>
+            <option value="all">{t('admin.allStatuses')}</option>
+            <option value="active">{t('admin.active')}</option>
+            <option value="unverified">{t('admin.unverified')}</option>
+            <option value="banned">{t('admin.banned')}</option>
           </select>
         </div>
 
@@ -239,25 +241,25 @@ export default function Admin() {
 
         {loading ? (
           <div className="bg-white/90 backdrop-blur rounded-2xl border border-violet-100 p-10 text-center text-slate-500 text-sm">
-            Loading users...
+            {t('admin.loadingUsers')}
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-200">
-              <p className="text-2xl font-bold text-slate-900">Users</p>
-              <p className="text-sm text-slate-500">Showing {filteredUsers.length} of {users.length}</p>
+              <p className="text-2xl font-bold text-slate-900">{t('admin.users')}</p>
+              <p className="text-sm text-slate-500">{t('admin.showingUsers', { shown: filteredUsers.length, total: users.length })}</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600">
-                    <th className="text-left px-5 py-3 font-semibold uppercase text-xs tracking-wider">User</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Role</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Status</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Links</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Limit</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Joined</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Actions</th>
+                    <th className="text-left px-5 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.user')}</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.role')}</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.status')}</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.links')}</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.limit')}</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.joined')}</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -276,15 +278,15 @@ export default function Admin() {
                       </td>
                       <td className="px-4 py-4">
                         {user.role === 'super_admin' ? (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-700 border border-violet-200">Super Admin</span>
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-700 border border-violet-200">{t('layout.superAdmin')}</span>
                         ) : (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Affiliate</span>
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{t('admin.affiliate')}</span>
                         )}
                       </td>
                       <td className="px-4 py-4">
-                        {getUserStatus(user) === 'banned' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">Banned</span>}
-                        {getUserStatus(user) === 'unverified' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200">Unverified</span>}
-                        {getUserStatus(user) === 'active' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">Active</span>}
+                        {getUserStatus(user) === 'banned' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">{t('admin.banned')}</span>}
+                        {getUserStatus(user) === 'unverified' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200">{t('admin.unverified')}</span>}
+                        {getUserStatus(user) === 'active' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">{t('admin.active')}</span>}
                       </td>
                       <td className="px-4 py-4 font-semibold text-slate-800">{user.link_count || 0}</td>
                       <td className="px-4 py-4">
@@ -301,19 +303,19 @@ export default function Admin() {
                             disabled={updating}
                             className="px-3 py-1.5 bg-violet-700 text-white rounded-lg text-sm font-semibold hover:bg-violet-800 disabled:opacity-50"
                           >
-                            Save
+                            {t('common.save')}
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-slate-600">{new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                      <td className="px-4 py-4 text-slate-600">{new Date(user.created_at).toLocaleDateString(i18n.language === 'uk' ? 'uk-UA' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => handleViewUser(user.id)}
                             className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-                            title="View Stats"
+                            title={t('admin.viewStats')}
                           >
-                            View
+                            {t('admin.view')}
                           </button>
                           <button
                             onClick={() => {
@@ -321,7 +323,7 @@ export default function Admin() {
                             }}
                             className="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm"
                           >
-                            Edit
+                            {t('common.edit')}
                           </button>
                           <button
                             onClick={() => handleBanUser(user.id, user.is_banned)}
@@ -331,9 +333,9 @@ export default function Admin() {
                                 ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
                                 : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
                             } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            title={user.is_banned ? 'Unban' : 'Ban'}
+                            title={user.is_banned ? t('admin.unban') : t('admin.ban')}
                           >
-                            {user.is_banned ? 'Unban' : 'Ban'}
+                            {user.is_banned ? t('admin.unban') : t('admin.ban')}
                           </button>
                         </div>
                       </td>
@@ -344,7 +346,7 @@ export default function Admin() {
             </div>
 
             <div className="px-5 py-4 border-t border-slate-200 text-sm text-slate-500">
-              Showing {filteredUsers.length} of {users.length} users
+              {t('admin.showingUsers', { shown: filteredUsers.length, total: users.length })}
             </div>
           </div>
         )}
@@ -356,10 +358,10 @@ export default function Admin() {
               <div className="p-6 border-b border-slate-200 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">
-                    Links for {viewingUser.user.email}
+                    {t('admin.linksFor', { email: viewingUser.user.email })}
                   </h2>
                   <p className="text-slate-500 mt-1">
-                    {viewingUser.links?.length || 0} total links
+                    {t('admin.totalLinksCount', { count: viewingUser.links?.length || 0 })}
                   </p>
                 </div>
                 <button
@@ -372,7 +374,7 @@ export default function Admin() {
               <div className="p-6">
                 {viewingUser.links.length === 0 ? (
                   <div className="text-center py-12">
-                    <p className="text-slate-500">No links created yet.</p>
+                    <p className="text-slate-500">{t('admin.noLinksYet')}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -384,19 +386,19 @@ export default function Admin() {
                         <p className="font-semibold text-slate-900 mb-3 break-all">{link.original_url}</p>
                         <div className="grid grid-cols-4 gap-4 text-sm">
                           <div>
-                            <p className="text-slate-500">Unique Clicks</p>
+                            <p className="text-slate-500">{t('dashboard.uniqueClicks')}</p>
                             <p className="font-bold text-slate-900">{link.stats.unique_clicks}</p>
                           </div>
                           <div>
-                            <p className="text-slate-500">Total Clicks</p>
+                            <p className="text-slate-500">{t('dashboard.totalClicks')}</p>
                             <p className="font-bold text-slate-900">{link.stats.total_clicks}</p>
                           </div>
                           <div>
-                            <p className="text-slate-500">Conversions</p>
+                            <p className="text-slate-500">{t('admin.conversions')}</p>
                             <p className="font-bold text-green-600">{link.stats.conversions}</p>
                           </div>
                           <div>
-                            <p className="text-slate-500">Revenue</p>
+                            <p className="text-slate-500">{t('dashboard.revenue')}</p>
                             <p className="font-bold text-emerald-600">
                               ${link.stats.total_revenue}
                             </p>

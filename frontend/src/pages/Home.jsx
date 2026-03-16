@@ -168,7 +168,7 @@ export default function Home() {
 
         <div className="mb-16 grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div className="rounded-3xl border border-slate-200 bg-white p-7 dark:border-slate-700 dark:bg-slate-900">
-            {[ [t('home.googleAds'), '85%', '$1,240'], [t('home.facebook'), '60%', '$890'], [t('home.telegram'), '40%', '$580'], ['Email', '25%', '$340'] ].map((row) => (
+            {[ [t('home.googleAds'), '85%', '$1,240'], [t('home.facebook'), '60%', '$890'], [t('home.telegram'), '40%', '$580'], [t('home.emailChannel'), '25%', '$340'] ].map((row) => (
               <div key={row[0]} className="mb-3 flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50 p-3 last:mb-0 dark:border-slate-700 dark:bg-slate-800">
                 <span className="w-24 text-sm font-semibold text-slate-700 dark:text-slate-200">{row[0]}</span>
                 <div className="h-2 flex-1 rounded-full bg-slate-200 dark:bg-slate-700"><div className="h-2 rounded-full bg-gradient-to-r from-[#6d5cf6] to-[#5ea8ff]" style={{ width: row[1] }} /></div>
@@ -222,7 +222,7 @@ export default function Home() {
           </div>
           <div className="space-y-4">
             <StatCard icon={<ShieldCheck className="h-7 w-7" />} value="100+" label={t('home.statAccuracy')} />
-            <StatCard icon={<BarChart3 className="h-7 w-7" />} value="5 хв" label={t('home.statSetup')} />
+            <StatCard icon={<BarChart3 className="h-7 w-7" />} value={t('home.statSetupValue')} label={t('home.statSetup')} />
             <StatCard icon={<TrendingUp className="h-7 w-7" />} value="24/7" label={t('home.statMonitoring')} />
           </div>
         </div>

@@ -46,10 +46,10 @@ export default function Guide() {
           <div className="flex items-center gap-2">
             <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
               <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
+              {t('guide.backToDashboard')}
             </Link>
-            <Link to="/settings" className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Settings</Link>
-            <Link to="/login" className="rounded-lg bg-violet-700 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-violet-800">Account</Link>
+            <Link to="/settings" className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">{t('layout.settings')}</Link>
+            <Link to="/login" className="rounded-lg bg-violet-700 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-violet-800">{t('guide.account')}</Link>
           </div>
         </div>
       </nav>
@@ -57,33 +57,33 @@ export default function Guide() {
       <main className="mx-auto max-w-[1280px] px-4 py-14 sm:px-8 lg:px-10">
         <section className="mb-10 text-center">
           <span className="mb-4 inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">
-            Tracker
+            {t('guide.trackerBadge')}
           </span>
           <h1 className="mb-3 font-display text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            Get <span className="text-violet-700">Tracker</span> running
-            <br />on your store in 10 minutes
+            {t('guide.heroLine1Before')} <span className="text-violet-700">{t('guide.heroLine1Highlight')}</span>
+            <br />{t('guide.heroLine2')}
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-slate-600 leading-relaxed">
-            Follow the steps below to install the tracking pixel, configure your first link, and start seeing real-time analytics.
+            {t('guide.heroDesc')}
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <Link to="/setup" className="rounded-xl bg-violet-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800">Watch Video Tutorial</Link>
-            <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Read Full Docs</a>
+            <Link to="/setup" className="rounded-xl bg-violet-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800">{t('guide.watchVideoTutorial')}</Link>
+            <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">{t('guide.readFullDocs')}</a>
           </div>
         </section>
 
         <section className="mx-auto mb-10 max-w-4xl rounded-2xl border border-slate-200 bg-white p-5">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-700">Your setup progress</span>
-            <span className="text-sm font-semibold text-violet-700">1 / 3 complete</span>
+            <span className="text-sm font-semibold text-slate-700">{t('guide.setupProgress')}</span>
+            <span className="text-sm font-semibold text-violet-700">{t('guide.setupProgressValue')}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-200">
             <div className="h-full w-1/3 bg-gradient-to-r from-violet-600 to-indigo-600" />
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-slate-500">
-            <span className="text-violet-700">Pixel installed</span>
-            <span>Create link</span>
-            <span>First conversion</span>
+            <span className="text-violet-700">{t('guide.progressPixelInstalled')}</span>
+            <span>{t('guide.progressCreateLink')}</span>
+            <span>{t('guide.progressFirstConversion')}</span>
           </div>
         </section>
 
@@ -97,7 +97,7 @@ export default function Guide() {
                     <Icon className="h-6 w-6 text-violet-600" />
                   </div>
                   <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-violet-700">
-                    {card.key === 'install' ? 'Step 1' : card.key === 'api' ? 'Step 2' : 'Step 3'}
+                    {card.key === 'install' ? `${t('guide.step')} 1` : card.key === 'api' ? `${t('guide.step')} 2` : `${t('guide.step')} 3`}
                   </span>
                 </div>
                 <h2 className="mb-2 text-xl font-bold text-slate-800">
@@ -107,8 +107,8 @@ export default function Guide() {
                   {card.description}
                 </p>
                 <ul className="mb-5 space-y-2 text-sm text-slate-600">
-                  <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Follow all steps in order</li>
-                  <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />Verify tracking after each update</li>
+                  <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('guide.cardTip1')}</li>
+                  <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('guide.cardTip2')}</li>
                 </ul>
                 <span className="inline-flex items-center gap-1.5 text-violet-600 font-medium">
                   {card.key === 'install' && t('guide.installLink')}
@@ -146,13 +146,13 @@ export default function Guide() {
         </section>
 
         <section className="mx-auto mt-10 max-w-4xl">
-          <h3 className="mb-4 text-2xl font-extrabold tracking-tight text-slate-900">Frequently Asked Questions</h3>
+          <h3 className="mb-4 text-2xl font-extrabold tracking-tight text-slate-900">{t('guide.faqTitle')}</h3>
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             {[
-              'Чи потрібен програміст для встановлення?',
-              'Як швидко з’являються дані в Dashboard?',
-              'Чи можна підключити кілька сайтів?',
-              'Як перевірити, що трекер працює?'
+              t('guide.faqQ1'),
+              t('guide.faqQ2'),
+              t('guide.faqQ3'),
+              t('guide.faqQ4')
             ].map((q, i) => (
               <div key={q} className={`px-5 py-4 ${i < 3 ? 'border-b border-slate-100' : ''}`}>
                 <p className="font-semibold text-slate-800">{q}</p>
