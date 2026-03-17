@@ -103,7 +103,7 @@ export default function Home() {
             <Link to="/login" className="inline-flex items-center gap-2 rounded-[12px] bg-[#6d5cf6] px-6 py-3.5 font-semibold text-white transition hover:bg-[#5d4af0] shadow-[0_10px_24px_rgba(109,92,246,0.28)]">
               {t('home.heroCta')} <ArrowRight className="h-4 w-4" />
             </Link>
-            <button className="inline-flex items-center gap-2 rounded-[12px] border-2 border-white/80 bg-transparent px-6 py-3.5 font-semibold text-white transition hover:bg-white/10">
+            <button className="inline-flex items-center gap-2 rounded-[12px] border-2 border-[#6d5cf6] bg-white px-6 py-3.5 font-semibold text-[#6d5cf6] transition hover:bg-[#f0edff] dark:border-[#8b7bff] dark:bg-transparent dark:text-white dark:hover:bg-white/5">
               <Play className="h-4 w-4" /> {t('home.watchDemo')}
             </button>
           </div>
