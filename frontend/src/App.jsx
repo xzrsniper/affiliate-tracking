@@ -17,6 +17,8 @@ import ConfirmPasswordChange from './pages/ConfirmPasswordChange.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
 import HomeNew from './pages/HomeNew.jsx';
 import ConsoleCode from './pages/ConsoleCode.jsx';
+import Blog from './pages/Blog.jsx';
+import BlogPost from './pages/BlogPost.jsx';
 
 // Component to redirect pixel.js to API endpoint
 function PixelJsRedirect() {
@@ -68,6 +70,14 @@ function AppRoutes() {
         <Route
           path="/guide"
           element={<Guide />}
+        />
+        <Route
+          path="/blog"
+          element={<Blog />}
+        />
+        <Route
+          path="/blog/:slug"
+          element={<BlogPost />}
         />
         <Route
           path="/home-new"

@@ -8,11 +8,19 @@ import {
   Eye,
   X,
   Check,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  Users,
+  Plus,
+  Trash2,
+  Upload
 } from 'lucide-react';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
+  const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,9 +31,121 @@ export default function Admin() {
   const [updating, setUpdating] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
 
+  // Blog state
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [blogLoading, setBlogLoading] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [blogForm, setBlogForm] = useState({ title: '', slug: '', excerpt: '', body: '', featured_image: '', author_name: '', publish: true });
+  const [blogSaving, setBlogSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showBlogForm, setShowBlogForm] = useState(false);
+
   useEffect(() => {
     fetchUsers();
   }, [searchTerm]);
+
+  useEffect(() => {
+    if (activeTab === 'blog') fetchBlogPosts();
+  }, [activeTab]);
+
+  const fetchBlogPosts = async () => {
+    setBlogLoading(true);
+    try {
+      const res = await api.get('/api/blog/admin/posts');
+      if (res.data?.success) setBlogPosts(res.data.posts || []);
+    } catch (e) {
+      setError(e.response?.data?.error || t('adminBlog.listTitle'));
+    } finally {
+      setBlogLoading(false);
+    }
+  };
+
+  const openNewPost = () => {
+    setEditingPost(null);
+    setShowBlogForm(true);
+    setBlogForm({ title: '', slug: '', excerpt: '', body: '', featured_image: '', author_name: '', publish: true });
+  };
+
+  const openEditPost = (post) => {
+    setEditingPost(post);
+    setShowBlogForm(true);
+    setBlogForm({
+      title: post.title || '',
+      slug: post.slug || '',
+      excerpt: post.excerpt || '',
+      body: post.body || '',
+      featured_image: post.featured_image || '',
+      author_name: post.author_name || '',
+      publish: !!post.published_at
+    });
+  };
+
+  const handleBlogImageUpload = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      const res = await api.post('/api/blog/admin/upload-image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (res.data?.url) setBlogForm((f) => ({ ...f, featured_image: res.data.url }));
+    } catch (err) {
+      setError(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleBlogSave = async () => {
+    if (!blogForm.title.trim()) {
+      setError(t('adminBlog.title') + ' required');
+      return;
+    }
+    setBlogSaving(true);
+    setError('');
+    try {
+      if (editingPost) {
+        await api.put(`/api/blog/admin/posts/${editingPost.id}`, {
+          ...blogForm,
+          publish: blogForm.publish
+        });
+      } else {
+        await api.post('/api/blog/admin/posts', {
+          ...blogForm,
+          publish: blogForm.publish
+        });
+      }
+      setEditingPost(null);
+      setShowBlogForm(false);
+      setBlogForm({ title: '', slug: '', excerpt: '', body: '', featured_image: '', author_name: '', publish: true });
+      fetchBlogPosts();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Save failed');
+    } finally {
+      setBlogSaving(false);
+    }
+  };
+
+  const handleBlogDelete = async (id) => {
+    if (!window.confirm(t('adminBlog.deleteConfirm'))) return;
+    try {
+      await api.delete(`/api/blog/admin/posts/${id}`);
+      fetchBlogPosts();
+      if (editingPost?.id === id) {
+        setEditingPost(null);
+        setShowBlogForm(false);
+        setBlogForm({ title: '', slug: '', excerpt: '', body: '', featured_image: '', author_name: '', publish: true });
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Delete failed');
+    }
+  };
+
+  const blogImageSrc = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${API_BASE.replace(/\/$/, '')}${url.startsWith('/') ? url : '/' + url}`;
+  };
 
   const fetchUsers = async () => {
     try {
@@ -158,8 +278,8 @@ export default function Admin() {
       <div className="max-w-none">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/80 dark:bg-slate-900/70 px-5 py-4 backdrop-blur">
           <div>
-            <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('admin.title')}</h1>
-            <p className="text-sm text-slate-600">{t('admin.subtitle')}</p>
+            <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">{t('admin.title')}</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t('admin.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
             <button className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">{t('admin.exportCsv')}</button>
@@ -167,7 +287,116 @@ export default function Admin() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <div className="flex gap-2 mb-5 border-b border-slate-200 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'users' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <Users className="w-4 h-4 inline mr-1.5" /> {t('admin.users')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('blog')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'blog' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <FileText className="w-4 h-4 inline mr-1.5" /> {t('adminBlog.tab')}
+          </button>
+        </div>
+
+        {activeTab === 'blog' && (
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('adminBlog.listTitle')}</h2>
+              <button type="button" onClick={openNewPost} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-700 text-white text-sm font-semibold hover:bg-violet-800">
+                <Plus className="w-4 h-4" /> {t('adminBlog.newPost')}
+              </button>
+            </div>
+            {(showBlogForm || editingPost) && (
+              <div className="mb-6 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 space-y-4">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-200">{editingPost ? t('adminBlog.editPost') : t('adminBlog.newPost')}</h3>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.title')}</label>
+                  <input type="text" value={blogForm.title} onChange={(e) => setBlogForm((f) => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" placeholder={t('adminBlog.title')} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.slug')}</label>
+                  <input type="text" value={blogForm.slug} onChange={(e) => setBlogForm((f) => ({ ...f, slug: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" placeholder="url-slug" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.excerpt')}</label>
+                  <textarea value={blogForm.excerpt} onChange={(e) => setBlogForm((f) => ({ ...f, excerpt: e.target.value }))} rows={2} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" placeholder={t('adminBlog.excerpt')} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.body')}</label>
+                  <textarea value={blogForm.body} onChange={(e) => setBlogForm((f) => ({ ...f, body: e.target.value }))} rows={10} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-sm" placeholder="<p>HTML content</p>" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.featuredImage')}</label>
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                      <Upload className="w-4 h-4" /> {uploadingImage ? t('common.loading') : t('adminBlog.uploadImage')}
+                      <input type="file" accept="image/*" className="hidden" onChange={handleBlogImageUpload} disabled={uploadingImage} />
+                    </label>
+                    {blogForm.featured_image && (
+                      <div className="flex items-center gap-2">
+                        <img src={blogImageSrc(blogForm.featured_image)} alt="" className="h-12 w-20 object-cover rounded-lg" />
+                        <button type="button" onClick={() => setBlogForm((f) => ({ ...f, featured_image: '' }))} className="text-red-600 text-sm">{t('common.delete')}</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.authorName')}</label>
+                  <input type="text" value={blogForm.author_name} onChange={(e) => setBlogForm((f) => ({ ...f, author_name: e.target.value }))} className="w-full max-w-xs px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="blog-publish" checked={blogForm.publish} onChange={(e) => setBlogForm((f) => ({ ...f, publish: e.target.checked }))} className="rounded border-slate-300 text-violet-600" />
+                  <label htmlFor="blog-publish" className="text-sm text-slate-700 dark:text-slate-300">{t('adminBlog.publish')}</label>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={handleBlogSave} disabled={blogSaving} className="px-4 py-2 rounded-lg bg-violet-700 text-white font-semibold hover:bg-violet-800 disabled:opacity-50">{blogSaving ? t('common.loading') : t('adminBlog.save')}</button>
+                  <button type="button" onClick={() => { setEditingPost(null); setShowBlogForm(false); setBlogForm({ title: '', slug: '', excerpt: '', body: '', featured_image: '', author_name: '', publish: true }); }} className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300">{t('adminBlog.cancel')}</button>
+                </div>
+              </div>
+            )}
+            {blogLoading ? (
+              <p className="text-slate-500 py-4">{t('common.loading')}</p>
+            ) : (
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      <th className="text-left px-4 py-3 font-semibold">{t('adminBlog.title')}</th>
+                      <th className="text-left px-4 py-3 font-semibold">{t('adminBlog.created')}</th>
+                      <th className="text-left px-4 py-3 font-semibold">Status</th>
+                      <th className="text-left px-4 py-3 font-semibold">{t('admin.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {blogPosts.map((p) => (
+                      <tr key={p.id} className="border-t border-slate-100 dark:border-slate-800">
+                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{p.title}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{new Date(p.created_at).toLocaleDateString(i18n.language === 'uk' ? 'uk-UA' : 'en-US')}</td>
+                        <td className="px-4 py-3">{p.published_at ? <span className="text-green-600">{t('adminBlog.published')}</span> : <span className="text-amber-600">{t('adminBlog.draft')}</span>}</td>
+                        <td className="px-4 py-3">
+                          <a href={`/blog/${p.slug}`} target="_blank" rel="noopener noreferrer" className="text-violet-600 dark:text-violet-400 mr-2 hover:underline">View</a>
+                          <button type="button" onClick={() => openEditPost(p)} className="text-slate-600 dark:text-slate-400 hover:underline mr-2">{t('common.edit')}</button>
+                          <button type="button" onClick={() => handleBlogDelete(p.id)} className="text-red-600 dark:text-red-400 hover:underline">{t('adminBlog.delete')}</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {blogPosts.length === 0 && <p className="p-6 text-slate-500 text-center">{t('blog.noPosts')}</p>}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'users' && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-violet-100 flex items-center justify-center text-lg">👥</div>
             <div>
@@ -350,8 +579,9 @@ export default function Admin() {
             </div>
           </div>
         )}
+          </>
+        )}
 
-        {/* View User Modal */}
         {viewingUser && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-violet-100">

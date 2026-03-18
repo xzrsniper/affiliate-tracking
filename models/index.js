@@ -7,6 +7,7 @@ import PageContent from './PageContent.js';
 import PageStructure from './PageStructure.js';
 import TrackerVerification from './TrackerVerification.js';
 import LinkClick from './LinkClick.js';
+import BlogPost from './BlogPost.js';
 
 // Define Associations
 
@@ -68,7 +69,8 @@ export {
   PageContent,
   PageStructure,
   TrackerVerification,
-  LinkClick
+  LinkClick,
+  BlogPost
 };
 
 export default {
@@ -80,5 +82,6 @@ export default {
   PageContent,
   PageStructure,
   TrackerVerification,
-  LinkClick
+  LinkClick,
+  BlogPost
 };

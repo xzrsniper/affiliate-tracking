@@ -761,6 +761,39 @@
     "localhostCheckAlert": "Automatic check is not available for localhost sites. Make sure the tracking code is installed on the site and use a public domain for verification.",
     "checkError": "Failed to verify site. Make sure the site is accessible from the internet."
   },
+  "blog": {
+    "title": "Lehko Blog",
+    "popular": "Popular",
+    "latest": "Latest",
+    "noPosts": "No posts yet.",
+    "errorLoad": "Failed to load posts.",
+    "notFound": "Post not found.",
+    "backToBlog": "Back to blog",
+    "backHome": "Home",
+    "ctaText": "Hosting for sites, VPS, domain registration.",
+    "ctaButton": "Go"
+  },
+  "adminBlog": {
+    "tab": "Blog",
+    "listTitle": "Posts",
+    "newPost": "New post",
+    "editPost": "Edit post",
+    "title": "Title",
+    "slug": "URL (slug)",
+    "excerpt": "Excerpt",
+    "body": "Body (HTML)",
+    "featuredImage": "Featured image",
+    "authorName": "Author",
+    "publish": "Publish immediately",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "draft": "Draft",
+    "published": "Published",
+    "uploadImage": "Upload image",
+    "created": "Created",
+    "deleteConfirm": "Delete this post?"
+  },
   "app": {
     "errorTitle": "Application error",
     "errorLoading": "Error loading application"
