@@ -30,7 +30,8 @@ import {
   ChevronUp,
   Search,
   ShoppingCart,
-  Clock
+  Clock,
+  FileSpreadsheet
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -303,6 +304,85 @@ export default function Dashboard() {
   };
 
   const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
+
+  // Export selected (or all filtered) links to CSV for Google Sheets
+  const escapeCsvCell = (val) => {
+    const s = String(val ?? '');
+    if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+
+  const buildReportCSV = (linksToExport) => {
+    const isUk = i18n.language === 'uk';
+    const createdAt = new Date();
+    const dateStr = createdAt.toLocaleDateString(isUk ? 'uk-UA' : 'en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    const headers = [
+      t('dashboard.tableLinkUrl'),
+      t('dashboard.tableSource'),
+      t('dashboard.tableClicks'),
+      t('dashboard.tableUnique'),
+      t('dashboard.tableCart'),
+      t('dashboard.tableAvgTime'),
+      t('dashboard.tableBounceRate'),
+      t('dashboard.tableAvgCheck'),
+      t('dashboard.tableRevenueSales', 'Дохід (оплата)'),
+      t('dashboard.tableRevenueLeads', 'Дохід (ліди)')
+    ];
+    const rows = [
+      [t('dashboard.exportReportBranding', 'Lehko'), t('dashboard.exportReportCreated', 'Звіт створено') + ': ' + dateStr],
+      [],
+      headers
+    ];
+    linksToExport.forEach((link) => {
+      const clicks = link.stats?.total_clicks || 0;
+      const unique = link.stats?.unique_clicks || 0;
+      const carts = link.stats?.carts || 0;
+      const avgTime = link.stats?.avg_session_seconds || 0;
+      const bounceRate = link.stats?.bounce_rate || 0;
+      const averageCheck = link.stats?.average_check || 0;
+      const revenue = link.stats?.sales_revenue ?? 0;
+      const leadRevenue = link.stats?.lead_revenue ?? 0;
+      const avgTimeStr = formatDuration(avgTime);
+      const bounceStr = formatPercent(bounceRate);
+      const currency = isUk ? '₴' : '$';
+      rows.push([
+        (link.name || link.unique_code || '') + ' | ' + (link.tracking_url || ''),
+        getSourceTypeLabel(link.source_type),
+        String(clicks),
+        String(unique),
+        String(carts),
+        avgTimeStr,
+        bounceStr,
+        averageCheck ? `${averageCheck.toLocaleString()} ${currency}` : '',
+        revenue ? `${currency}${revenue.toLocaleString()}` : '',
+        leadRevenue ? `${currency}${leadRevenue.toLocaleString()}` : ''
+      ]);
+    });
+    const csvContent = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
+    return '\uFEFF' + csvContent; // BOM for UTF-8 in Excel/Sheets
+  };
+
+  const handleExportToSheets = () => {
+    const toExport = selectedLinkIds.length > 0
+      ? sortedFilteredLinks.filter((link) => selectedLinkIds.includes(link.id))
+      : sortedFilteredLinks;
+    if (toExport.length === 0) return;
+    const csv = buildReportCSV(toExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const now = new Date();
+    const filename = `Lehko_report_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.csv`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 
   const sourceFilteredLinks = sourceFilter
     ? links.filter((link) => link.source_type === sourceFilter)
@@ -1015,6 +1095,18 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
                   <h3 className="text-2xl font-bold text-slate-900">{t('dashboard.linksSectionTitle')}</h3>
                   <div className="flex items-center gap-2">
+                    {sortedFilteredLinks.length > 0 && (
+                      <button
+                        onClick={handleExportToSheets}
+                        className="px-4 py-2 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 font-semibold hover:bg-violet-100 transition-colors flex items-center gap-2"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        <span>{t('dashboard.exportToSheets')}</span>
+                        {selectedLinkIds.length > 0 && (
+                          <span className="text-violet-500">({selectedLinkIds.length})</span>
+                        )}
+                      </button>
+                    )}
                     {selectedLinkIds.length > 0 && (
                       <button
                         onClick={() => openDeleteConfirmation(selectedLinkIds)}
