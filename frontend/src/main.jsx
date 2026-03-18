@@ -6,6 +6,22 @@ import App from './App.jsx'
 
 console.log('🚀 Starting React app...');
 
+function loadGtm(containerId) {
+  if (!containerId) return;
+  if (window.__lehkoGtmLoaded) return;
+  window.__lehkoGtmLoaded = true;
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(containerId)}`;
+  document.head.appendChild(script);
+}
+
+loadGtm(import.meta.env.VITE_GTM_CONTAINER_ID || '');
+
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {
