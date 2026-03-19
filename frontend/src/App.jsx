@@ -19,6 +19,9 @@ import HomeNew from './pages/HomeNew.jsx';
 import ConsoleCode from './pages/ConsoleCode.jsx';
 import Blog from './pages/Blog.jsx';
 import BlogPost from './pages/BlogPost.jsx';
+import Terms from './pages/Terms.jsx';
+import Privacy from './pages/Privacy.jsx';
+import Refund from './pages/Refund.jsx';
 
 // Component to redirect pixel.js to API endpoint
 function PixelJsRedirect() {
@@ -78,6 +81,18 @@ function AppRoutes() {
         <Route
           path="/blog/:slug"
           element={<BlogPost />}
+        />
+        <Route
+          path="/terms"
+          element={<Terms />}
+        />
+        <Route
+          path="/privacy"
+          element={<Privacy />}
+        />
+        <Route
+          path="/refund"
+          element={<Refund />}
         />
         <Route
           path="/home-new"

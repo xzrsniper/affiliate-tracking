@@ -328,6 +328,9 @@ export default function Home() {
             <a href="#features" className="hover:text-slate-800 dark:hover:text-slate-100">{t('home.navFeatures')}</a>
             <a href="#pricing" className="hover:text-slate-800 dark:hover:text-slate-100">{t('home.navPricing')}</a>
             <Link to="/guide" className="hover:text-slate-800 dark:hover:text-slate-100">{t('common.documentation')}</Link>
+            <Link to="/terms" className="hover:text-slate-800 dark:hover:text-slate-100">Terms</Link>
+            <Link to="/privacy" className="hover:text-slate-800 dark:hover:text-slate-100">Privacy</Link>
+            <Link to="/refund" className="hover:text-slate-800 dark:hover:text-slate-100">Refund</Link>
             <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800 dark:hover:text-slate-100">{t('home.navSupport')}</a>
           </div>
           <span>© 2026 TrackFlow. {t('common.allRightsReserved')}</span>
