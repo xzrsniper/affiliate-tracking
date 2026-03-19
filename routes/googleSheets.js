@@ -67,7 +67,7 @@ router.get('/connect', authenticate, async (req, res) => {
 
   const scopes = [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive'
+    'https://www.googleapis.com/auth/drive.file'
   ];
 
   const url = oauth2Client.generateAuthUrl({
