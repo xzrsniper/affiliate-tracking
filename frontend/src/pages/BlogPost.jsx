@@ -23,6 +23,15 @@ function readingTime(text) {
   return Math.max(1, Math.ceil(words / 200));
 }
 
+function decodeHtmlEntities(maybeEscapedHtml) {
+  if (!maybeEscapedHtml) return '';
+  // If user saved body as "&lt;h1&gt;" etc, decode it so it can be rendered.
+  if (!maybeEscapedHtml.includes('&lt;') && !maybeEscapedHtml.includes('&gt;')) return maybeEscapedHtml;
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = maybeEscapedHtml;
+  return textarea.value || '';
+}
+
 export default function BlogPost() {
   const { slug } = useParams();
   const { t, i18n } = useTranslation();
@@ -73,7 +82,8 @@ export default function BlogPost() {
     );
   }
 
-  const readMin = readingTime(post.body);
+  const decodedBody = decodeHtmlEntities(post.body);
+  const readMin = readingTime(decodedBody);
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -107,7 +117,7 @@ export default function BlogPost() {
 
         <div
           className="mt-6 prose prose-slate dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-violet-600 prose-img:rounded-xl"
-          dangerouslySetInnerHTML={{ __html: post.body || '' }}
+          dangerouslySetInnerHTML={{ __html: decodedBody || '' }}
         />
       </article>
 
