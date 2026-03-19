@@ -234,6 +234,15 @@ export default function Settings() {
                     className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600"
                   />
                 </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="mb-3 text-sm font-semibold text-slate-700">Юридичні документи</p>
+                  <div className="flex flex-wrap gap-2">
+                    <a href="/terms" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">Terms</a>
+                    <a href="/privacy" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">Privacy</a>
+                    <a href="/refund" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">Refund</a>
+                  </div>
+                </div>
               </div>
             </div>
 

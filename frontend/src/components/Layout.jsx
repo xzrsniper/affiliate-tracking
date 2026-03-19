@@ -74,6 +74,27 @@ export default function Layout({ children }) {
           <div className="px-2 pt-2 pb-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{t('layout.resources')}</p>
           </div>
+          <Link
+            to="/terms"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Terms</span>
+          </Link>
+          <Link
+            to="/privacy"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Privacy</span>
+          </Link>
+          <Link
+            to="/refund"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Refund</span>
+          </Link>
           <a
             href="/guide"
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
