@@ -21,27 +21,49 @@ const CONTENT_PAGE = 'home';
 const CONTENT_FIELDS = [
   { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
   { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
-  { section: 'hero', key: 'subline', label: 'Hero Subline', type: 'textarea' },
-  { section: 'hero', key: 'subline2', label: 'Hero Subline 2', type: 'textarea' },
-  { section: 'hero', key: 'cta_text', label: 'Hero CTA Button', type: 'text' },
-  { section: 'hero', key: 'watch_demo', label: 'Hero Demo Button', type: 'text' },
-  { section: 'features', key: 'title', label: 'Features Title', type: 'text' },
-  { section: 'features', key: 'subtitle', label: 'Features Subtitle', type: 'textarea' },
-  { section: 'money', key: 'title', label: 'Revenue Block Title', type: 'text' },
-  { section: 'money', key: 'description', label: 'Revenue Block Description', type: 'textarea' },
-  { section: 'integration', key: 'title', label: 'Integration Title', type: 'text' },
-  { section: 'integration', key: 'description', label: 'Integration Description', type: 'textarea' },
-  { section: 'why', key: 'title', label: 'Why Us Title', type: 'text' },
-  { section: 'why', key: 'subtitle', label: 'Why Us Subtitle', type: 'textarea' },
-  { section: 'pricing', key: 'title', label: 'Pricing Title', type: 'text' },
-  { section: 'cta', key: 'title', label: 'Bottom CTA Title', type: 'text' },
-  { section: 'cta', key: 'description', label: 'Bottom CTA Description', type: 'textarea' }
+  { section: 'hero', key: 'subline', label: 'Hero subline', type: 'textarea' },
+  { section: 'hero', key: 'subline2', label: 'Hero subline 2', type: 'textarea' },
+  { section: 'hero', key: 'cta_text', label: 'Hero CTA button', type: 'text' },
+  { section: 'hero', key: 'watch_demo', label: 'Hero demo button', type: 'text' },
+  { section: 'features', key: 'title', label: 'Features title', type: 'text' },
+  { section: 'features', key: 'subtitle', label: 'Features subtitle', type: 'textarea' },
+  { section: 'money', key: 'title', label: 'Revenue block title', type: 'text' },
+  { section: 'money', key: 'description', label: 'Revenue block description', type: 'textarea' },
+  { section: 'integration', key: 'title', label: 'Integration title', type: 'text' },
+  { section: 'integration', key: 'description', label: 'Integration description', type: 'textarea' },
+  { section: 'why', key: 'title', label: 'Why us title', type: 'text' },
+  { section: 'why', key: 'subtitle', label: 'Why us subtitle', type: 'textarea' },
+  { section: 'pricing', key: 'title', label: 'Pricing title', type: 'text' },
+  { section: 'cta', key: 'title', label: 'Bottom CTA title', type: 'text' },
+  { section: 'cta', key: 'description', label: 'Bottom CTA description', type: 'textarea' }
 ];
 
 const contentFieldId = (section, key) => `${section}.${key}`;
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
+  const getDefaultContentValue = (section, key) => {
+    const map = {
+      'seo.title': 'LehkoTrack - Affiliate Tracking Platform',
+      'seo.description': t('home.heroSubline2'),
+      'hero.subline': t('home.heroSubline'),
+      'hero.subline2': t('home.heroSubline2'),
+      'hero.cta_text': t('home.heroCta'),
+      'hero.watch_demo': t('home.watchDemo'),
+      'features.title': t('home.featuresSectionTitle'),
+      'features.subtitle': t('home.featuresSectionSubtitle'),
+      'money.title': t('home.moneyFromTitle'),
+      'money.description': t('home.moneyFromDesc'),
+      'integration.title': t('home.integration5minTitle'),
+      'integration.description': t('home.integration5minDesc'),
+      'why.title': t('home.whyTitle'),
+      'why.subtitle': t('home.whySubtitle'),
+      'pricing.title': t('home.pricingTitle'),
+      'cta.title': t('home.readyScale'),
+      'cta.description': t('home.register30secCardless')
+    };
+    return map[contentFieldId(section, key)] || '';
+  };
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +87,12 @@ export default function Admin() {
   const [contentSaving, setContentSaving] = useState(false);
   const [contentSuccess, setContentSuccess] = useState('');
   const [contentForm, setContentForm] = useState(
-    Object.fromEntries(CONTENT_FIELDS.map((field) => [contentFieldId(field.section, field.key), '']))
+    Object.fromEntries(
+      CONTENT_FIELDS.map((field) => [
+        contentFieldId(field.section, field.key),
+        getDefaultContentValue(field.section, field.key)
+      ])
+    )
   );
 
   useEffect(() => {
@@ -83,7 +110,12 @@ export default function Admin() {
     try {
       const res = await api.get(`/api/page-content/${CONTENT_PAGE}/all`);
       const records = res.data?.contents || [];
-      const nextForm = Object.fromEntries(CONTENT_FIELDS.map((field) => [contentFieldId(field.section, field.key), '']));
+      const nextForm = Object.fromEntries(
+        CONTENT_FIELDS.map((field) => [
+          contentFieldId(field.section, field.key),
+          getDefaultContentValue(field.section, field.key)
+        ])
+      );
       records.forEach((item) => {
         const id = contentFieldId(item.section, item.key);
         if (Object.prototype.hasOwnProperty.call(nextForm, id)) {
@@ -483,7 +515,7 @@ export default function Admin() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Real-time Content Editor</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Edit homepage texts, title and description without deploy.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Home page only: current texts are prefilled, edit and publish without deploy.</p>
               </div>
               <button
                 type="button"
