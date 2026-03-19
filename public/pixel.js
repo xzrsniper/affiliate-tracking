@@ -119,8 +119,10 @@
     try {
       if (navigator.sendBeacon) {
         var blob = new Blob([payload], { type: 'application/json' });
-        navigator.sendBeacon(url, blob);
-        return;
+        // sendBeacon може повернути false (не вдалося поставити в чергу),
+        // тоді fallback через fetch має спрацювати.
+        var queued = navigator.sendBeacon(url, blob);
+        if (queued) return;
       }
     } catch (e) { /* fallback below */ }
 
