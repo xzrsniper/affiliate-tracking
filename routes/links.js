@@ -4,6 +4,7 @@ import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
+import { google } from 'googleapis';
 
 const router = express.Router();
 
@@ -83,6 +84,78 @@ function buildRangeCondition(range = '7d') {
 
 // All routes require authentication
 router.use(authenticate);
+
+/**
+ * POST /api/links/export-sheets
+ * Create a Google Sheet from prepared report rows and return URL
+ */
+router.post('/export-sheets', async (req, res, next) => {
+  try {
+    const saEmail = process.env.GOOGLE_SA_EMAIL;
+    const saPrivateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
+
+    if (!saEmail || !saPrivateKey) {
+      return res.status(400).json({
+        error: 'Google Sheets integration is not configured on server'
+      });
+    }
+
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'rows are required' });
+    }
+
+    const normalizedRows = rows.map((row) =>
+      Array.isArray(row) ? row.map((cell) => (cell == null ? '' : String(cell))) : [String(row ?? '')]
+    );
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const title = `Lehko_report_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+
+    const auth = new google.auth.JWT({
+      email: saEmail,
+      key: saPrivateKey.replace(/\\n/g, '\n'),
+      scopes: [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive.file'
+      ]
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const createResponse = await sheets.spreadsheets.create({
+      requestBody: {
+        properties: { title },
+        sheets: [{ properties: { title: 'Report' } }]
+      }
+    });
+
+    const spreadsheetId = createResponse.data.spreadsheetId;
+    const spreadsheetUrl = createResponse.data.spreadsheetUrl;
+
+    if (!spreadsheetId || !spreadsheetUrl) {
+      return res.status(500).json({ error: 'Failed to create spreadsheet' });
+    }
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: 'Report!A1',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: normalizedRows
+      }
+    });
+
+    res.json({
+      success: true,
+      spreadsheetId,
+      url: spreadsheetUrl
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * POST /api/links/create

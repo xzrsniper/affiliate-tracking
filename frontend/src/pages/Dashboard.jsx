@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
+  const [exportingSheets, setExportingSheets] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null); // Track last update time
   const [hasFetched, setHasFetched] = useState(true); // Data loads automatically
   const [chartData, setChartData] = useState([]); // Time-series data for chart
@@ -305,14 +306,8 @@ export default function Dashboard() {
 
   const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
 
-  // Export selected (or all filtered) links to CSV for Google Sheets
-  const escapeCsvCell = (val) => {
-    const s = String(val ?? '');
-    if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-
-  const buildReportCSV = (linksToExport) => {
+  // Export selected (or all filtered) links directly to Google Sheets
+  const buildReportRows = (linksToExport) => {
     const isUk = i18n.language === 'uk';
     const createdAt = new Date();
     const dateStr = createdAt.toLocaleDateString(isUk ? 'uk-UA' : 'en-GB', {
@@ -364,24 +359,33 @@ export default function Dashboard() {
         leadRevenue ? `${currency}${leadRevenue.toLocaleString()}` : ''
       ]);
     });
-    const csvContent = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
-    return '\uFEFF' + csvContent; // BOM for UTF-8 in Excel/Sheets
+    return rows;
   };
 
-  const handleExportToSheets = () => {
+  const handleExportToSheets = async () => {
     const toExport = selectedLinkIds.length > 0
       ? sortedFilteredLinks.filter((link) => selectedLinkIds.includes(link.id))
       : sortedFilteredLinks;
-    if (toExport.length === 0) return;
-    const csv = buildReportCSV(toExport);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const now = new Date();
-    const filename = `Lehko_report_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.csv`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    if (toExport.length === 0 || exportingSheets) return;
+
+    try {
+      setExportingSheets(true);
+      setError('');
+      const rows = buildReportRows(toExport);
+      const res = await api.post('/api/links/export-sheets', { rows });
+      const sheetUrl = res.data?.url;
+      if (!sheetUrl) {
+        throw new Error('Google Sheets URL was not returned');
+      }
+
+      window.open(sheetUrl, '_blank', 'noopener,noreferrer');
+      setSuccessMessage(i18n.language === 'uk' ? 'Google таблицю створено та відкрито.' : 'Google Sheet created and opened.');
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || (i18n.language === 'uk' ? 'Не вдалося створити Google таблицю.' : 'Failed to create Google Sheet.'));
+    } finally {
+      setExportingSheets(false);
+    }
   };
 
   const sourceFilteredLinks = sourceFilter
@@ -1098,10 +1102,11 @@ export default function Dashboard() {
                     {sortedFilteredLinks.length > 0 && (
                       <button
                         onClick={handleExportToSheets}
+                        disabled={exportingSheets}
                         className="px-4 py-2 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 font-semibold hover:bg-violet-100 transition-colors flex items-center gap-2"
                       >
                         <FileSpreadsheet className="w-4 h-4" />
-                        <span>{t('dashboard.exportToSheets')}</span>
+                        <span>{exportingSheets ? (i18n.language === 'uk' ? 'Експорт...' : 'Export...') : t('dashboard.exportToSheets')}</span>
                         {selectedLinkIds.length > 0 && (
                           <span className="text-violet-500">({selectedLinkIds.length})</span>
                         )}
