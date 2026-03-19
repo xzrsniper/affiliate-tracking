@@ -121,17 +121,60 @@ router.post('/export-sheets', async (req, res, next) => {
     const pad = (n) => String(n).padStart(2, '0');
     const title = `Lehko_report_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
 
+    const folderId = process.env.GOOGLE_SHEETS_FOLDER_ID || '';
+
     const auth = new google.auth.JWT({
       email: saEmail,
       key: saPrivateKey.replace(/\\n/g, '\n'),
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.file'
+        'https://www.googleapis.com/auth/drive.file',
+        'https://www.googleapis.com/auth/drive'
       ]
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
 
+    // If folder is provided, create spreadsheet directly inside that Drive folder.
+    // This avoids "caller does not have permission" when My Drive root is not accessible to service account.
+    if (folderId) {
+      const drive = google.drive({ version: 'v3', auth });
+      const createdFile = await drive.files.create({
+        requestBody: {
+          name: title,
+          mimeType: 'application/vnd.google-apps.spreadsheet',
+          parents: [folderId]
+        },
+        fields: 'id,webViewLink'
+      });
+
+      const spreadsheetId = createdFile.data.id;
+      const spreadsheetUrl = createdFile.data.webViewLink;
+
+      if (!spreadsheetId || !spreadsheetUrl) {
+        return res.status(500).json({ error: 'Failed to create spreadsheet in folder' });
+      }
+
+      // Default first sheet name can vary by locale; fetch actual title.
+      const meta = await sheets.spreadsheets.get({
+        spreadsheetId,
+        fields: 'sheets.properties.title'
+      });
+      const firstSheetTitle = meta.data.sheets?.[0]?.properties?.title || 'Sheet1';
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${firstSheetTitle}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: normalizedRows
+        }
+      });
+
+      return res.json({ success: true, spreadsheetId, url: spreadsheetUrl });
+    }
+
+    // Fallback: create spreadsheet via Sheets API (defaults to My Drive).
     const createResponse = await sheets.spreadsheets.create({
       requestBody: {
         properties: { title },
@@ -155,11 +198,7 @@ router.post('/export-sheets', async (req, res, next) => {
       }
     });
 
-    res.json({
-      success: true,
-      spreadsheetId,
-      url: spreadsheetUrl
-    });
+    res.json({ success: true, spreadsheetId, url: spreadsheetUrl });
   } catch (error) {
     next(error);
   }
