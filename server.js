@@ -20,6 +20,7 @@ import websiteRoutes from './routes/websites.js';
 import pageContentRoutes from './routes/pageContent.js';
 import pageStructureRoutes from './routes/pageStructure.js';
 import blogRoutes from './routes/blog.js';
+import googleSheetsRoutes from './routes/googleSheets.js';
 
 dotenv.config();
 
@@ -112,6 +113,7 @@ app.use('/api/websites', websiteRoutes);
 app.use('/api/page-content', pageContentRoutes);
 app.use('/api/page-structure', pageStructureRoutes);
 app.use('/api/blog', blogRoutes);
+app.use('/api/google-sheets', googleSheetsRoutes);
 
 // Сторінка «Код для консолі» — працює на бекенді, не залежить від версії фронту на хостингу
 app.get('/console-code', (req, res) => {

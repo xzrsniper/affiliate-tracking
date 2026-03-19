@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../config/api.js';
-import { Settings as SettingsIcon, Lock, Check, X, FileText, Shield, RotateCcw } from 'lucide-react';
+import { Settings as SettingsIcon, Lock, Check, X, FileText, Shield, RotateCcw, FileSpreadsheet } from 'lucide-react';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -20,6 +20,11 @@ export default function Settings() {
   const [passwordCheckEmail, setPasswordCheckEmail] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState('');
+
   // Fetch fresh user info on mount to get accurate has_password
   useEffect(() => {
     api.get('/api/auth/me').then(res => {
@@ -29,6 +34,26 @@ export default function Settings() {
       }
     }).catch(() => {});
   }, []);
+
+  // Google Sheets OAuth status
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleConnectedParam = params.get('googleConnected');
+    if (googleConnectedParam === '1') {
+      setGoogleError('');
+      // Hide any previous connection error
+      setGoogleConnected(true);
+    } else if (googleConnectedParam === '0') {
+      setGoogleError(i18n.language === 'uk' ? 'Google підключення не вдалося.' : 'Google connection failed.');
+    }
+
+    api.get('/api/google-sheets/status')
+      .then((res) => {
+        setGoogleConnected(!!res.data?.connected);
+        setGoogleEmail(res.data?.email || '');
+      })
+      .catch(() => {});
+  }, [i18n.language, user?.id]);
 
   const handlePasswordChange = (e) => {
     setPasswordForm({
@@ -139,6 +164,43 @@ export default function Settings() {
       </div>
     </div>
   );
+
+  const handleConnectGoogle = async () => {
+    setGoogleError('');
+    setGoogleLoading(true);
+    try {
+      const res = await api.get('/api/google-sheets/connect');
+      const authUrl = res.data?.url;
+      if (!authUrl) throw new Error('Missing auth url');
+      window.location.href = authUrl;
+    } catch (err) {
+      const msg = i18n.language === 'uk'
+        ? (err.response?.data?.error === 'GOOGLE_SHEETS_OAUTH_NOT_CONFIGURED'
+          ? 'Google OAuth не налаштовано на сервері.'
+          : 'Не вдалося запустити підключення Google. Спробуйте пізніше.')
+        : 'Failed to start Google connection. Try again later.';
+      setGoogleError(msg);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    setGoogleError('');
+    setGoogleLoading(true);
+    try {
+      await api.post('/api/google-sheets/disconnect');
+      setGoogleConnected(false);
+      setGoogleEmail('');
+    } catch (err) {
+      const msg = i18n.language === 'uk'
+        ? 'Не вдалося відключити Google. Спробуйте пізніше.'
+        : 'Failed to disconnect Google. Try again later.';
+      setGoogleError(msg);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   return (
     <Layout>
@@ -384,6 +446,72 @@ export default function Settings() {
                     </div>
                   </form>
                 )}
+              </div>
+            </div>
+
+            <div className="mt-6 overflow-hidden rounded-xl border border-violet-200 bg-white dark:border-slate-700 dark:bg-slate-900/80">
+              <div className="flex items-center space-x-4 border-b border-slate-100 px-6 py-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
+                  <FileSpreadsheet className="h-6 w-6 text-violet-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    {i18n.language === 'uk' ? 'Підключення Google Drive' : 'Google Drive connection'}
+                  </h2>
+                  <p className="text-slate-500 dark:text-slate-400">
+                    {i18n.language === 'uk'
+                      ? 'Експорт звітів створюватиме таблиці у вашому акаунті Google.'
+                      : 'Reports export will create spreadsheets in your Google account.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {googleError && (
+                  <div className="mb-4 flex items-center space-x-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+                    <X className="h-5 w-5" />
+                    <span>{googleError}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      {googleConnected
+                        ? (i18n.language === 'uk' ? 'Підключено' : 'Connected')
+                        : (i18n.language === 'uk' ? 'Не підключено' : 'Not connected')}
+                    </p>
+                    {googleConnected && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        {googleEmail || ''}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {!googleConnected ? (
+                      <button
+                        type="button"
+                        onClick={handleConnectGoogle}
+                        disabled={googleLoading}
+                        className="flex items-center space-x-2 rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition-all hover:bg-violet-700 disabled:opacity-50"
+                      >
+                        <FileSpreadsheet className="h-5 w-5" />
+                        <span>{googleLoading ? (i18n.language === 'uk' ? 'Підключення...' : 'Connecting...') : (i18n.language === 'uk' ? 'Підключити Google' : 'Connect Google')}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleDisconnectGoogle}
+                        disabled={googleLoading}
+                        className="flex items-center space-x-2 rounded-xl border border-violet-300 bg-violet-50 px-5 py-3 font-semibold text-violet-700 transition-all hover:bg-violet-100 disabled:opacity-50"
+                      >
+                        <RotateCcw className="h-5 w-5" />
+                        <span>{googleLoading ? (i18n.language === 'uk' ? 'Зупиняю...' : 'Disconnecting...') : (i18n.language === 'uk' ? 'Відключити' : 'Disconnect')}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </>

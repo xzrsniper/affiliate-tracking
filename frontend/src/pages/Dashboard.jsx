@@ -63,6 +63,7 @@ export default function Dashboard() {
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
+  const [showGoogleConnectCta, setShowGoogleConnectCta] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null); // Track last update time
   const [hasFetched, setHasFetched] = useState(true); // Data loads automatically
   const [chartData, setChartData] = useState([]); // Time-series data for chart
@@ -371,6 +372,7 @@ export default function Dashboard() {
     try {
       setExportingSheets(true);
       setError('');
+      setShowGoogleConnectCta(false);
       const rows = buildReportRows(toExport);
       const res = await api.post('/api/links/export-sheets', { rows });
       const sheetUrl = res.data?.url;
@@ -382,7 +384,15 @@ export default function Dashboard() {
       setSuccessMessage(i18n.language === 'uk' ? 'Google таблицю створено та відкрито.' : 'Google Sheet created and opened.');
       setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err) {
-      setError(err.response?.data?.error || (i18n.language === 'uk' ? 'Не вдалося створити Google таблицю.' : 'Failed to create Google Sheet.'));
+      const errCode = err.response?.data?.error;
+      if (errCode === 'GOOGLE_SHEETS_NOT_CONNECTED') {
+        setError(i18n.language === 'uk'
+          ? 'Щоб експортувати у Google Sheets, спочатку підключіть Google Drive у Налаштуваннях.'
+          : 'Connect your Google Drive in Settings to export to Google Sheets.');
+        setShowGoogleConnectCta(true);
+      } else {
+        setError(errCode || (i18n.language === 'uk' ? 'Не вдалося створити Google таблицю.' : 'Failed to create Google Sheet.'));
+      }
     } finally {
       setExportingSheets(false);
     }
@@ -1072,6 +1082,20 @@ export default function Dashboard() {
         <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center space-x-2">
           <AlertCircle className="w-5 h-5" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {showGoogleConnectCta && (
+        <div className="mb-6 rounded-xl border border-violet-200 bg-white px-4 py-3 flex items-center justify-between gap-3">
+          <span className="text-sm font-medium text-slate-800">
+            {i18n.language === 'uk' ? 'Готові підключити Google?' : 'Ready to connect Google?'}
+          </span>
+          <Link
+            to="/settings"
+            className="px-4 py-2 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-700 transition-all whitespace-nowrap"
+          >
+            {i18n.language === 'uk' ? 'Відкрити Налаштування' : 'Open Settings'}
+          </Link>
         </div>
       )}
 

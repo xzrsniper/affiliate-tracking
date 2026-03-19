@@ -99,13 +99,15 @@ router.post('/export-sheets', async (req, res, next) => {
       });
     }
 
-    const saEmail = process.env.GOOGLE_SA_EMAIL;
-    const saPrivateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
+    const refreshToken = req.user?.google_sheets_refresh_token;
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'GOOGLE_SHEETS_NOT_CONNECTED' });
+    }
 
-    if (!saEmail || !saPrivateKey) {
-      return res.status(400).json({
-        error: 'Google Sheets integration is not configured on server'
-      });
+    const clientId = process.env.GOOGLE_SHEETS_OAUTH_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_SHEETS_OAUTH_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: 'GOOGLE_SHEETS_OAUTH_NOT_CONFIGURED' });
     }
 
     const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
@@ -114,71 +116,26 @@ router.post('/export-sheets', async (req, res, next) => {
     }
 
     const normalizedRows = rows.map((row) =>
-      Array.isArray(row) ? row.map((cell) => (cell == null ? '' : String(cell))) : [String(row ?? '')]
+      Array.isArray(row)
+        ? row.map((cell) => (cell == null ? '' : String(cell)))
+        : [String(row ?? '')]
     );
 
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const title = `Lehko_report_${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
 
-    const folderId = process.env.GOOGLE_SHEETS_FOLDER_ID || '';
+    const redirectUri = process.env.GOOGLE_SHEETS_OAUTH_REDIRECT_URI ||
+      `${req.protocol}://${req.get('host')}/api/google-sheets/oauth/callback`;
 
-    const auth = new google.auth.JWT({
-      email: saEmail,
-      key: saPrivateKey.replace(/\\n/g, '\n'),
-      scopes: [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive.file',
-        'https://www.googleapis.com/auth/drive'
-      ]
-    });
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
 
-    const sheets = google.sheets({ version: 'v4', auth });
+    const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
-    // If folder is provided, create spreadsheet directly inside that Drive folder.
-    // This avoids "caller does not have permission" when My Drive root is not accessible to service account.
-    if (folderId) {
-      const drive = google.drive({ version: 'v3', auth });
-      const createdFile = await drive.files.create({
-        requestBody: {
-          name: title,
-          mimeType: 'application/vnd.google-apps.spreadsheet',
-          parents: [folderId]
-        },
-        fields: 'id,webViewLink'
-      });
-
-      const spreadsheetId = createdFile.data.id;
-      const spreadsheetUrl = createdFile.data.webViewLink;
-
-      if (!spreadsheetId || !spreadsheetUrl) {
-        return res.status(500).json({ error: 'Failed to create spreadsheet in folder' });
-      }
-
-      // Default first sheet name can vary by locale; fetch actual title.
-      const meta = await sheets.spreadsheets.get({
-        spreadsheetId,
-        fields: 'sheets.properties.title'
-      });
-      const firstSheetTitle = meta.data.sheets?.[0]?.properties?.title || 'Sheet1';
-
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${firstSheetTitle}!A1`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: normalizedRows
-        }
-      });
-
-      return res.json({ success: true, spreadsheetId, url: spreadsheetUrl });
-    }
-
-    // Fallback: create spreadsheet via Sheets API (defaults to My Drive).
     const createResponse = await sheets.spreadsheets.create({
       requestBody: {
-        properties: { title },
-        sheets: [{ properties: { title: 'Report' } }]
+        properties: { title }
       }
     });
 
@@ -189,13 +146,17 @@ router.post('/export-sheets', async (req, res, next) => {
       return res.status(500).json({ error: 'Failed to create spreadsheet' });
     }
 
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title'
+    });
+    const firstSheetTitle = meta.data.sheets?.[0]?.properties?.title || 'Sheet1';
+
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: 'Report!A1',
+      range: `${firstSheetTitle}!A1`,
       valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: normalizedRows
-      }
+      requestBody: { values: normalizedRows }
     });
 
     res.json({ success: true, spreadsheetId, url: spreadsheetUrl });

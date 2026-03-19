@@ -75,6 +75,18 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true
   },
+  google_sheets_refresh_token: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  google_sheets_connected_at: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  google_sheets_email: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,
