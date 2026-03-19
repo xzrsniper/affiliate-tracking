@@ -25,6 +25,7 @@
     "db:add-password-change": "node scripts/add-password-change-fields.js",
     "db:add-password-reset": "node scripts/add-password-reset-fields.js",
     "db:add-blog-posts": "node scripts/add-blog-posts-table.js",
+    "db:add-page-content": "node scripts/create-page-content-table.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"

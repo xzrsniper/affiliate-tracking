@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext.jsx';
+import api from '../config/api.js';
 import {
   ArrowRight,
   BarChart3,
@@ -21,6 +22,52 @@ export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const isUk = i18n.language === 'uk';
   const [faqOpen, setFaqOpen] = useState(0);
+  const [pageContent, setPageContent] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPageContent() {
+      try {
+        const res = await api.get('/api/page-content/home');
+        if (!cancelled && res.data?.content) {
+          setPageContent(res.data.content);
+        }
+      } catch {
+        if (!cancelled) setPageContent({});
+      }
+    }
+
+    loadPageContent();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const contentText = (section, key, fallback) => {
+    return pageContent?.[section]?.[key]?.content || fallback;
+  };
+
+  useEffect(() => {
+    const defaultTitle = isUk ? 'LehkoTrack - Affiliate Tracking Platform' : 'LehkoTrack - Affiliate Tracking Platform';
+    const defaultDescription = isUk
+      ? 'Платформа трекінгу кліків, конверсій та прибутку для affiliate-маркетингу.'
+      : 'Track affiliate clicks, conversions, and revenue in one dashboard.';
+
+    const seoTitle = contentText('seo', 'title', defaultTitle);
+    const seoDescription = contentText('seo', 'description', defaultDescription);
+
+    document.title = seoTitle;
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', seoDescription);
+    } else {
+      const meta = document.createElement('meta');
+      meta.name = 'description';
+      meta.content = seoDescription;
+      document.head.appendChild(meta);
+    }
+  }, [pageContent, isUk]);
 
   const budgetPoints = useMemo(
     () => [t('home.budget1'), t('home.budget2'), t('home.budget3'), t('home.budget4'), t('home.budget5')],
@@ -97,15 +144,15 @@ export default function Home() {
             {t('home.heroHeadlineEnd')}
           </h1>
 
-          <p className="mb-2 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">{t('home.heroSubline')}</p>
-          <p className="mb-8 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">{t('home.heroSubline2')}</p>
+          <p className="mb-2 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">{contentText('hero', 'subline', t('home.heroSubline'))}</p>
+          <p className="mb-8 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">{contentText('hero', 'subline2', t('home.heroSubline2'))}</p>
 
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Link to="/login" className="inline-flex items-center gap-2 rounded-[12px] bg-[#6d5cf6] px-6 py-3.5 font-semibold text-white transition hover:bg-[#5d4af0] shadow-[0_10px_24px_rgba(109,92,246,0.28)]">
-              {t('home.heroCta')} <ArrowRight className="h-4 w-4" />
+              {contentText('hero', 'cta_text', t('home.heroCta'))} <ArrowRight className="h-4 w-4" />
             </Link>
             <button className="inline-flex items-center gap-2 rounded-[12px] border-2 border-[#6d5cf6] bg-white px-6 py-3.5 font-semibold text-[#6d5cf6] transition hover:bg-[#f0edff] dark:border-[#8b7bff] dark:bg-transparent dark:text-white dark:hover:bg-white/5">
-              <Play className="h-4 w-4" /> {t('home.watchDemo')}
+              <Play className="h-4 w-4" /> {contentText('hero', 'watch_demo', t('home.watchDemo'))}
             </button>
           </div>
 
@@ -139,7 +186,7 @@ export default function Home() {
       <section className="bg-gradient-to-r from-[#5d6df9] to-[#6e4dfa] py-16 text-white">
         <div className="mx-auto grid max-w-[1240px] grid-cols-1 gap-10 px-4 sm:px-8 lg:grid-cols-2 lg:items-center">
           <div>
-            <h2 className="mb-6 text-3xl font-extrabold">{t('home.budgetTitle')}</h2>
+          <h2 className="mb-6 text-3xl font-extrabold">{contentText('budget', 'title', t('home.budgetTitle'))}</h2>
             <ul className="space-y-3">
               {budgetPoints.map((point) => (
                 <li key={point} className="flex items-start gap-3">
@@ -163,8 +210,8 @@ export default function Home() {
       <section id="features" className="mx-auto max-w-[1240px] px-4 py-20 sm:px-8">
         <div className="mb-10">
           <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('home.navFeatures')}</span>
-          <h2 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t('home.featuresSectionTitle')}</h2>
-          <p className="max-w-2xl text-lg text-slate-600 dark:text-slate-300">{t('home.featuresSectionSubtitle')}</p>
+          <h2 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('features', 'title', t('home.featuresSectionTitle'))}</h2>
+          <p className="max-w-2xl text-lg text-slate-600 dark:text-slate-300">{contentText('features', 'subtitle', t('home.featuresSectionSubtitle'))}</p>
         </div>
 
         <div className="mb-16 grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
@@ -178,8 +225,8 @@ export default function Home() {
             ))}
           </div>
           <div>
-            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t('home.moneyFromTitle')}</h3>
-            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{t('home.moneyFromDesc')}</p>
+            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('money', 'title', t('home.moneyFromTitle'))}</h3>
+            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{contentText('money', 'description', t('home.moneyFromDesc'))}</p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
               <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet1')}</li>
               <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet2')}</li>
@@ -190,8 +237,8 @@ export default function Home() {
 
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div>
-            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t('home.integration5minTitle')}</h3>
-            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{t('home.integration5minDesc')}</p>
+            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('integration', 'title', t('home.integration5minTitle'))}</h3>
+            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{contentText('integration', 'description', t('home.integration5minDesc'))}</p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
               <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet1')}</li>
               <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet2')}</li>
@@ -210,8 +257,8 @@ export default function Home() {
       <section className="bg-gradient-to-r from-[#4f81ff] to-[#6b4ffb] py-16 text-white">
         <div className="mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-10 px-4 sm:px-8 lg:grid-cols-2">
           <div>
-            <h2 className="mb-4 text-3xl font-extrabold">{t('home.whyTitle')}</h2>
-            <p className="mb-6 text-white/80">{t('home.whySubtitle')}</p>
+            <h2 className="mb-4 text-3xl font-extrabold">{contentText('why', 'title', t('home.whyTitle'))}</h2>
+            <p className="mb-6 text-white/80">{contentText('why', 'subtitle', t('home.whySubtitle'))}</p>
             <ul className="space-y-2">
               {whyPoints.map((point) => (
                 <li key={point} className="flex items-start gap-2 text-white/95">
@@ -232,7 +279,7 @@ export default function Home() {
       <section id="pricing" className="mx-auto max-w-[1240px] px-4 py-20 sm:px-8">
         <div className="mb-12 text-center">
           <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('home.navPricing')}</span>
-          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t('home.pricingTitle')}</h2>
+          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('pricing', 'title', t('home.pricingTitle'))}</h2>
         </div>
 
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-3">
@@ -309,8 +356,8 @@ export default function Home() {
       <section className="bg-gradient-to-r from-[#4f81ff] to-[#6b4ffb] py-14 text-white">
         <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-5 px-4 sm:px-8 lg:flex-row lg:items-center">
           <div>
-            <h2 className="text-3xl font-extrabold tracking-tight">{t('home.readyScale')}</h2>
-            <p className="mt-1 text-white/85">{t('home.register30secCardless')}</p>
+            <h2 className="text-3xl font-extrabold tracking-tight">{contentText('cta', 'title', t('home.readyScale'))}</h2>
+            <p className="mt-1 text-white/85">{contentText('cta', 'description', t('home.register30secCardless'))}</p>
           </div>
           <div className="flex flex-wrap gap-3">
               <Link to="/login" className="rounded-xl border border-white/60 bg-white/12 px-6 py-3 font-semibold text-slate-100 backdrop-blur-sm transition hover:bg-white/18">

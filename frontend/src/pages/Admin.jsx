@@ -17,6 +17,28 @@ import {
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const CONTENT_PAGE = 'home';
+const CONTENT_FIELDS = [
+  { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
+  { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
+  { section: 'hero', key: 'subline', label: 'Hero Subline', type: 'textarea' },
+  { section: 'hero', key: 'subline2', label: 'Hero Subline 2', type: 'textarea' },
+  { section: 'hero', key: 'cta_text', label: 'Hero CTA Button', type: 'text' },
+  { section: 'hero', key: 'watch_demo', label: 'Hero Demo Button', type: 'text' },
+  { section: 'features', key: 'title', label: 'Features Title', type: 'text' },
+  { section: 'features', key: 'subtitle', label: 'Features Subtitle', type: 'textarea' },
+  { section: 'money', key: 'title', label: 'Revenue Block Title', type: 'text' },
+  { section: 'money', key: 'description', label: 'Revenue Block Description', type: 'textarea' },
+  { section: 'integration', key: 'title', label: 'Integration Title', type: 'text' },
+  { section: 'integration', key: 'description', label: 'Integration Description', type: 'textarea' },
+  { section: 'why', key: 'title', label: 'Why Us Title', type: 'text' },
+  { section: 'why', key: 'subtitle', label: 'Why Us Subtitle', type: 'textarea' },
+  { section: 'pricing', key: 'title', label: 'Pricing Title', type: 'text' },
+  { section: 'cta', key: 'title', label: 'Bottom CTA Title', type: 'text' },
+  { section: 'cta', key: 'description', label: 'Bottom CTA Description', type: 'textarea' }
+];
+
+const contentFieldId = (section, key) => `${section}.${key}`;
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
@@ -39,6 +61,12 @@ export default function Admin() {
   const [blogSaving, setBlogSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showBlogForm, setShowBlogForm] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentSaving, setContentSaving] = useState(false);
+  const [contentSuccess, setContentSuccess] = useState('');
+  const [contentForm, setContentForm] = useState(
+    Object.fromEntries(CONTENT_FIELDS.map((field) => [contentFieldId(field.section, field.key), '']))
+  );
 
   useEffect(() => {
     fetchUsers();
@@ -46,7 +74,56 @@ export default function Admin() {
 
   useEffect(() => {
     if (activeTab === 'blog') fetchBlogPosts();
+    if (activeTab === 'content') fetchPageContent();
   }, [activeTab]);
+
+  const fetchPageContent = async () => {
+    setContentLoading(true);
+    setContentSuccess('');
+    try {
+      const res = await api.get(`/api/page-content/${CONTENT_PAGE}/all`);
+      const records = res.data?.contents || [];
+      const nextForm = Object.fromEntries(CONTENT_FIELDS.map((field) => [contentFieldId(field.section, field.key), '']));
+      records.forEach((item) => {
+        const id = contentFieldId(item.section, item.key);
+        if (Object.prototype.hasOwnProperty.call(nextForm, id)) {
+          nextForm[id] = item.content || '';
+        }
+      });
+      setContentForm(nextForm);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load content');
+    } finally {
+      setContentLoading(false);
+    }
+  };
+
+  const handleSaveContent = async () => {
+    setContentSaving(true);
+    setContentSuccess('');
+    setError('');
+    try {
+      await Promise.all(
+        CONTENT_FIELDS.map((field, index) =>
+          api.post('/api/page-content', {
+            page: CONTENT_PAGE,
+            section: field.section,
+            key: field.key,
+            content: contentForm[contentFieldId(field.section, field.key)] || '',
+            content_type: 'text',
+            order: index + 1,
+            is_active: true
+          })
+        )
+      );
+      setContentSuccess('Saved. Changes are live now.');
+      setTimeout(() => setContentSuccess(''), 2500);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save content');
+    } finally {
+      setContentSaving(false);
+    }
+  };
 
   const fetchBlogPosts = async () => {
     setBlogLoading(true);
@@ -302,6 +379,13 @@ export default function Admin() {
           >
             <FileText className="w-4 h-4 inline mr-1.5" /> {t('adminBlog.tab')}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('content')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'content' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <FileText className="w-4 h-4 inline mr-1.5" /> Site Content
+          </button>
         </div>
 
         {activeTab === 'blog' && (
@@ -392,6 +476,64 @@ export default function Admin() {
               </div>
             )}
           </>
+        )}
+
+        {activeTab === 'content' && (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Real-time Content Editor</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Edit homepage texts, title and description without deploy.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveContent}
+                disabled={contentSaving || contentLoading}
+                className="px-4 py-2 rounded-lg bg-violet-700 text-white text-sm font-semibold hover:bg-violet-800 disabled:opacity-50"
+              >
+                {contentSaving ? 'Saving...' : 'Save and Publish'}
+              </button>
+            </div>
+
+            {contentSuccess && (
+              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                {contentSuccess}
+              </div>
+            )}
+
+            {contentLoading ? (
+              <p className="text-sm text-slate-500">{t('common.loading')}</p>
+            ) : (
+              <div className="space-y-4">
+                {CONTENT_FIELDS.map((field) => {
+                  const id = contentFieldId(field.section, field.key);
+                  return (
+                    <div key={id}>
+                      <label className="block mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {field.label}
+                        <span className="ml-2 text-xs font-normal text-slate-400">{field.section}.{field.key}</span>
+                      </label>
+                      {field.type === 'textarea' ? (
+                        <textarea
+                          value={contentForm[id] || ''}
+                          onChange={(e) => setContentForm((prev) => ({ ...prev, [id]: e.target.value }))}
+                          rows={3}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={contentForm[id] || ''}
+                          onChange={(e) => setContentForm((prev) => ({ ...prev, [id]: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-slate-900 dark:text-slate-100"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'users' && (
