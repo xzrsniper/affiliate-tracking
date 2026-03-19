@@ -4,7 +4,6 @@ import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
-import { google } from 'googleapis';
 
 const router = express.Router();
 
@@ -91,6 +90,15 @@ router.use(authenticate);
  */
 router.post('/export-sheets', async (req, res, next) => {
   try {
+    let google;
+    try {
+      ({ google } = await import('googleapis'));
+    } catch (importError) {
+      return res.status(500).json({
+        error: 'Google Sheets module is not available on this server. Run npm install and restart API.'
+      });
+    }
+
     const saEmail = process.env.GOOGLE_SA_EMAIL;
     const saPrivateKey = process.env.GOOGLE_SA_PRIVATE_KEY;
 
