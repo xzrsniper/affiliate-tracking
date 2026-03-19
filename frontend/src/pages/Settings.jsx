@@ -238,7 +238,7 @@ export default function Settings() {
                 <div className="rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 p-4 dark:border-violet-900/50 dark:from-slate-900 dark:to-indigo-950/60">
                   <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-violet-800 dark:text-violet-200">
                     <FileText className="h-4 w-4" />
-                    Юридичні документи
+                    {t('common.legal')}
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <a
@@ -248,7 +248,7 @@ export default function Settings() {
                       <span className="mb-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
                         <FileText className="h-4 w-4" />
                       </span>
-                      <div className="font-medium">Угода користувача</div>
+                      <div className="font-medium">{t('common.terms')}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">/terms</div>
                     </a>
                     <a
@@ -258,7 +258,7 @@ export default function Settings() {
                       <span className="mb-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                         <Shield className="h-4 w-4" />
                       </span>
-                      <div className="font-medium">Privacy Policy</div>
+                      <div className="font-medium">{t('common.privacy')}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">/privacy</div>
                     </a>
                     <a
@@ -268,7 +268,7 @@ export default function Settings() {
                       <span className="mb-1 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                         <RotateCcw className="h-4 w-4" />
                       </span>
-                      <div className="font-medium">Refund Policy</div>
+                      <div className="font-medium">{t('common.refund')}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">/refund</div>
                     </a>
                   </div>

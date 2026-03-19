@@ -90,6 +90,22 @@ export default function Layout({ children }) {
             <MessageCircle className="w-4 h-4" />
             <span>{t('home.navSupport')}</span>
           </a>
+          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+              {t('common.legal')}
+            </p>
+            <div className="flex flex-wrap gap-1.5 text-xs">
+              <a href="/terms" className="rounded-md bg-white px-2 py-1 text-slate-600 hover:text-violet-700 hover:bg-violet-50 transition-colors">
+                {t('common.terms')}
+              </a>
+              <a href="/privacy" className="rounded-md bg-white px-2 py-1 text-slate-600 hover:text-violet-700 hover:bg-violet-50 transition-colors">
+                {t('common.privacy')}
+              </a>
+              <a href="/refund" className="rounded-md bg-white px-2 py-1 text-slate-600 hover:text-violet-700 hover:bg-violet-50 transition-colors">
+                {t('common.refund')}
+              </a>
+            </div>
+          </div>
           <div className="mt-1 space-y-1">
             <button
               onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')}
