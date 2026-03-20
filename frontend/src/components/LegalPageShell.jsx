@@ -5,7 +5,7 @@ import { Moon, Sun } from 'lucide-react';
 import Logo from './Logo.jsx';
 
 export default function LegalPageShell({ title, updatedAt, children }) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const isUk = i18n.language === 'uk';
 
