@@ -43,7 +43,7 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-[#f7fbfd] text-slate-900 lg:flex">
       <aside className="w-full lg:w-60 lg:fixed lg:h-screen left-0 top-0 flex flex-col bg-white border-b lg:border-b-0 lg:border-r border-slate-200">
         <div className="p-5 border-b border-slate-100 w-full">
-          <Logo size="md" showText={true} linkTo="/dashboard" />
+          <Logo size="md" showText={true} linkTo="/" />
         </div>
 
         <div className="px-3 pt-4 pb-2">

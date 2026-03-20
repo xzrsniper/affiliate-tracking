@@ -41,7 +41,7 @@ export default function Logo({ size = 'md', showText = true, className = '', lin
 
   if (linkTo) {
     return (
-      <Link to={linkTo} className="flex items-center">
+      <Link to={linkTo} className="flex items-center cursor-pointer">
         {logoContent}
       </Link>
     );
