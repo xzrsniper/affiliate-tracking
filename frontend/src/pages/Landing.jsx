@@ -10,11 +10,15 @@ import {
   ArrowRight,
   Link as LinkIcon,
   Users,
-  Settings
+  Settings,
+  User
 } from 'lucide-react';
 import Logo from '../components/Logo.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Landing() {
+  const { user, loading } = useAuth();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50">
       {/* Navigation */}
@@ -49,12 +53,23 @@ export default function Landing() {
               >
                 Увійти
               </Link>
+            {user ? (
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-[#6d5cf6] text-white hover:bg-[#5d4af0] transition-all shadow-lg shadow-violet-500/25"
+                aria-label="Account"
+                title="Account"
+              >
+                <User className="w-4 h-4" />
+              </Link>
+            ) : (
               <Link
                 to="/login"
                 className="px-6 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25"
               >
                 Почати
               </Link>
+            )}
             </div>
           </div>
         </div>
