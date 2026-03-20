@@ -58,9 +58,15 @@ router.get('/connect', authenticate, async (req, res) => {
   const redirectUri = getRedirectUri(req);
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
+  // PKCE to satisfy Google "secure OAuth flows" requirements.
+  const { codeVerifier, codeChallenge } = await oauth2Client.generateCodeVerifierAsync();
+  if (!codeVerifier || !codeChallenge) {
+    return res.status(500).json({ error: 'PKCE_GENERATION_FAILED' });
+  }
+
   // Signed state to safely identify user in callback without relying on Authorization header.
   const state = jwt.sign(
-    { userId: req.user.id },
+    { userId: req.user.id, codeVerifier },
     process.env.JWT_SECRET,
     { expiresIn: '15m' }
   );
@@ -75,7 +81,9 @@ router.get('/connect', authenticate, async (req, res) => {
     prompt: 'consent',
     scope: scopes,
     state,
-    include_granted_scopes: true
+    include_granted_scopes: true,
+    code_challenge_method: 'S256',
+    code_challenge: codeChallenge
   });
 
   res.json({ url });
@@ -105,6 +113,7 @@ router.get('/oauth/callback', async (req, res) => {
     }
 
     const userId = decoded?.userId;
+    const codeVerifier = decoded?.codeVerifier;
     if (!userId) {
       const frontendUrl = getFrontendUrl(req);
       return res.redirect(`${frontendUrl}/settings?googleConnected=0&err=invalid_user`);
@@ -134,7 +143,12 @@ router.get('/oauth/callback', async (req, res) => {
     const redirectUri = getRedirectUri(req);
     const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
-    const tokenResponse = await oauth2Client.getToken(String(code));
+    if (!codeVerifier) {
+      const frontendUrl = getFrontendUrl(req);
+      return res.redirect(`${frontendUrl}/settings?googleConnected=0&err=missing_pkce_verifier`);
+    }
+
+    const tokenResponse = await oauth2Client.getToken({ code: String(code), codeVerifier });
     const refreshToken = tokenResponse?.tokens?.refresh_token;
 
     if (!refreshToken) {
