@@ -262,19 +262,22 @@ export default function Admin() {
     setContentLoading(true);
     setContentSuccess('');
     try {
-      const res = await api.get(`/api/page-content/${contentPage}/all`);
-      const records = res.data?.contents || [];
+      // Use public active content to mirror exactly what users see on site now.
+      const res = await api.get(`/api/page-content/${contentPage}`);
+      const groupedContent = res.data?.content || {};
       const nextForm = Object.fromEntries(
         currentContentFields.map((field) => [
           contentFieldId(field.section, field.key),
           getDefaultContentValue(field.section, field.key)
         ])
       );
-      records.forEach((item) => {
-        const id = contentFieldId(item.section, item.key);
-        if (Object.prototype.hasOwnProperty.call(nextForm, id)) {
-          nextForm[id] = item.content || '';
-        }
+      Object.entries(groupedContent).forEach(([section, sectionValues]) => {
+        Object.entries(sectionValues || {}).forEach(([key, entry]) => {
+          const id = contentFieldId(section, key);
+          if (Object.prototype.hasOwnProperty.call(nextForm, id)) {
+            nextForm[id] = entry?.content || '';
+          }
+        });
       });
       setContentForm(nextForm);
     } catch (err) {
@@ -671,18 +674,21 @@ export default function Admin() {
                 <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Real-time Content Editor</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">Public pages: edit text and publish without deploy.</p>
               </div>
-              <select
-                value={contentPage}
-                onChange={(e) => setContentPage(e.target.value)}
-                className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-700 dark:text-slate-200"
-              >
-                <option value="home">Home</option>
-                <option value="guide">Guide</option>
-                <option value="blog">Blog</option>
-                <option value="terms">Terms</option>
-                <option value="privacy">Privacy</option>
-                <option value="refund">Refund</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Page</label>
+                <select
+                  value={contentPage}
+                  onChange={(e) => setContentPage(e.target.value)}
+                  className="min-w-[180px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200"
+                >
+                  <option value="home">Home</option>
+                  <option value="guide">Guide</option>
+                  <option value="blog">Blog</option>
+                  <option value="terms">Terms</option>
+                  <option value="privacy">Privacy</option>
+                  <option value="refund">Refund</option>
+                </select>
+              </div>
               <button
                 type="button"
                 onClick={handleSaveContent}
