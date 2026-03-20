@@ -43,11 +43,11 @@ export default function LegalPageShell({ title, updatedAt, children }) {
       </main>
 
       <footer className="border-t border-slate-200 dark:border-slate-800 mt-12 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-        <Link to="/terms" className="hover:text-slate-700 dark:hover:text-slate-300">Угода користувача</Link>
+        <Link to="/terms" className="hover:text-slate-700 dark:hover:text-slate-300">{t('common.terms')}</Link>
         <span className="mx-2">·</span>
-        <Link to="/privacy" className="hover:text-slate-700 dark:hover:text-slate-300">Privacy Policy</Link>
+        <Link to="/privacy" className="hover:text-slate-700 dark:hover:text-slate-300">{t('common.privacy')}</Link>
         <span className="mx-2">·</span>
-        <Link to="/refund" className="hover:text-slate-700 dark:hover:text-slate-300">Refund Policy</Link>
+        <Link to="/refund" className="hover:text-slate-700 dark:hover:text-slate-300">{t('common.refund')}</Link>
       </footer>
     </div>
   );
