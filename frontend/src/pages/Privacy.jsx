@@ -1,21 +1,47 @@
 import LegalPageShell from '../components/LegalPageShell.jsx';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import api from '../config/api.js';
 
 export default function Privacy() {
   const { i18n } = useTranslation();
   const isUk = i18n.language === 'uk';
+  const [pageContent, setPageContent] = useState({});
+  const lang = isUk ? 'uk' : 'en';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/api/page-content/privacy');
+        if (!cancelled && res.data?.content) setPageContent(res.data.content);
+      } catch {
+        if (!cancelled) setPageContent({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
+
+  useEffect(() => {
+    const seoTitle = contentText('seo', 'title', isUk ? 'Політика конфіденційності (Privacy Policy)' : 'Privacy Policy');
+    const seoDescription = contentText('seo', 'description', isUk ? 'Політика конфіденційності сервісу LehkoTrack.' : 'LehkoTrack privacy policy.');
+    document.title = seoTitle;
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) metaDescription.setAttribute('content', seoDescription);
+  }, [pageContent, isUk]);
 
   return (
     <LegalPageShell
-      title={isUk ? 'Політика конфіденційності (Privacy Policy)' : 'Privacy Policy'}
-      updatedAt={isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026'}
+      title={contentText('header', `title_${lang}`, isUk ? 'Політика конфіденційності (Privacy Policy)' : 'Privacy Policy')}
+      updatedAt={contentText('header', `updated_${lang}`, isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026')}
     >
       {isUk ? (
         <>
-          <p>
-            Ця Політика конфіденційності пояснює, як LehkoTrack (далі — «Сервіс», «Ми») збирає, обробляє та захищає дані
-            користувачів Сервісу та відвідувачів, чий трафік аналізується через наші інструменти.
-          </p>
+          <p>{contentText('intro', 'text_uk', 'Ця Політика конфіденційності пояснює, як LehkoTrack (далі — «Сервіс», «Ми») збирає, обробляє та захищає дані користувачів Сервісу та відвідувачів, чий трафік аналізується через наші інструменти.')}</p>
           <h2 className="text-xl font-semibold">1. Ролі та відповідальність</h2>
           <p>1.1. LehkoTrack як Обробник (Data Processor): Ми обробляємо дані про рекламний трафік від імені наших Користувачів.</p>
           <p>1.2. Користувач як Контролер (Data Controller): Користувач несе відповідальність за законність збору даних на своїх ресурсах.</p>
@@ -61,10 +87,7 @@ export default function Privacy() {
         </>
       ) : (
         <>
-          <p>
-            This Privacy Policy explains how LehkoTrack (the &quot;Service&quot;, &quot;we&quot;) collects, processes, and protects data
-            of our users and visitors whose traffic is analyzed through our tools.
-          </p>
+          <p>{contentText('intro', 'text_en', 'This Privacy Policy explains how LehkoTrack (the "Service", "we") collects, processes, and protects data of our users and visitors whose traffic is analyzed through our tools.')}</p>
           <h2 className="text-xl font-semibold">1. Roles and Responsibilities</h2>
           <p>1.1. LehkoTrack as a Data Processor: We process advertising traffic data on behalf of our Users.</p>
           <p>1.2. User as a Data Controller: The User is responsible for the legality of data collection on their resources.</p>

@@ -17,51 +17,205 @@ import {
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
-const CONTENT_PAGE = 'home';
-const CONTENT_FIELDS = [
+const CONTENT_FIELDS_BY_PAGE = {
+  home: [
   { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
   { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
+  { section: 'nav', key: 'features', label: 'Nav: Features', type: 'text' },
+  { section: 'nav', key: 'pricing', label: 'Nav: Pricing', type: 'text' },
+  { section: 'nav', key: 'guide', label: 'Nav: Guide', type: 'text' },
+  { section: 'nav', key: 'support', label: 'Nav: Support', type: 'text' },
+  { section: 'nav', key: 'sign_in', label: 'Nav: Sign in button', type: 'text' },
+  { section: 'nav', key: 'start_free', label: 'Nav: Start free button', type: 'text' },
+  { section: 'hero', key: 'badge', label: 'Hero badge', type: 'text' },
+  { section: 'hero', key: 'headline_before', label: 'Hero headline before', type: 'text' },
+  { section: 'hero', key: 'headline_highlight_1', label: 'Hero highlight 1', type: 'text' },
+  { section: 'hero', key: 'headline_mid', label: 'Hero headline mid', type: 'text' },
+  { section: 'hero', key: 'headline_highlight_2', label: 'Hero highlight 2', type: 'text' },
+  { section: 'hero', key: 'headline_end', label: 'Hero headline end', type: 'text' },
   { section: 'hero', key: 'subline', label: 'Hero subline', type: 'textarea' },
   { section: 'hero', key: 'subline2', label: 'Hero subline 2', type: 'textarea' },
   { section: 'hero', key: 'cta_text', label: 'Hero CTA button', type: 'text' },
   { section: 'hero', key: 'watch_demo', label: 'Hero demo button', type: 'text' },
+  { section: 'hero', key: 'note', label: 'Hero note', type: 'text' },
+  { section: 'budget', key: 'item1', label: 'Budget bullet 1', type: 'text' },
+  { section: 'budget', key: 'item2', label: 'Budget bullet 2', type: 'text' },
+  { section: 'budget', key: 'item3', label: 'Budget bullet 3', type: 'text' },
+  { section: 'budget', key: 'item4', label: 'Budget bullet 4', type: 'text' },
+  { section: 'budget', key: 'item5', label: 'Budget bullet 5', type: 'text' },
   { section: 'features', key: 'title', label: 'Features title', type: 'text' },
   { section: 'features', key: 'subtitle', label: 'Features subtitle', type: 'textarea' },
   { section: 'money', key: 'title', label: 'Revenue block title', type: 'text' },
   { section: 'money', key: 'description', label: 'Revenue block description', type: 'textarea' },
+  { section: 'money', key: 'bullet1', label: 'Revenue bullet 1', type: 'text' },
+  { section: 'money', key: 'bullet2', label: 'Revenue bullet 2', type: 'text' },
+  { section: 'money', key: 'bullet3', label: 'Revenue bullet 3', type: 'text' },
   { section: 'integration', key: 'title', label: 'Integration title', type: 'text' },
   { section: 'integration', key: 'description', label: 'Integration description', type: 'textarea' },
+  { section: 'integration', key: 'bullet1', label: 'Integration bullet 1', type: 'text' },
+  { section: 'integration', key: 'bullet2', label: 'Integration bullet 2', type: 'text' },
+  { section: 'integration', key: 'bullet3', label: 'Integration bullet 3', type: 'text' },
   { section: 'why', key: 'title', label: 'Why us title', type: 'text' },
   { section: 'why', key: 'subtitle', label: 'Why us subtitle', type: 'textarea' },
+  { section: 'why', key: 'item1', label: 'Why bullet 1', type: 'text' },
+  { section: 'why', key: 'item2', label: 'Why bullet 2', type: 'text' },
+  { section: 'why', key: 'item3', label: 'Why bullet 3', type: 'text' },
+  { section: 'why', key: 'item4', label: 'Why bullet 4', type: 'text' },
+  { section: 'why', key: 'item5', label: 'Why bullet 5', type: 'text' },
+  { section: 'why', key: 'item6', label: 'Why bullet 6', type: 'text' },
   { section: 'pricing', key: 'title', label: 'Pricing title', type: 'text' },
+  { section: 'faq', key: 'title', label: 'FAQ title', type: 'text' },
+  { section: 'faq', key: 'help_title', label: 'FAQ help title', type: 'text' },
+  { section: 'faq', key: 'help_description', label: 'FAQ help description', type: 'textarea' },
+  { section: 'faq', key: 'help_button', label: 'FAQ help button', type: 'text' },
+  { section: 'bottom_cta', key: 'start_free', label: 'Bottom CTA: start free', type: 'text' },
+  { section: 'bottom_cta', key: 'talk_to_us', label: 'Bottom CTA: talk to us', type: 'text' },
+  { section: 'footer', key: 'features', label: 'Footer: Features', type: 'text' },
+  { section: 'footer', key: 'pricing', label: 'Footer: Pricing', type: 'text' },
+  { section: 'footer', key: 'support', label: 'Footer: Support', type: 'text' },
   { section: 'cta', key: 'title', label: 'Bottom CTA title', type: 'text' },
   { section: 'cta', key: 'description', label: 'Bottom CTA description', type: 'textarea' }
-];
+  ],
+  guide: [
+    { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
+    { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
+    { section: 'hero', key: 'badge', label: 'Hero badge', type: 'text' },
+    { section: 'hero', key: 'title', label: 'Hero title', type: 'text' },
+    { section: 'hero', key: 'description', label: 'Hero description', type: 'textarea' },
+    { section: 'hero', key: 'primary_cta', label: 'Primary CTA', type: 'text' },
+    { section: 'hero', key: 'secondary_cta', label: 'Secondary CTA', type: 'text' },
+    { section: 'faq', key: 'title', label: 'FAQ title', type: 'text' }
+  ],
+  blog: [
+    { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
+    { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
+    { section: 'hero', key: 'title', label: 'Page title', type: 'text' },
+    { section: 'sidebar', key: 'cta_text', label: 'Sidebar CTA text', type: 'textarea' },
+    { section: 'sidebar', key: 'cta_button', label: 'Sidebar CTA button', type: 'text' }
+  ],
+  terms: [
+    { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
+    { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
+    { section: 'header', key: 'title_uk', label: 'Title (UK)', type: 'text' },
+    { section: 'header', key: 'title_en', label: 'Title (EN)', type: 'text' },
+    { section: 'header', key: 'updated_uk', label: 'Updated text (UK)', type: 'text' },
+    { section: 'header', key: 'updated_en', label: 'Updated text (EN)', type: 'text' },
+    { section: 'intro', key: 'text_uk', label: 'Intro (UK)', type: 'textarea' },
+    { section: 'intro', key: 'text_en', label: 'Intro (EN)', type: 'textarea' }
+  ],
+  privacy: [
+    { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
+    { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
+    { section: 'header', key: 'title_uk', label: 'Title (UK)', type: 'text' },
+    { section: 'header', key: 'title_en', label: 'Title (EN)', type: 'text' },
+    { section: 'header', key: 'updated_uk', label: 'Updated text (UK)', type: 'text' },
+    { section: 'header', key: 'updated_en', label: 'Updated text (EN)', type: 'text' },
+    { section: 'intro', key: 'text_uk', label: 'Intro (UK)', type: 'textarea' },
+    { section: 'intro', key: 'text_en', label: 'Intro (EN)', type: 'textarea' }
+  ],
+  refund: [
+    { section: 'seo', key: 'title', label: 'SEO Title', type: 'text' },
+    { section: 'seo', key: 'description', label: 'SEO Description', type: 'textarea' },
+    { section: 'header', key: 'title_uk', label: 'Title (UK)', type: 'text' },
+    { section: 'header', key: 'title_en', label: 'Title (EN)', type: 'text' },
+    { section: 'header', key: 'updated_uk', label: 'Updated text (UK)', type: 'text' },
+    { section: 'header', key: 'updated_en', label: 'Updated text (EN)', type: 'text' },
+    { section: 'intro', key: 'text_uk', label: 'Intro (UK)', type: 'textarea' },
+    { section: 'intro', key: 'text_en', label: 'Intro (EN)', type: 'textarea' }
+  ]
+};
 
 const contentFieldId = (section, key) => `${section}.${key}`;
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
+  const [contentPage, setContentPage] = useState('home');
+  const currentContentFields = CONTENT_FIELDS_BY_PAGE[contentPage] || [];
   const getDefaultContentValue = (section, key) => {
     const map = {
       'seo.title': 'LehkoTrack - Affiliate Tracking Platform',
       'seo.description': t('home.heroSubline2'),
+      'nav.features': t('home.navFeatures'),
+      'nav.pricing': t('home.navPricing'),
+      'nav.guide': t('home.navGuide'),
+      'nav.support': t('home.navSupport'),
+      'nav.sign_in': t('home.signIn'),
+      'nav.start_free': t('home.startFree'),
+      'hero.badge': t('home.newVersionLive'),
+      'hero.headline_before': t('home.heroHeadlineBefore1'),
+      'hero.headline_highlight_1': t('home.heroHeadlineHighlight1'),
+      'hero.headline_mid': t('home.heroHeadlineMid'),
+      'hero.headline_highlight_2': t('home.heroHeadlineHighlight2'),
+      'hero.headline_end': t('home.heroHeadlineEnd'),
       'hero.subline': t('home.heroSubline'),
       'hero.subline2': t('home.heroSubline2'),
       'hero.cta_text': t('home.heroCta'),
       'hero.watch_demo': t('home.watchDemo'),
+      'hero.note': t('home.heroNote'),
+      'budget.item1': t('home.budget1'),
+      'budget.item2': t('home.budget2'),
+      'budget.item3': t('home.budget3'),
+      'budget.item4': t('home.budget4'),
+      'budget.item5': t('home.budget5'),
       'features.title': t('home.featuresSectionTitle'),
       'features.subtitle': t('home.featuresSectionSubtitle'),
       'money.title': t('home.moneyFromTitle'),
       'money.description': t('home.moneyFromDesc'),
+      'money.bullet1': t('home.moneyFromBullet1'),
+      'money.bullet2': t('home.moneyFromBullet2'),
+      'money.bullet3': t('home.moneyFromBullet3'),
       'integration.title': t('home.integration5minTitle'),
       'integration.description': t('home.integration5minDesc'),
+      'integration.bullet1': t('home.integrationBullet1'),
+      'integration.bullet2': t('home.integrationBullet2'),
+      'integration.bullet3': t('home.integrationBullet3'),
       'why.title': t('home.whyTitle'),
       'why.subtitle': t('home.whySubtitle'),
+      'why.item1': t('home.benefit1'),
+      'why.item2': t('home.benefit2'),
+      'why.item3': t('home.benefit3'),
+      'why.item4': t('home.benefit4'),
+      'why.item5': t('home.benefit5'),
+      'why.item6': t('home.benefit6'),
       'pricing.title': t('home.pricingTitle'),
+      'faq.title': t('common.faq'),
+      'faq.help_title': t('home.faqHelpTitle'),
+      'faq.help_description': t('home.faqHelpDesc'),
+      'faq.help_button': t('home.faqHelpBtn'),
+      'bottom_cta.start_free': t('home.startFree'),
+      'bottom_cta.talk_to_us': t('home.talkToUs'),
+      'footer.features': t('home.navFeatures'),
+      'footer.pricing': t('home.navPricing'),
+      'footer.support': t('home.navSupport'),
       'cta.title': t('home.readyScale'),
       'cta.description': t('home.register30secCardless')
     };
+    if (contentPage === 'guide') {
+      const guideMap = {
+        'seo.title': t('guide.guideTitle'),
+        'seo.description': t('guide.heroDesc'),
+        'hero.badge': t('guide.trackerBadge'),
+        'hero.title': `${t('guide.heroLine1Before')} ${t('guide.heroLine1Highlight')} ${t('guide.heroLine2')}`,
+        'hero.description': t('guide.heroDesc'),
+        'hero.primary_cta': t('guide.watchVideoTutorial'),
+        'hero.secondary_cta': t('guide.readFullDocs'),
+        'faq.title': t('guide.faqTitle')
+      };
+      return guideMap[contentFieldId(section, key)] || '';
+    }
+    if (contentPage === 'blog') {
+      const blogMap = {
+        'seo.title': t('blog.title'),
+        'seo.description': t('blog.ctaText'),
+        'hero.title': t('blog.title'),
+        'sidebar.cta_text': t('blog.ctaText'),
+        'sidebar.cta_button': t('blog.ctaButton')
+      };
+      return blogMap[contentFieldId(section, key)] || '';
+    }
+    if (contentPage === 'terms' || contentPage === 'privacy' || contentPage === 'refund') {
+      return '';
+    }
     return map[contentFieldId(section, key)] || '';
   };
   const [activeTab, setActiveTab] = useState('users');
@@ -88,7 +242,7 @@ export default function Admin() {
   const [contentSuccess, setContentSuccess] = useState('');
   const [contentForm, setContentForm] = useState(
     Object.fromEntries(
-      CONTENT_FIELDS.map((field) => [
+      currentContentFields.map((field) => [
         contentFieldId(field.section, field.key),
         getDefaultContentValue(field.section, field.key)
       ])
@@ -102,16 +256,16 @@ export default function Admin() {
   useEffect(() => {
     if (activeTab === 'blog') fetchBlogPosts();
     if (activeTab === 'content') fetchPageContent();
-  }, [activeTab]);
+  }, [activeTab, contentPage]);
 
   const fetchPageContent = async () => {
     setContentLoading(true);
     setContentSuccess('');
     try {
-      const res = await api.get(`/api/page-content/${CONTENT_PAGE}/all`);
+      const res = await api.get(`/api/page-content/${contentPage}/all`);
       const records = res.data?.contents || [];
       const nextForm = Object.fromEntries(
-        CONTENT_FIELDS.map((field) => [
+        currentContentFields.map((field) => [
           contentFieldId(field.section, field.key),
           getDefaultContentValue(field.section, field.key)
         ])
@@ -136,9 +290,9 @@ export default function Admin() {
     setError('');
     try {
       await Promise.all(
-        CONTENT_FIELDS.map((field, index) =>
+        currentContentFields.map((field, index) =>
           api.post('/api/page-content', {
-            page: CONTENT_PAGE,
+            page: contentPage,
             section: field.section,
             key: field.key,
             content: contentForm[contentFieldId(field.section, field.key)] || '',
@@ -515,8 +669,20 @@ export default function Admin() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Real-time Content Editor</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Home page only: current texts are prefilled, edit and publish without deploy.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Public pages: edit text and publish without deploy.</p>
               </div>
+              <select
+                value={contentPage}
+                onChange={(e) => setContentPage(e.target.value)}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-700 dark:text-slate-200"
+              >
+                <option value="home">Home</option>
+                <option value="guide">Guide</option>
+                <option value="blog">Blog</option>
+                <option value="terms">Terms</option>
+                <option value="privacy">Privacy</option>
+                <option value="refund">Refund</option>
+              </select>
               <button
                 type="button"
                 onClick={handleSaveContent}
@@ -537,7 +703,7 @@ export default function Admin() {
               <p className="text-sm text-slate-500">{t('common.loading')}</p>
             ) : (
               <div className="space-y-4">
-                {CONTENT_FIELDS.map((field) => {
+                {currentContentFields.map((field) => {
                   const id = contentFieldId(field.section, field.key);
                   return (
                     <div key={id}>

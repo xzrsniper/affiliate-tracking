@@ -70,13 +70,26 @@ export default function Home() {
   }, [pageContent, isUk]);
 
   const budgetPoints = useMemo(
-    () => [t('home.budget1'), t('home.budget2'), t('home.budget3'), t('home.budget4'), t('home.budget5')],
-    [t]
+    () => [
+      contentText('budget', 'item1', t('home.budget1')),
+      contentText('budget', 'item2', t('home.budget2')),
+      contentText('budget', 'item3', t('home.budget3')),
+      contentText('budget', 'item4', t('home.budget4')),
+      contentText('budget', 'item5', t('home.budget5'))
+    ],
+    [pageContent, t]
   );
 
   const whyPoints = useMemo(
-    () => [t('home.benefit1'), t('home.benefit2'), t('home.benefit3'), t('home.benefit4'), t('home.benefit5'), t('home.benefit6')],
-    [t]
+    () => [
+      contentText('why', 'item1', t('home.benefit1')),
+      contentText('why', 'item2', t('home.benefit2')),
+      contentText('why', 'item3', t('home.benefit3')),
+      contentText('why', 'item4', t('home.benefit4')),
+      contentText('why', 'item5', t('home.benefit5')),
+      contentText('why', 'item6', t('home.benefit6'))
+    ],
+    [pageContent, t]
   );
 
   const faqItems = useMemo(
@@ -99,11 +112,11 @@ export default function Home() {
           <Logo size="md" showText={true} />
 
           <div className="hidden items-center gap-1 md:flex">
-            <a href="#features" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{t('home.navFeatures')}</a>
-            <a href="#pricing" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{t('home.navPricing')}</a>
+            <a href="#features" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'features', t('home.navFeatures'))}</a>
+            <a href="#pricing" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'pricing', t('home.navPricing'))}</a>
             <Link to="/blog" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{t('common.blog')}</Link>
-            <Link to="/guide" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{t('home.navGuide')}</Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{t('home.navSupport')}</a>
+            <Link to="/guide" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'guide', t('home.navGuide'))}</Link>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'support', t('home.navSupport'))}</a>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -121,10 +134,10 @@ export default function Home() {
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
             <Link to="/login" className="hidden rounded-[10px] border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 sm:block">
-              {t('home.signIn')}
+              {contentText('nav', 'sign_in', t('home.signIn'))}
             </Link>
             <Link to="/login" className="rounded-[10px] bg-[#6d5cf6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5d4af0] shadow-[0_10px_24px_rgba(109,92,246,0.28)]">
-              {t('home.startFree')}
+              {contentText('nav', 'start_free', t('home.startFree'))}
             </Link>
           </div>
         </div>
@@ -133,15 +146,15 @@ export default function Home() {
       <section className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-12 px-4 pb-16 pt-16 sm:px-8 lg:grid-cols-2 lg:items-center lg:pt-20">
         <div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-            <Sparkles className="h-3.5 w-3.5" /> {t('home.newVersionLive')}
+            <Sparkles className="h-3.5 w-3.5" /> {contentText('hero', 'badge', t('home.newVersionLive'))}
           </div>
 
           <h1 className="mb-5 text-[36px] font-extrabold leading-tight tracking-[-0.03em] text-slate-900 dark:text-slate-100 sm:text-[52px]">
-            {t('home.heroHeadlineBefore1')}
-            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">{t('home.heroHeadlineHighlight1')}</span>
-            {t('home.heroHeadlineMid')}
-            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">{t('home.heroHeadlineHighlight2')}</span>
-            {t('home.heroHeadlineEnd')}
+            {contentText('hero', 'headline_before', t('home.heroHeadlineBefore1'))}
+            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">{contentText('hero', 'headline_highlight_1', t('home.heroHeadlineHighlight1'))}</span>
+            {contentText('hero', 'headline_mid', t('home.heroHeadlineMid'))}
+            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">{contentText('hero', 'headline_highlight_2', t('home.heroHeadlineHighlight2'))}</span>
+            {contentText('hero', 'headline_end', t('home.heroHeadlineEnd'))}
           </h1>
 
           <p className="mb-2 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">{contentText('hero', 'subline', t('home.heroSubline'))}</p>
@@ -156,7 +169,7 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="text-sm text-slate-500">{t('home.heroNote')}</div>
+          <div className="text-sm text-slate-500">{contentText('hero', 'note', t('home.heroNote'))}</div>
         </div>
 
           <div className="rounded-[22px] border border-[#d8dfeb] bg-white p-5 shadow-[0_24px_80px_rgba(19,33,68,0.14)] dark:border-slate-700 dark:bg-slate-900">
@@ -228,9 +241,9 @@ export default function Home() {
             <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('money', 'title', t('home.moneyFromTitle'))}</h3>
             <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{contentText('money', 'description', t('home.moneyFromDesc'))}</p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet1')}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet2')}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.moneyFromBullet3')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('money', 'bullet1', t('home.moneyFromBullet1'))}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('money', 'bullet2', t('home.moneyFromBullet2'))}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('money', 'bullet3', t('home.moneyFromBullet3'))}</li>
             </ul>
           </div>
         </div>
@@ -240,9 +253,9 @@ export default function Home() {
             <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('integration', 'title', t('home.integration5minTitle'))}</h3>
             <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{contentText('integration', 'description', t('home.integration5minDesc'))}</p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet1')}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet2')}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{t('home.integrationBullet3')}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('integration', 'bullet1', t('home.integrationBullet1'))}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('integration', 'bullet2', t('home.integrationBullet2'))}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('integration', 'bullet3', t('home.integrationBullet3'))}</li>
             </ul>
           </div>
           <div className="rounded-3xl bg-[#121525] p-6 font-mono text-sm text-[#96b5ff] shadow-xl">
@@ -316,8 +329,8 @@ export default function Home() {
 
       <section className="mx-auto max-w-4xl px-4 pb-16 sm:px-8">
         <div className="mb-8 text-center">
-          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('common.faq')}</span>
-          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{t('common.faq')}</h2>
+          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{contentText('faq', 'title', t('common.faq'))}</span>
+          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('faq', 'title', t('common.faq'))}</h2>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -340,15 +353,15 @@ export default function Home() {
         </div>
 
         <div className="mt-5 rounded-xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-          <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{t('home.faqHelpTitle')}</p>
-          <p className="mb-3">{t('home.faqHelpDesc')}</p>
+          <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{contentText('faq', 'help_title', t('home.faqHelpTitle'))}</p>
+          <p className="mb-3">{contentText('faq', 'help_description', t('home.faqHelpDesc'))}</p>
           <a
             href="https://t.me/hodunkooo"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
           >
-            {t('home.faqHelpBtn')}
+            {contentText('faq', 'help_button', t('home.faqHelpBtn'))}
           </a>
         </div>
       </section>
@@ -361,9 +374,9 @@ export default function Home() {
           </div>
           <div className="flex flex-wrap gap-3">
               <Link to="/login" className="rounded-xl border border-white/60 bg-white/12 px-6 py-3 font-semibold text-slate-100 backdrop-blur-sm transition hover:bg-white/18">
-                {t('home.startFree')}
+                {contentText('bottom_cta', 'start_free', t('home.startFree'))}
               </Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">{t('home.talkToUs')}</a>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">{contentText('bottom_cta', 'talk_to_us', t('home.talkToUs'))}</a>
           </div>
         </div>
       </section>
@@ -372,13 +385,13 @@ export default function Home() {
         <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-4 px-4 text-sm text-slate-500 dark:text-slate-400 sm:px-8 lg:flex-row lg:items-center">
           <Logo size="sm" showText={true} />
           <div className="flex flex-wrap gap-5">
-            <a href="#features" className="hover:text-slate-800 dark:hover:text-slate-100">{t('home.navFeatures')}</a>
-            <a href="#pricing" className="hover:text-slate-800 dark:hover:text-slate-100">{t('home.navPricing')}</a>
+            <a href="#features" className="hover:text-slate-800 dark:hover:text-slate-100">{contentText('footer', 'features', t('home.navFeatures'))}</a>
+            <a href="#pricing" className="hover:text-slate-800 dark:hover:text-slate-100">{contentText('footer', 'pricing', t('home.navPricing'))}</a>
             <Link to="/guide" className="hover:text-slate-800 dark:hover:text-slate-100">{t('common.documentation')}</Link>
             <Link to="/terms" className="hover:text-slate-800 dark:hover:text-slate-100">Terms</Link>
             <Link to="/privacy" className="hover:text-slate-800 dark:hover:text-slate-100">Privacy</Link>
             <Link to="/refund" className="hover:text-slate-800 dark:hover:text-slate-100">Refund</Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800 dark:hover:text-slate-100">{t('home.navSupport')}</a>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800 dark:hover:text-slate-100">{contentText('footer', 'support', t('home.navSupport'))}</a>
           </div>
           <span>© 2026 TrackFlow. {t('common.allRightsReserved')}</span>
         </div>

@@ -1,21 +1,47 @@
 import LegalPageShell from '../components/LegalPageShell.jsx';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import api from '../config/api.js';
 
 export default function Refund() {
   const { i18n } = useTranslation();
   const isUk = i18n.language === 'uk';
+  const [pageContent, setPageContent] = useState({});
+  const lang = isUk ? 'uk' : 'en';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/api/page-content/refund');
+        if (!cancelled && res.data?.content) setPageContent(res.data.content);
+      } catch {
+        if (!cancelled) setPageContent({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
+
+  useEffect(() => {
+    const seoTitle = contentText('seo', 'title', isUk ? 'Політика повернення коштів (Refund Policy)' : 'Refund Policy');
+    const seoDescription = contentText('seo', 'description', isUk ? 'Умови повернення коштів для сервісу LehkoTrack.' : 'Refund terms for the LehkoTrack service.');
+    document.title = seoTitle;
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) metaDescription.setAttribute('content', seoDescription);
+  }, [pageContent, isUk]);
 
   return (
     <LegalPageShell
-      title={isUk ? 'Політика повернення коштів (Refund Policy)' : 'Refund Policy'}
-      updatedAt={isUk ? 'Останнє оновлення: 12 березня 2026 року' : 'Last updated: March 12, 2026'}
+      title={contentText('header', `title_${lang}`, isUk ? 'Політика повернення коштів (Refund Policy)' : 'Refund Policy')}
+      updatedAt={contentText('header', `updated_${lang}`, isUk ? 'Останнє оновлення: 12 березня 2026 року' : 'Last updated: March 12, 2026')}
     >
       {isUk ? (
         <>
-          <p>
-            Ця Політика регулює умови повернення платежів за використання Сервісу LehkoTrack, доступного за адресою
-            https://lehko.space. Здійснюючи оплату підписки, ви погоджуєтесь з цими умовами.
-          </p>
+          <p>{contentText('intro', 'text_uk', 'Ця Політика регулює умови повернення платежів за використання Сервісу LehkoTrack, доступного за адресою https://lehko.space. Здійснюючи оплату підписки, ви погоджуєтесь з цими умовами.')}</p>
           <h2 className="text-xl font-semibold">1. Характер послуги</h2>
           <p>
             LehkoTrack є програмним продуктом (SaaS). Оплата здійснюється за надання доступу до аналітичних потужностей Сервісу на визначений термін (місяць або рік).
@@ -47,10 +73,7 @@ export default function Refund() {
         </>
       ) : (
         <>
-          <p>
-            This Refund Policy regulates the terms for refunding payments for using the LehkoTrack service available at
-            https://lehko.space. By subscribing, you agree to these terms.
-          </p>
+          <p>{contentText('intro', 'text_en', 'This Refund Policy regulates the terms for refunding payments for using the LehkoTrack service available at https://lehko.space. By subscribing, you agree to these terms.')}</p>
           <h2 className="text-xl font-semibold">1. Nature of the Service</h2>
           <p>
             LehkoTrack is a software product (SaaS). Payments are made for access to the Service's analytics capabilities for a specified term (month or year).

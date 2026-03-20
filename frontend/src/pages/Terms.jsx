@@ -1,22 +1,47 @@
 import LegalPageShell from '../components/LegalPageShell.jsx';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import api from '../config/api.js';
 
 export default function Terms() {
   const { i18n } = useTranslation();
   const isUk = i18n.language === 'uk';
+  const [pageContent, setPageContent] = useState({});
+  const lang = isUk ? 'uk' : 'en';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/api/page-content/terms');
+        if (!cancelled && res.data?.content) setPageContent(res.data.content);
+      } catch {
+        if (!cancelled) setPageContent({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
+
+  useEffect(() => {
+    const seoTitle = contentText('seo', 'title', isUk ? 'Угода користувача' : 'User Agreement');
+    const seoDescription = contentText('seo', 'description', isUk ? 'Умови використання сервісу LehkoTrack.' : 'Terms of using the LehkoTrack service.');
+    document.title = seoTitle;
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) metaDescription.setAttribute('content', seoDescription);
+  }, [pageContent, isUk]);
 
   return (
     <LegalPageShell
-      title={isUk ? 'Угода користувача' : 'User Agreement'}
-      updatedAt={isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026'}
+      title={contentText('header', `title_${lang}`, isUk ? 'Угода користувача' : 'User Agreement')}
+      updatedAt={contentText('header', `updated_${lang}`, isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026')}
     >
       {isUk ? (
         <>
-          <p>
-            Перед використанням платформи LehkoTrack (далі — Сервіс), доступної за адресою https://lehko.space,
-            будь ласка, уважно ознайомтесь з цією Угодою. Реєстрація або використання будь-яких функцій Сервісу
-            означає вашу повну та беззастережну згоду з усіма умовами.
-          </p>
+          <p>{contentText('intro', 'text_uk', 'Перед використанням платформи LehkoTrack (далі — Сервіс), доступної за адресою https://lehko.space, будь ласка, уважно ознайомтесь з цією Угодою. Реєстрація або використання будь-яких функцій Сервісу означає вашу повну та беззастережну згоду з усіма умовами.')}</p>
           <h2 className="text-xl font-semibold">1. Терміни та визначення</h2>
           <ul className="list-disc pl-6 space-y-1">
             <li>Адміністрація — власник та оператор платформи LehkoTrack.</li>
@@ -63,11 +88,7 @@ export default function Terms() {
         </>
       ) : (
         <>
-          <p>
-            Before using the LehkoTrack platform (the &quot;Service&quot;), available at https://lehko.space, please
-            read this Agreement carefully. Registration or using any Service features means your full and
-            unconditional acceptance of all terms and conditions.
-          </p>
+          <p>{contentText('intro', 'text_en', 'Before using the LehkoTrack platform (the "Service"), available at https://lehko.space, please read this Agreement carefully. Registration or using any Service features means your full and unconditional acceptance of all terms and conditions.')}</p>
           <h2 className="text-xl font-semibold">1. Terms and Definitions</h2>
           <ul className="list-disc pl-6 space-y-1">
             <li>Administration means the owner and operator of the LehkoTrack platform.</li>
