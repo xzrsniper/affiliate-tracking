@@ -146,7 +146,7 @@ export default function Register() {
                 required
               />
               <span className="ml-2 text-sm text-gray-700">
-                Я погоджуюся з <a href="/user-agreement" target="_blank" rel="noopener noreferrer" className="underline">Угодою користувача</a>, <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline">Політикою конфіденційності</a> та <a href="/refund-policy" target="_blank" rel="noopener noreferrer" className="underline">Політикою повернення коштів</a>
+                Я погоджуюся з <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">Угодою користувача</a>, <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">Політикою конфіденційності</a> та <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline">Політикою повернення коштів</a>
               </span>
             </label>
             <button
