@@ -2,10 +2,23 @@ import express from 'express';
 import { Link, Click, Conversion, User, Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
+import { runTrackingRedirect } from '../utils/trackingRedirect.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
 const router = express.Router();
+
+/**
+ * Public redirect under /api — works when Nginx only proxies /api to Node and serves SPA for /r/CODE.
+ * Browser hits React first → full navigation to /api/links/go/CODE → 302 to target site.
+ */
+router.get('/go/:unique_code', async (req, res, next) => {
+  try {
+    await runTrackingRedirect(req, res, req.params.unique_code);
+  } catch (error) {
+    next(error);
+  }
+});
 
 let clickSessionColumnsCache = {
   checkedAt: 0,

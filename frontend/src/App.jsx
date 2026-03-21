@@ -24,6 +24,7 @@ import BlogPost from './pages/BlogPost.jsx';
 import Terms from './pages/Terms.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Refund from './pages/Refund.jsx';
+import TrackingOutboundRedirect from './pages/TrackingOutboundRedirect.jsx';
 
 // Component to redirect pixel.js to API endpoint
 function PixelJsRedirect() {
@@ -68,6 +69,9 @@ function AppRoutes() {
           path="/pixel.js"
           element={<PixelJsRedirect />}
         />
+        {/* Short tracking URLs: Nginx often serves SPA here; bounce to /api/links/go for real 302 */}
+        <Route path="/r/:code" element={<TrackingOutboundRedirect />} />
+        <Route path="/track/:code" element={<TrackingOutboundRedirect />} />
         <Route
           path="/"
           element={<Home />}
