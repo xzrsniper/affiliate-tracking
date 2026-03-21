@@ -719,6 +719,30 @@ router.post('/conversion', async (req, res, next) => {
       }
     }
 
+    // Lead with 0 from pixel (DOM price missed): use fixed "static price" from site settings
+    if (event_type === 'lead' && parsedOrderValue === 0) {
+      const siteIdRaw = req.body.site_id ?? req.query.site_id;
+      const sid = siteIdRaw != null ? parseInt(String(siteIdRaw), 10) : NaN;
+      if (Number.isFinite(sid) && sid > 0) {
+        try {
+          const website = await Website.findByPk(sid, { attributes: ['id', 'static_price', 'user_id'] });
+          if (
+            website &&
+            Number(website.user_id) === Number(link.user_id) &&
+            website.static_price != null
+          ) {
+            const sp = parseFloat(website.static_price);
+            if (sp > 0 && sp < 10000000) {
+              parsedOrderValue = sp;
+              console.log('[Conversion] Lead: applied website static_price', { site_id: sid, static_price: sp });
+            }
+          }
+        } catch (e) {
+          console.warn('[Conversion] Lead static_price lookup failed', e.message);
+        }
+      }
+    }
+
     const normalizedOrderId = normalizeOrderId(order_id);
     
     // Check for duplicate conversions (if order_id provided)
@@ -828,15 +852,23 @@ router.post('/conversion', async (req, res, next) => {
       try {
         return await Conversion.create(conversionData, { transaction: t });
       } catch (createError) {
-        if (createError.message && (createError.message.includes('order_id') || createError.message.includes('click_id') || createError.message.includes('event_type'))) {
-          console.warn('[Conversion Warning] Some fields not available, creating without them:', createError.message);
+        const msg = createError.message || '';
+        if (msg.includes('order_id') || msg.includes('click_id') || msg.includes('event_type')) {
+          console.warn('[Conversion Warning] Retrying without problematic fields:', createError.message);
           delete conversionData.order_id;
           delete conversionData.click_id;
-          delete conversionData.event_type;
-          return await Conversion.create(conversionData, { transaction: t });
-        } else {
-          throw createError;
+          // Keep event_type on first retry — stripping it stored leads as "sale" and broke lead_revenue
+          try {
+            return await Conversion.create(conversionData, { transaction: t });
+          } catch (e2) {
+            if (e2.message && String(e2.message).includes('event_type')) {
+              delete conversionData.event_type;
+              return await Conversion.create(conversionData, { transaction: t });
+            }
+            throw e2;
+          }
         }
+        throw createError;
       }
     });
 
