@@ -588,7 +588,8 @@ export default function Admin() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.body')}</label>
-                  <textarea value={blogForm.body} onChange={(e) => setBlogForm((f) => ({ ...f, body: e.target.value }))} rows={10} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-sm" placeholder="<p>HTML content</p>" />
+                  <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">{t('adminBlog.bodyHint')}</p>
+                  <textarea value={blogForm.body} onChange={(e) => setBlogForm((f) => ({ ...f, body: e.target.value }))} rows={10} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-sm" placeholder={'<h2>Section</h2>\n<p>...</p>'} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('adminBlog.featuredImage')}</label>

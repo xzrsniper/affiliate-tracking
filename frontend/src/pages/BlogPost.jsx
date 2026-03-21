@@ -32,6 +32,17 @@ function decodeHtmlEntities(maybeEscapedHtml) {
   return textarea.value || '';
 }
 
+/**
+ * Page already renders post.title as the only <h1>. Demote any <h1> in the body
+ * to <h2> so the outline is valid (one h1 per page) and headings get correct styles.
+ */
+function normalizeBlogBodyHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<h1(\s[^>]*)?>/gi, '<h2$1>')
+    .replace(/<\/h1>/gi, '</h2>');
+}
+
 export default function BlogPost() {
   const { slug } = useParams();
   const { t, i18n } = useTranslation();
@@ -82,7 +93,7 @@ export default function BlogPost() {
     );
   }
 
-  const decodedBody = decodeHtmlEntities(post.body);
+  const decodedBody = normalizeBlogBodyHtml(decodeHtmlEntities(post.body));
   const readMin = readingTime(decodedBody);
 
   return (
@@ -101,7 +112,9 @@ export default function BlogPost() {
       </nav>
 
       <article className="mx-auto max-w-[800px] px-4 py-8 sm:px-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-slate-100">{post.title}</h1>
+        <h1 className="text-3xl sm:text-[2.15rem] font-bold leading-tight tracking-tight text-blue-600 dark:text-sky-400">
+          {post.title}
+        </h1>
         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
           {post.author_name && <span>{post.author_name}</span>}
           <span>{formatDate(post.published_at || post.created_at, isUk ? 'uk' : 'en')}</span>
@@ -116,7 +129,19 @@ export default function BlogPost() {
         )}
 
         <div
-          className="mt-6 prose prose-slate dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-violet-600 prose-img:rounded-xl"
+          className={[
+            'blog-post-body mt-8 max-w-none',
+            'prose prose-lg prose-slate dark:prose-invert',
+            'prose-headings:font-bold prose-headings:tracking-tight',
+            'prose-h2:mt-10 prose-h2:mb-4 prose-h2:text-2xl prose-h2:text-slate-900 dark:prose-h2:text-slate-100',
+            'prose-h3:mt-8 prose-h3:mb-3 prose-h3:text-xl prose-h3:text-slate-900 dark:prose-h3:text-slate-100',
+            'prose-p:my-4 prose-p:leading-relaxed prose-p:text-slate-700 dark:prose-p:text-slate-300',
+            'prose-strong:font-semibold prose-strong:text-slate-900 dark:prose-strong:text-white',
+            'prose-ul:my-4 prose-ol:my-4 prose-li:my-1',
+            'prose-a:text-violet-600 prose-a:no-underline hover:prose-a:underline dark:prose-a:text-violet-400',
+            'prose-img:rounded-xl prose-img:shadow-lg',
+            'prose-hr:my-10'
+          ].join(' ')}
           dangerouslySetInnerHTML={{ __html: decodedBody || '' }}
         />
       </article>

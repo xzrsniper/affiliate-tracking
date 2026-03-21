@@ -810,6 +810,7 @@
     "slug": "URL (slug)",
     "excerpt": "Excerpt",
     "body": "Body (HTML)",
+    "bodyHint": "The page title field is the only H1. In the body use <h2>, <h3>, <p>, <ul>/<li>, <strong>. Any <h1> in the body is shown as a second-level heading.",
     "featuredImage": "Featured image",
     "authorName": "Author",
     "publish": "Publish immediately",
