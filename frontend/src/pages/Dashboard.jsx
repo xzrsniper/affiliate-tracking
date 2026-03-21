@@ -31,7 +31,8 @@ import {
   Search,
   ShoppingCart,
   Clock,
-  FileSpreadsheet
+  FileSpreadsheet,
+  HelpCircle
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -1314,18 +1315,26 @@ export default function Dashboard() {
                           </button>
                         </th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
-                          <button
-                            type="button"
-                            onClick={() => handleSort('leadRevenue')}
-                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
-                          >
-                            <span>{t('dashboard.tableRevenueLeads', 'Дохід (ліди)')}</span>
-                            {sortColumn === 'leadRevenue' ? (
-                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                            ) : (
-                              <span className="text-slate-400">↕</span>
-                            )}
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleSort('leadRevenue')}
+                              className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                            >
+                              <span>{t('dashboard.tableRevenueLeads', 'Дохід (ліди)')}</span>
+                              {sortColumn === 'leadRevenue' ? (
+                                <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              ) : (
+                                <span className="text-slate-400">↕</span>
+                              )}
+                            </button>
+                            <span
+                              className="cursor-help text-slate-400 hover:text-violet-600"
+                              title={t('dashboard.leadRevenueColumnHelp')}
+                            >
+                              <HelpCircle className="w-3.5 h-3.5" aria-hidden />
+                            </span>
+                          </div>
                         </th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableActions')}</th>
                       </tr>
@@ -1340,6 +1349,18 @@ export default function Dashboard() {
                         const averageCheck = link.stats?.average_check || 0;
                         const revenue = link.stats?.sales_revenue ?? 0;
                         const leadRevenue = link.stats?.lead_revenue ?? 0;
+                        const leadEvents = link.stats?.leads ?? 0;
+                        const saleEvents = link.stats?.sales ?? 0;
+                        let leadRevenueTitle = '';
+                        if (leadRevenue <= 0) {
+                          if (leadEvents > 0) {
+                            leadRevenueTitle = t('dashboard.leadRevenueHintLeadsNoAmount');
+                          } else if (saleEvents > 0) {
+                            leadRevenueTitle = t('dashboard.leadRevenueHintSaleOnly');
+                          } else {
+                            leadRevenueTitle = t('dashboard.leadRevenueHintNoConversions');
+                          }
+                        }
                         const isUk = i18n.language === 'uk';
                         return (
                           <tr key={link.id} className="border-b border-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/70">
@@ -1370,10 +1391,17 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-bold text-emerald-700 dark:text-emerald-400">
                               {isUk ? '₴' : '$'}{revenue.toLocaleString()}
                             </td>
-                            <td className="px-4 py-4 font-bold text-amber-800 dark:text-amber-300 tabular-nums">
+                            <td
+                              className="px-4 py-4 font-bold text-amber-800 dark:text-amber-300 tabular-nums"
+                              title={leadRevenueTitle || undefined}
+                            >
                               {leadRevenue > 0
                                 ? `${isUk ? '₴' : '$'}${leadRevenue.toLocaleString()}`
-                                : <span className="font-semibold text-slate-500 dark:text-slate-400">—</span>}
+                                : (
+                                  <span className="font-semibold text-slate-500 dark:text-slate-400 cursor-help border-b border-dotted border-slate-300 dark:border-slate-600">
+                                    {leadEvents > 0 ? `${isUk ? '₴' : '$'}0` : '—'}
+                                  </span>
+                                )}
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
