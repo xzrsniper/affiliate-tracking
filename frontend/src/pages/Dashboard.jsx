@@ -1367,11 +1367,13 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatDuration(avgTime)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatPercent(bounceRate)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{averageCheck.toLocaleString()} {isUk ? '₴' : '$'}</td>
-                            <td className="px-4 py-4 font-bold text-emerald-600">
+                            <td className="px-4 py-4 font-bold text-emerald-700 dark:text-emerald-400">
                               {isUk ? '₴' : '$'}{revenue.toLocaleString()}
                             </td>
-                            <td className="px-4 py-4 font-bold text-slate-400">
-                              {leadRevenue > 0 ? `${isUk ? '₴' : '$'}${leadRevenue.toLocaleString()}` : ''}
+                            <td className="px-4 py-4 font-bold text-amber-800 dark:text-amber-300 tabular-nums">
+                              {leadRevenue > 0
+                                ? `${isUk ? '₴' : '$'}${leadRevenue.toLocaleString()}`
+                                : <span className="font-semibold text-slate-500 dark:text-slate-400">—</span>}
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
@@ -1538,7 +1540,7 @@ function StatCard({ icon: Icon, label, value, description, bgColor, iconColor })
       </div>
       <p className="text-3xl font-bold text-slate-900 leading-none">{value}</p>
       {description ? (
-        <p className="text-xs text-slate-500 mt-2 leading-snug">{description}</p>
+        <p className="text-xs text-slate-700 dark:text-slate-300 mt-2 leading-snug font-medium">{description}</p>
       ) : null}
     </div>
   );
