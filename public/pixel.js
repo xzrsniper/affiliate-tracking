@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.6 — Lead/cart order_value from DOM; revenue from leads + sales
+ * LehkoTrack Pixel v4.7 — extractPrice: nearest/scope (no page-wide first match = wrong totals)
  * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
@@ -342,24 +342,79 @@
     return (v > 0 && v < 10000000) ? v : 0;
   }
 
+  /**
+   * Price near a button: BFS from `near` staying inside `scope` only.
+   * Avoids old bug: querySelectorAll('*') on a wide parent picked first DOM match
+   * (often cart/header total 25k) instead of product price (5k) next to the CTA.
+   */
+  function extractPriceWithinScope(near, scope) {
+    if (!near || !scope || !scope.contains(near)) return 0;
+    var queue = [near];
+    var seen = new WeakSet();
+    var head = 0;
+    var maxIter = 140;
+    while (head < queue.length && head < maxIter) {
+      var el = queue[head++];
+      if (!el || seen.has(el)) continue;
+      seen.add(el);
+      if (!scope.contains(el)) continue;
+      var t = el.textContent || '';
+      if (t.length <= 220 && /[\u20B4$\u20AC]|грн|uah|usd|eur/i.test(t)) {
+        var val = parsePrice(t);
+        if (val > 0) return val;
+      }
+      var ch = el.children;
+      for (var i = 0; i < ch.length; i++) {
+        if (scope.contains(ch[i])) queue.push(ch[i]);
+      }
+      if (el.nextElementSibling && scope.contains(el.nextElementSibling)) queue.push(el.nextElementSibling);
+      if (el.previousElementSibling && scope.contains(el.previousElementSibling)) queue.push(el.previousElementSibling);
+      if (el.parentElement && scope.contains(el.parentElement)) queue.push(el.parentElement);
+    }
+    return 0;
+  }
+
+  function getProductScope(near) {
+    if (!near || !near.closest) return null;
+    return near.closest(
+      '[data-product-id],[data-product],[itemtype*="Product"],' +
+      '[class*="product-card"],[class*="product__"],[class*="item-product"],[class*="ProductCard"],' +
+      'article.product,article[class*="product"],.woocommerce div.product,.summary.entry-summary,' +
+      '.product-inner,.product-detail,.product-item,.product-box,[class*="product-box"],[role="dialog"],.modal'
+    );
+  }
+
   function extractPrice(near) {
     if (cfg.staticPrice != null && cfg.staticPrice > 0) return cfg.staticPrice;
     if (cfg.priceSelector) {
       var el = document.querySelector(cfg.priceSelector);
       if (el) { var p = parsePrice(el.textContent); if (p > 0) return p; }
     }
-    if (near) {
-      var parent = near.parentElement;
-      for (var depth = 0; depth < 5 && parent; depth++, parent = parent.parentElement) {
-        var nodes = parent.querySelectorAll('*');
-        for (var i = 0; i < nodes.length; i++) {
-          var t = nodes[i].textContent || '';
-          if (/[\u20B4$\u20AC]|грн|uah|usd|eur/i.test(t)) {
-            var val = parsePrice(t);
-            if (val > 0) return val;
-          }
-        }
+    if (!near) return 0;
+
+    // Closest parents first (narrow row/card near CTA), then product shell — avoids
+    // scanning a big .product block before a tight parent that only has the real price.
+    var scopes = [];
+    var walk = near.parentElement;
+    for (var depth = 0; depth < 5 && walk; depth++, walk = walk.parentElement) {
+      if (walk === document.body || walk === document.documentElement) break;
+      scopes.push(walk);
+    }
+    var prod = getProductScope(near);
+    if (prod) {
+      var hasProd = false;
+      for (var si = 0; si < scopes.length; si++) {
+        if (scopes[si] === prod) { hasProd = true; break; }
       }
+      if (!hasProd) scopes.push(prod);
+    }
+    var tried = new WeakSet();
+    for (var s = 0; s < scopes.length; s++) {
+      var scope = scopes[s];
+      if (!scope || tried.has(scope)) continue;
+      tried.add(scope);
+      var v = extractPriceWithinScope(near, scope);
+      if (v > 0) return v;
     }
     return 0;
   }
@@ -963,7 +1018,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.6', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.7', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1240,7 +1295,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '4.6',
+    version: '4.7',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,
