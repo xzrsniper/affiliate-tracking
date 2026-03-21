@@ -1,6 +1,6 @@
 /**
- * LehkoTrack Pixel v5.0 — cross-subdomain cookies (click_id); form submit fallback for lead
- * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
+ * LehkoTrack Pixel v5.1 — lead sum from checkout «Всього» / sibling of form (not only inside button scope)
+ * (v5.0 — cross-subdomain cookies; v4.3 — GTM/dataLayer, JSON-LD)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
  *
@@ -358,6 +358,9 @@
     return (v > 0 && v < 10000000) ? v : 0;
   }
 
+  // Checkout/cart URL — для lead: сума з «Всього» на сторінці оформлення (до success)
+  var CHECKOUT_URL_RE = /checkout|cart|basket|korzin|koszyk|oplata|payment|\/pay\/|order\/?$|zamovlennya|oformlennya|checkout/i;
+
   /**
    * Price near a button: BFS from `near` staying inside `scope` only.
    * Avoids old bug: querySelectorAll('*') on a wide parent picked first DOM match
@@ -542,6 +545,16 @@
         if (p > 0) return p;
       }
     }
+    // Summary «Всього» часто в сусідній колонці / поза формою — не видно з BFS від кнопки
+    p = extractTotalFromFormContext(btn);
+    if (p > 0) return p;
+    if (CHECKOUT_URL_RE.test(location.pathname)) {
+      p = extractPriceFromPage();
+      if (p > 0) {
+        try { console.log('[LehkoTrack] Lead price from checkout page scan:', p); } catch (e) { /* */ }
+        return p;
+      }
+    }
     return 0;
   }
 
@@ -713,7 +726,7 @@
     var body = document.body;
     if (!body) return 0;
 
-    var TOTAL_RE = /total|сума|разом|підсумок|итого|всего|до сплати|к оплате|вартість|стоимость|замовлення на суму|заказ на сумму|order\s*amount|order\s*total|grand\s*total|amount\s*due|amount\s*paid|сплачено|оплачено/i;
+    var TOTAL_RE = /total|сума|разом|підсумок|итого|всего|всього|до сплати|к оплате|вартість|стоимость|замовлення на суму|заказ на сумму|order\s*amount|order\s*total|grand\s*total|amount\s*due|amount\s*paid|сплачено|оплачено/i;
     var PRICE_RE = /[\u20B4$\u20AC£\u20BD]|грн|uah|usd|eur|руб|zł|pln/i;
 
     // Strategy 1: find element with "total" label + sibling/adjacent price element
@@ -778,6 +791,96 @@
       if (val > 0) return val;
     }
 
+    return 0;
+  }
+
+  /**
+   * Checkout pages: «Всього / Total» and amount often sit in a column NEXT to the form, not inside
+   * the button’s DOM subtree — extractPrice() never sees them. Scoped label+price scan.
+   */
+  function extractTotalFromContainer(scope) {
+    if (!scope || !scope.querySelectorAll) return 0;
+    var TOTAL_RE = /total|сума|разом|підсумок|итого|всего|всього|до сплати|к оплате|вартість|стоимость|замовлення на суму|заказ на сумму|order\s*amount|order\s*total|grand\s*total|amount\s*due|amount\s*paid|сплачено|оплачено/i;
+    var PRICE_RE = /[\u20B4$\u20AC£\u20BD]|грн|uah|usd|eur|руб|zł|pln/i;
+
+    var candidates = scope.querySelectorAll(
+      'td, th, span, p, div, li, dt, dd, strong, b, small, h1, h2, h3, h4, h5, h6, label, tr, ' +
+      '.order-total, .woocommerce-order-overview, .total, [class*="total"], [class*="price"], ' +
+      '[class*="amount"], [class*="sum"], [class*="order"], [class*="checkout"], [class*="summary"]'
+    );
+    var i;
+    for (i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      if (el.children.length > 10) continue;
+      var text = (el.textContent || '').trim();
+      if (text.length < 3 || text.length > 300) continue;
+      if (TOTAL_RE.test(text) && /\d/.test(text)) {
+        var val = parsePrice(text);
+        if (val > 0) return val;
+      }
+    }
+
+    var labels = scope.querySelectorAll('td, th, span, p, div, dt, label, strong, b');
+    for (i = 0; i < labels.length; i++) {
+      var lbl = labels[i];
+      var lblText = (lbl.textContent || '').trim();
+      if (lblText.length < 3 || lblText.length > 60) continue;
+      if (!TOTAL_RE.test(lblText)) continue;
+      var sibling = lbl.nextElementSibling;
+      if (sibling) {
+        var sibText = (sibling.textContent || '').trim();
+        if (sibText.length > 0 && sibText.length < 80) {
+          val = parsePrice(sibText);
+          if (val > 0) return val;
+        }
+      }
+      if (lbl.parentElement) {
+        var parentSibling = lbl.parentElement.nextElementSibling;
+        if (parentSibling) {
+          var psText = (parentSibling.textContent || '').trim();
+          if (psText.length > 0 && psText.length < 80) {
+            val = parsePrice(psText);
+            if (val > 0) return val;
+          }
+        }
+      }
+    }
+
+    for (i = 0; i < candidates.length; i++) {
+      el = candidates[i];
+      if (el.children.length > 3) continue;
+      text = (el.textContent || '').trim();
+      if (text.length < 2 || text.length > 80) continue;
+      if (PRICE_RE.test(text)) {
+        val = parsePrice(text);
+        if (val > 0) return val;
+      }
+    }
+    return 0;
+  }
+
+  /** Walk form parent + a few ancestors — finds sibling order-summary blocks. */
+  function extractTotalFromFormContext(btn) {
+    if (!btn) return 0;
+    var form = btn.closest('form');
+    var roots = [];
+    var seen = {};
+    if (form && form.parentElement) roots.push(form.parentElement);
+    var walk = btn.parentElement;
+    for (var d = 0; d < 8 && walk; d++, walk = walk.parentElement) {
+      if (walk === document.body || walk === document.documentElement) break;
+      roots.push(walk);
+    }
+    for (var i = 0; i < roots.length; i++) {
+      var r = roots[i];
+      if (!r || seen[r]) continue;
+      seen[r] = true;
+      var v = extractTotalFromContainer(r);
+      if (v > 0) {
+        try { console.log('[LehkoTrack] Lead price from order summary (sibling/form context):', v); } catch (e) { /* */ }
+        return v;
+      }
+    }
     return 0;
   }
 
@@ -846,7 +949,7 @@
 
   // ── 7. Success Page Detection ─────────────────────────────────────────
   // Не вважати success: checkout, cart, сторінка оформлення/оплати (це ще не подяка)
-  var CHECKOUT_URL_RE = /checkout|cart|basket|korzin|koszyk|oplata|payment|\/pay\/|order\/?$|zamovlennya|oformlennya|checkout/i;
+  // CHECKOUT_URL_RE — оголошено після parsePrice (lead price + success guard)
   var SUCCESS_URL_RE = /thank|thanks|dyakuy|spasybi|success|payment[_-]?success|order[_-]?(done|ready)|complete/i;
 
   var SUCCESS_TEXT_RE = new RegExp([
