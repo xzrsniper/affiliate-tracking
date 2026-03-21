@@ -329,6 +329,13 @@ npm run db:ensure-conversions
 
 `db:ensure-conversions` додає/оновлює: `conversions.event_type` ENUM(`lead`,`sale`,`cart`), `click_id`, `order_id`, `websites.static_price` — узгоджено з кодом додатку.
 
+**Дохід по лідах (стартові нулі в БД):** після оновлення бекенду можна один раз підставити суми для старих рядків `lead` з `order_value = 0` (логіка як у API: фіксована ціна / домен / останній sale):
+
+```bash
+npm run db:backfill-lead-values -- --dry-run
+npm run db:backfill-lead-values
+```
+
 ## Після деплою
 
 ### Перевірка роботи

@@ -16,6 +16,7 @@
     "db:check": "node scripts/check-db.js",
     "db:verify": "node scripts/verify-schema.js",
     "db:ensure-conversions": "node scripts/ensure-conversions-schema.js",
+    "db:backfill-lead-values": "node scripts/backfill-lead-order-values.js",
     "db:add-fields": "node scripts/add-link-fields.js",
     "db:add-google-id": "node scripts/add-google-id-field.js",
     "db:add-websites": "node scripts/add-websites-table.js",

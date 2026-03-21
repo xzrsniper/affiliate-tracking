@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { fileURLToPath } from 'url';
 import { Link, Click, Conversion, TrackerVerification, Website, LinkClick } from '../models/index.js';
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
+import { resolveLeadOrderValueFallback } from '../utils/leadOrderValueFallback.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
@@ -719,27 +720,21 @@ router.post('/conversion', async (req, res, next) => {
       }
     }
 
-    // Lead with 0 from pixel (DOM price missed): use fixed "static price" from site settings
+    // Lead with 0 from pixel: static_price (site_id / domain / single site) or last sale on same link
     if (event_type === 'lead' && parsedOrderValue === 0) {
       const siteIdRaw = req.body.site_id ?? req.query.site_id;
-      const sid = siteIdRaw != null ? parseInt(String(siteIdRaw), 10) : NaN;
-      if (Number.isFinite(sid) && sid > 0) {
-        try {
-          const website = await Website.findByPk(sid, { attributes: ['id', 'static_price', 'user_id'] });
-          if (
-            website &&
-            Number(website.user_id) === Number(link.user_id) &&
-            website.static_price != null
-          ) {
-            const sp = parseFloat(website.static_price);
-            if (sp > 0 && sp < 10000000) {
-              parsedOrderValue = sp;
-              console.log('[Conversion] Lead: applied website static_price', { site_id: sid, static_price: sp });
-            }
-          }
-        } catch (e) {
-          console.warn('[Conversion] Lead static_price lookup failed', e.message);
+      try {
+        const resolved = await resolveLeadOrderValueFallback(link, siteIdRaw);
+        if (resolved) {
+          parsedOrderValue = resolved.value;
+          console.log('[Conversion] Lead: applied order_value fallback', {
+            source: resolved.source,
+            value: resolved.value,
+            websiteId: resolved.websiteId
+          });
         }
+      } catch (e) {
+        console.warn('[Conversion] Lead order_value fallback failed', e.message);
       }
     }
 
@@ -1101,6 +1096,22 @@ router.get('/conversion', async (req, res, next) => {
     if (value !== undefined && value !== null && value !== '') {
       const cleaned = String(value).replace(/[^\d.-]/g, '');
       parsedOrderValue = parseFloat(cleaned) || 0;
+    }
+
+    if (event_type === 'lead' && parsedOrderValue === 0) {
+      const siteIdRaw = req.query.site_id;
+      try {
+        const resolved = await resolveLeadOrderValueFallback(link, siteIdRaw);
+        if (resolved) {
+          parsedOrderValue = resolved.value;
+          console.log('[Conversion GET] Lead: applied order_value fallback', {
+            source: resolved.source,
+            value: resolved.value
+          });
+        }
+      } catch (e) {
+        console.warn('[Conversion GET] Lead fallback failed', e.message);
+      }
     }
 
     // Normalize order_id

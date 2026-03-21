@@ -959,6 +959,7 @@ window.__lehkoConfig = {
                     placeholder="example.com"
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
                   />
+                  <p className="text-xs text-slate-500 mt-1">{t('setup.domainLeadHint')}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">{t('setup.successUrlLabel')}</label>
