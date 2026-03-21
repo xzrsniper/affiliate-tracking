@@ -366,6 +366,12 @@ router.get('/my-links', async (req, res, next) => {
 
     const clickColumns = await getClickSessionColumnsAvailability();
 
+    // Відмова: є виміряна сесія і не було engagement (скрол/клік/тач/клавіша).
+    // Раніше було ще «< 15 с» — через heartbeat час швидко ставав >15 с, і «нічого не робив» не рахувалось як bounce.
+    const bounceCaseWhen = clickColumns.hasHadEngagement
+      ? 'session_duration_seconds IS NOT NULL AND COALESCE(had_engagement, 0) = 0'
+      : 'session_duration_seconds IS NOT NULL AND session_duration_seconds < 15';
+
     const clickStatsSql = clickColumns.hasSessionDuration
       ? `
         SELECT
@@ -374,7 +380,7 @@ router.get('/my-links', async (req, res, next) => {
           COUNT(DISTINCT visitor_fingerprint) as unique_clicks,
           COUNT(CASE WHEN session_duration_seconds IS NOT NULL THEN 1 END) as measured_sessions,
           COALESCE(AVG(session_duration_seconds), 0) as avg_session_seconds,
-          SUM(CASE WHEN session_duration_seconds IS NOT NULL AND session_duration_seconds < 15 AND ${clickColumns.hasHadEngagement ? 'COALESCE(had_engagement, 0)' : '0'} = 0 THEN 1 ELSE 0 END) as bounces
+          SUM(CASE WHEN ${bounceCaseWhen} THEN 1 ELSE 0 END) as bounces
         FROM clicks
         WHERE link_id IN (?)${snapshotCondition}
         GROUP BY link_id
