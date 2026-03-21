@@ -1,7 +1,8 @@
 import LegalPageShell from '../components/LegalPageShell.jsx';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api.js';
+import SiteEditableText from '../components/SiteEditableText.jsx';
 
 export default function Terms() {
   const { i18n } = useTranslation();
@@ -9,20 +10,26 @@ export default function Terms() {
   const [pageContent, setPageContent] = useState({});
   const lang = isUk ? 'uk' : 'en';
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await api.get('/api/page-content/terms');
-        if (!cancelled && res.data?.content) setPageContent(res.data.content);
-      } catch {
-        if (!cancelled) setPageContent({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadPageContent = useCallback(async () => {
+    try {
+      const res = await api.get('/api/page-content/terms');
+      if (res.data?.content) setPageContent(res.data.content);
+    } catch {
+      setPageContent({});
+    }
   }, []);
+
+  useEffect(() => {
+    loadPageContent();
+  }, [loadPageContent]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.page === 'terms') loadPageContent();
+    };
+    window.addEventListener('lehko-page-content-refresh', handler);
+    return () => window.removeEventListener('lehko-page-content-refresh', handler);
+  }, [loadPageContent]);
 
   const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
 
@@ -36,12 +43,37 @@ export default function Terms() {
 
   return (
     <LegalPageShell
-      title={contentText('header', `title_${lang}`, isUk ? 'Угода користувача' : 'User Agreement')}
-      updatedAt={contentText('header', `updated_${lang}`, isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026')}
+      title={
+        <SiteEditableText
+          page="terms"
+          section="header"
+          fieldKey={`title_${lang}`}
+          value={contentText('header', `title_${lang}`, isUk ? 'Угода користувача' : 'User Agreement')}
+          as="span"
+        />
+      }
+      updatedAt={
+        <SiteEditableText
+          page="terms"
+          section="header"
+          fieldKey={`updated_${lang}`}
+          value={contentText('header', `updated_${lang}`, isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026')}
+          as="span"
+        />
+      }
     >
       {isUk ? (
         <>
-          <p>{contentText('intro', 'text_uk', 'Перед використанням платформи LehkoTrack (далі — Сервіс), доступної за адресою https://lehko.space, будь ласка, уважно ознайомтесь з цією Угодою. Реєстрація або використання будь-яких функцій Сервісу означає вашу повну та беззастережну згоду з усіма умовами.')}</p>
+          <p>
+            <SiteEditableText
+              page="terms"
+              section="intro"
+              fieldKey="text_uk"
+              value={contentText('intro', 'text_uk', 'Перед використанням платформи LehkoTrack (далі — Сервіс), доступної за адресою https://lehko.space, будь ласка, уважно ознайомтесь з цією Угодою. Реєстрація або використання будь-яких функцій Сервісу означає вашу повну та беззастережну згоду з усіма умовами.')}
+              multiline
+              as="span"
+            />
+          </p>
           <h2 className="text-xl font-semibold">1. Терміни та визначення</h2>
           <ul className="list-disc pl-6 space-y-1">
             <li>Адміністрація — власник та оператор платформи LehkoTrack.</li>
@@ -88,7 +120,16 @@ export default function Terms() {
         </>
       ) : (
         <>
-          <p>{contentText('intro', 'text_en', 'Before using the LehkoTrack platform (the "Service"), available at https://lehko.space, please read this Agreement carefully. Registration or using any Service features means your full and unconditional acceptance of all terms and conditions.')}</p>
+          <p>
+            <SiteEditableText
+              page="terms"
+              section="intro"
+              fieldKey="text_en"
+              value={contentText('intro', 'text_en', 'Before using the LehkoTrack platform (the "Service"), available at https://lehko.space, please read this Agreement carefully. Registration or using any Service features means your full and unconditional acceptance of all terms and conditions.')}
+              multiline
+              as="span"
+            />
+          </p>
           <h2 className="text-xl font-semibold">1. Terms and Definitions</h2>
           <ul className="list-disc pl-6 space-y-1">
             <li>Administration means the owner and operator of the LehkoTrack platform.</li>

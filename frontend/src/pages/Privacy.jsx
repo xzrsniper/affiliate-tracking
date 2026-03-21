@@ -1,7 +1,8 @@
 import LegalPageShell from '../components/LegalPageShell.jsx';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api.js';
+import SiteEditableText from '../components/SiteEditableText.jsx';
 
 export default function Privacy() {
   const { i18n } = useTranslation();
@@ -9,20 +10,26 @@ export default function Privacy() {
   const [pageContent, setPageContent] = useState({});
   const lang = isUk ? 'uk' : 'en';
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await api.get('/api/page-content/privacy');
-        if (!cancelled && res.data?.content) setPageContent(res.data.content);
-      } catch {
-        if (!cancelled) setPageContent({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadPageContent = useCallback(async () => {
+    try {
+      const res = await api.get('/api/page-content/privacy');
+      if (res.data?.content) setPageContent(res.data.content);
+    } catch {
+      setPageContent({});
+    }
   }, []);
+
+  useEffect(() => {
+    loadPageContent();
+  }, [loadPageContent]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.page === 'privacy') loadPageContent();
+    };
+    window.addEventListener('lehko-page-content-refresh', handler);
+    return () => window.removeEventListener('lehko-page-content-refresh', handler);
+  }, [loadPageContent]);
 
   const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
 
@@ -36,12 +43,37 @@ export default function Privacy() {
 
   return (
     <LegalPageShell
-      title={contentText('header', `title_${lang}`, isUk ? 'Політика конфіденційності (Privacy Policy)' : 'Privacy Policy')}
-      updatedAt={contentText('header', `updated_${lang}`, isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026')}
+      title={
+        <SiteEditableText
+          page="privacy"
+          section="header"
+          fieldKey={`title_${lang}`}
+          value={contentText('header', `title_${lang}`, isUk ? 'Політика конфіденційності (Privacy Policy)' : 'Privacy Policy')}
+          as="span"
+        />
+      }
+      updatedAt={
+        <SiteEditableText
+          page="privacy"
+          section="header"
+          fieldKey={`updated_${lang}`}
+          value={contentText('header', `updated_${lang}`, isUk ? 'Остання редакція: 12 березня 2026 року' : 'Last updated: March 12, 2026')}
+          as="span"
+        />
+      }
     >
       {isUk ? (
         <>
-          <p>{contentText('intro', 'text_uk', 'Ця Політика конфіденційності пояснює, як LehkoTrack (далі — «Сервіс», «Ми») збирає, обробляє та захищає дані користувачів Сервісу та відвідувачів, чий трафік аналізується через наші інструменти.')}</p>
+          <p>
+            <SiteEditableText
+              page="privacy"
+              section="intro"
+              fieldKey="text_uk"
+              value={contentText('intro', 'text_uk', 'Ця Політика конфіденційності пояснює, як LehkoTrack (далі — «Сервіс», «Ми») збирає, обробляє та захищає дані користувачів Сервісу та відвідувачів, чий трафік аналізується через наші інструменти.')}
+              multiline
+              as="span"
+            />
+          </p>
           <h2 className="text-xl font-semibold">1. Ролі та відповідальність</h2>
           <p>1.1. LehkoTrack як Обробник (Data Processor): Ми обробляємо дані про рекламний трафік від імені наших Користувачів.</p>
           <p>1.2. Користувач як Контролер (Data Controller): Користувач несе відповідальність за законність збору даних на своїх ресурсах.</p>
@@ -87,7 +119,16 @@ export default function Privacy() {
         </>
       ) : (
         <>
-          <p>{contentText('intro', 'text_en', 'This Privacy Policy explains how LehkoTrack (the "Service", "we") collects, processes, and protects data of our users and visitors whose traffic is analyzed through our tools.')}</p>
+          <p>
+            <SiteEditableText
+              page="privacy"
+              section="intro"
+              fieldKey="text_en"
+              value={contentText('intro', 'text_en', 'This Privacy Policy explains how LehkoTrack (the "Service", "we") collects, processes, and protects data of our users and visitors whose traffic is analyzed through our tools.')}
+              multiline
+              as="span"
+            />
+          </p>
           <h2 className="text-xl font-semibold">1. Roles and Responsibilities</h2>
           <p>1.1. LehkoTrack as a Data Processor: We process advertising traffic data on behalf of our Users.</p>
           <p>1.2. User as a Data Controller: The User is responsible for the legality of data collection on their resources.</p>

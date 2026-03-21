@@ -306,7 +306,17 @@
     "pageBlog": "Blog",
     "pageTerms": "Terms",
     "pagePrivacy": "Privacy",
-    "pageRefund": "Refund"
+    "pageRefund": "Refund",
+    "siteTextEditOpen": "Edit site texts (on-page)",
+    "siteTextEditBanner": "Edit mode: click highlighted text, change in the dialog and save. You cannot add new blocks.",
+    "siteTextEditDone": "Done",
+    "siteTextEditCancel": "Cancel",
+    "siteTextEditModalTitle": "Edit text",
+    "siteTextEditModalSave": "Save",
+    "siteTextEditSaveError": "Could not save",
+    "siteTextEditModalHeading": "Edit on page",
+    "siteTextEditModalDesc": "You will be taken to the selected page. Text with an amber outline is editable; after Save it applies for all visitors.",
+    "siteTextEditGo": "Go to page"
   },
   "layout": {
     "menu": "Menu",

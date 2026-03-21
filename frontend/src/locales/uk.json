@@ -306,7 +306,17 @@
     "pageBlog": "Блог",
     "pageTerms": "Угода",
     "pagePrivacy": "Конфіденційність",
-    "pageRefund": "Повернення"
+    "pageRefund": "Повернення",
+    "siteTextEditOpen": "Редагувати тексти на сайті",
+    "siteTextEditBanner": "Режим редагування: клацніть по тексту з рамкою, змініть у вікні та збережіть. Нові блоки додати не можна.",
+    "siteTextEditDone": "Готово",
+    "siteTextEditCancel": "Скасувати",
+    "siteTextEditModalTitle": "Змінити текст",
+    "siteTextEditModalSave": "Зберегти",
+    "siteTextEditSaveError": "Не вдалося зберегти",
+    "siteTextEditModalHeading": "Редагування на сторінці",
+    "siteTextEditModalDesc": "Вас перенаправить на обрану сторінку. Тексти з жовтою рамкою можна змінювати; після «Зберегти» вони одразу для всіх відвідувачів.",
+    "siteTextEditGo": "Перейти"
   },
   "layout": {
     "menu": "Меню",

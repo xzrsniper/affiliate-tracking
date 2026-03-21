@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext.jsx';
@@ -16,6 +16,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import Logo from '../components/Logo.jsx';
+import SiteEditableText from '../components/SiteEditableText.jsx';
 
 export default function Home() {
   const { t, i18n } = useTranslation();
@@ -24,25 +25,28 @@ export default function Home() {
   const [faqOpen, setFaqOpen] = useState(0);
   const [pageContent, setPageContent] = useState({});
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPageContent() {
-      try {
-        const res = await api.get('/api/page-content/home');
-        if (!cancelled && res.data?.content) {
-          setPageContent(res.data.content);
-        }
-      } catch {
-        if (!cancelled) setPageContent({});
+  const loadPageContent = useCallback(async () => {
+    try {
+      const res = await api.get('/api/page-content/home');
+      if (res.data?.content) {
+        setPageContent(res.data.content);
       }
+    } catch {
+      setPageContent({});
     }
-
-    loadPageContent();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadPageContent();
+  }, [loadPageContent]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.page === 'home') loadPageContent();
+    };
+    window.addEventListener('lehko-page-content-refresh', handler);
+    return () => window.removeEventListener('lehko-page-content-refresh', handler);
+  }, [loadPageContent]);
 
   const contentText = (section, key, fallback) => {
     return pageContent?.[section]?.[key]?.content || fallback;
@@ -112,11 +116,19 @@ export default function Home() {
           <Logo size="md" showText={true} />
 
           <div className="hidden items-center gap-1 md:flex">
-            <a href="#features" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'features', t('home.navFeatures'))}</a>
-            <a href="#pricing" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'pricing', t('home.navPricing'))}</a>
+            <a href="#features" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+              <SiteEditableText page="home" section="nav" fieldKey="features" value={contentText('nav', 'features', t('home.navFeatures'))} />
+            </a>
+            <a href="#pricing" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+              <SiteEditableText page="home" section="nav" fieldKey="pricing" value={contentText('nav', 'pricing', t('home.navPricing'))} />
+            </a>
             <Link to="/blog" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{t('common.blog')}</Link>
-            <Link to="/guide" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'guide', t('home.navGuide'))}</Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">{contentText('nav', 'support', t('home.navSupport'))}</a>
+            <Link to="/guide" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+              <SiteEditableText page="home" section="nav" fieldKey="guide" value={contentText('nav', 'guide', t('home.navGuide'))} />
+            </Link>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+              <SiteEditableText page="home" section="nav" fieldKey="support" value={contentText('nav', 'support', t('home.navSupport'))} />
+            </a>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -134,10 +146,10 @@ export default function Home() {
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
             <Link to="/login" className="hidden rounded-[10px] border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 sm:block">
-              {contentText('nav', 'sign_in', t('home.signIn'))}
+              <SiteEditableText page="home" section="nav" fieldKey="sign_in" value={contentText('nav', 'sign_in', t('home.signIn'))} />
             </Link>
             <Link to="/login" className="rounded-[10px] bg-[#6d5cf6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5d4af0] shadow-[0_10px_24px_rgba(109,92,246,0.28)]">
-              {contentText('nav', 'start_free', t('home.startFree'))}
+              <SiteEditableText page="home" section="nav" fieldKey="start_free" value={contentText('nav', 'start_free', t('home.startFree'))} />
             </Link>
           </div>
         </div>
@@ -146,30 +158,41 @@ export default function Home() {
       <section className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-12 px-4 pb-16 pt-16 sm:px-8 lg:grid-cols-2 lg:items-center lg:pt-20">
         <div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-            <Sparkles className="h-3.5 w-3.5" /> {contentText('hero', 'badge', t('home.newVersionLive'))}
+            <Sparkles className="h-3.5 w-3.5" />{' '}
+            <SiteEditableText page="home" section="hero" fieldKey="badge" value={contentText('hero', 'badge', t('home.newVersionLive'))} as="span" />
           </div>
 
           <h1 className="mb-5 text-[36px] font-extrabold leading-tight tracking-[-0.03em] text-slate-900 dark:text-slate-100 sm:text-[52px]">
-            {contentText('hero', 'headline_before', t('home.heroHeadlineBefore1'))}
-            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">{contentText('hero', 'headline_highlight_1', t('home.heroHeadlineHighlight1'))}</span>
-            {contentText('hero', 'headline_mid', t('home.heroHeadlineMid'))}
-            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">{contentText('hero', 'headline_highlight_2', t('home.heroHeadlineHighlight2'))}</span>
-            {contentText('hero', 'headline_end', t('home.heroHeadlineEnd'))}
+            <SiteEditableText page="home" section="hero" fieldKey="headline_before" value={contentText('hero', 'headline_before', t('home.heroHeadlineBefore1'))} as="span" />
+            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">
+              <SiteEditableText page="home" section="hero" fieldKey="headline_highlight_1" value={contentText('hero', 'headline_highlight_1', t('home.heroHeadlineHighlight1'))} as="span" />
+            </span>
+            <SiteEditableText page="home" section="hero" fieldKey="headline_mid" value={contentText('hero', 'headline_mid', t('home.heroHeadlineMid'))} as="span" />
+            <span className="bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent">
+              <SiteEditableText page="home" section="hero" fieldKey="headline_highlight_2" value={contentText('hero', 'headline_highlight_2', t('home.heroHeadlineHighlight2'))} as="span" />
+            </span>
+            <SiteEditableText page="home" section="hero" fieldKey="headline_end" value={contentText('hero', 'headline_end', t('home.heroHeadlineEnd'))} as="span" />
           </h1>
 
-          <p className="mb-2 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">{contentText('hero', 'subline', t('home.heroSubline'))}</p>
-          <p className="mb-8 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">{contentText('hero', 'subline2', t('home.heroSubline2'))}</p>
+          <p className="mb-2 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">
+            <SiteEditableText page="home" section="hero" fieldKey="subline" value={contentText('hero', 'subline', t('home.heroSubline'))} multiline as="span" className="text-[17px] leading-relaxed text-slate-600 dark:text-slate-300" />
+          </p>
+          <p className="mb-8 max-w-[560px] text-[17px] leading-relaxed text-slate-600 dark:text-slate-300">
+            <SiteEditableText page="home" section="hero" fieldKey="subline2" value={contentText('hero', 'subline2', t('home.heroSubline2'))} multiline as="span" className="text-[17px] leading-relaxed text-slate-600 dark:text-slate-300" />
+          </p>
 
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Link to="/login" className="inline-flex items-center gap-2 rounded-[12px] bg-[#6d5cf6] px-6 py-3.5 font-semibold text-white transition hover:bg-[#5d4af0] shadow-[0_10px_24px_rgba(109,92,246,0.28)]">
-              {contentText('hero', 'cta_text', t('home.heroCta'))} <ArrowRight className="h-4 w-4" />
+              <SiteEditableText page="home" section="hero" fieldKey="cta_text" value={contentText('hero', 'cta_text', t('home.heroCta'))} as="span" /> <ArrowRight className="h-4 w-4" />
             </Link>
-            <button className="inline-flex items-center gap-2 rounded-[12px] border-2 border-[#6d5cf6] bg-white px-6 py-3.5 font-semibold text-[#6d5cf6] transition hover:bg-[#f0edff] dark:border-[#8b7bff] dark:bg-transparent dark:text-white dark:hover:bg-white/5">
-              <Play className="h-4 w-4" /> {contentText('hero', 'watch_demo', t('home.watchDemo'))}
+            <button type="button" className="inline-flex items-center gap-2 rounded-[12px] border-2 border-[#6d5cf6] bg-white px-6 py-3.5 font-semibold text-[#6d5cf6] transition hover:bg-[#f0edff] dark:border-[#8b7bff] dark:bg-transparent dark:text-white dark:hover:bg-white/5">
+              <Play className="h-4 w-4" /> <SiteEditableText page="home" section="hero" fieldKey="watch_demo" value={contentText('hero', 'watch_demo', t('home.watchDemo'))} as="span" />
             </button>
           </div>
 
-          <div className="text-sm text-slate-500">{contentText('hero', 'note', t('home.heroNote'))}</div>
+          <div className="text-sm text-slate-500">
+            <SiteEditableText page="home" section="hero" fieldKey="note" value={contentText('hero', 'note', t('home.heroNote'))} as="span" />
+          </div>
         </div>
 
           <div className="rounded-[22px] border border-[#d8dfeb] bg-white p-5 shadow-[0_24px_80px_rgba(19,33,68,0.14)] dark:border-slate-700 dark:bg-slate-900">
@@ -199,14 +222,25 @@ export default function Home() {
       <section className="bg-gradient-to-r from-[#5d6df9] to-[#6e4dfa] py-16 text-white">
         <div className="mx-auto grid max-w-[1240px] grid-cols-1 gap-10 px-4 sm:px-8 lg:grid-cols-2 lg:items-center">
           <div>
-          <h2 className="mb-6 text-3xl font-extrabold">{contentText('budget', 'title', t('home.budgetTitle'))}</h2>
+          <h2 className="mb-6 text-3xl font-extrabold">
+            <SiteEditableText page="home" section="budget" fieldKey="title" value={contentText('budget', 'title', t('home.budgetTitle'))} as="span" />
+          </h2>
             <ul className="space-y-3">
-              {budgetPoints.map((point) => (
-                <li key={point} className="flex items-start gap-3">
+              {budgetPoints.map((point, idx) => (
+                <li key={`budget-${idx}`} className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md border border-white/40 bg-white/15">
                     <Check className="h-3.5 w-3.5" />
                   </span>
-                  <span className="text-white/95">{point}</span>
+                  <span className="text-white/95">
+                    <SiteEditableText
+                      page="home"
+                      section="budget"
+                      fieldKey={`item${idx + 1}`}
+                      value={point}
+                      as="span"
+                      className="text-white/95"
+                    />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -223,8 +257,12 @@ export default function Home() {
       <section id="features" className="mx-auto max-w-[1240px] px-4 py-20 sm:px-8">
         <div className="mb-10">
           <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('home.navFeatures')}</span>
-          <h2 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('features', 'title', t('home.featuresSectionTitle'))}</h2>
-          <p className="max-w-2xl text-lg text-slate-600 dark:text-slate-300">{contentText('features', 'subtitle', t('home.featuresSectionSubtitle'))}</p>
+          <h2 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+            <SiteEditableText page="home" section="features" fieldKey="title" value={contentText('features', 'title', t('home.featuresSectionTitle'))} as="span" />
+          </h2>
+          <p className="max-w-2xl text-lg text-slate-600 dark:text-slate-300">
+            <SiteEditableText page="home" section="features" fieldKey="subtitle" value={contentText('features', 'subtitle', t('home.featuresSectionSubtitle'))} multiline as="span" className="text-lg text-slate-600 dark:text-slate-300" />
+          </p>
         </div>
 
         <div className="mb-16 grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
@@ -238,24 +276,32 @@ export default function Home() {
             ))}
           </div>
           <div>
-            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('money', 'title', t('home.moneyFromTitle'))}</h3>
-            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{contentText('money', 'description', t('home.moneyFromDesc'))}</p>
+            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+              <SiteEditableText page="home" section="money" fieldKey="title" value={contentText('money', 'title', t('home.moneyFromTitle'))} as="span" />
+            </h3>
+            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">
+              <SiteEditableText page="home" section="money" fieldKey="description" value={contentText('money', 'description', t('home.moneyFromDesc'))} multiline as="span" className="leading-relaxed text-slate-600 dark:text-slate-300" />
+            </p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('money', 'bullet1', t('home.moneyFromBullet1'))}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('money', 'bullet2', t('home.moneyFromBullet2'))}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('money', 'bullet3', t('home.moneyFromBullet3'))}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="money" fieldKey="bullet1" value={contentText('money', 'bullet1', t('home.moneyFromBullet1'))} as="span" /></li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="money" fieldKey="bullet2" value={contentText('money', 'bullet2', t('home.moneyFromBullet2'))} as="span" /></li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="money" fieldKey="bullet3" value={contentText('money', 'bullet3', t('home.moneyFromBullet3'))} as="span" /></li>
             </ul>
           </div>
         </div>
 
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
           <div>
-            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('integration', 'title', t('home.integration5minTitle'))}</h3>
-            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">{contentText('integration', 'description', t('home.integration5minDesc'))}</p>
+            <h3 className="mb-4 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+              <SiteEditableText page="home" section="integration" fieldKey="title" value={contentText('integration', 'title', t('home.integration5minTitle'))} as="span" />
+            </h3>
+            <p className="mb-5 leading-relaxed text-slate-600 dark:text-slate-300">
+              <SiteEditableText page="home" section="integration" fieldKey="description" value={contentText('integration', 'description', t('home.integration5minDesc'))} multiline as="span" className="leading-relaxed text-slate-600 dark:text-slate-300" />
+            </p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('integration', 'bullet1', t('home.integrationBullet1'))}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('integration', 'bullet2', t('home.integrationBullet2'))}</li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" />{contentText('integration', 'bullet3', t('home.integrationBullet3'))}</li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="integration" fieldKey="bullet1" value={contentText('integration', 'bullet1', t('home.integrationBullet1'))} as="span" /></li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="integration" fieldKey="bullet2" value={contentText('integration', 'bullet2', t('home.integrationBullet2'))} as="span" /></li>
+              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="integration" fieldKey="bullet3" value={contentText('integration', 'bullet3', t('home.integrationBullet3'))} as="span" /></li>
             </ul>
           </div>
           <div className="rounded-3xl bg-[#121525] p-6 font-mono text-sm text-[#96b5ff] shadow-xl">
@@ -270,13 +316,17 @@ export default function Home() {
       <section className="bg-gradient-to-r from-[#4f81ff] to-[#6b4ffb] py-16 text-white">
         <div className="mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-10 px-4 sm:px-8 lg:grid-cols-2">
           <div>
-            <h2 className="mb-4 text-3xl font-extrabold">{contentText('why', 'title', t('home.whyTitle'))}</h2>
-            <p className="mb-6 text-white/80">{contentText('why', 'subtitle', t('home.whySubtitle'))}</p>
+            <h2 className="mb-4 text-3xl font-extrabold">
+              <SiteEditableText page="home" section="why" fieldKey="title" value={contentText('why', 'title', t('home.whyTitle'))} as="span" className="text-white" />
+            </h2>
+            <p className="mb-6 text-white/80">
+              <SiteEditableText page="home" section="why" fieldKey="subtitle" value={contentText('why', 'subtitle', t('home.whySubtitle'))} multiline as="span" className="text-white/80" />
+            </p>
             <ul className="space-y-2">
-              {whyPoints.map((point) => (
-                <li key={point} className="flex items-start gap-2 text-white/95">
+              {whyPoints.map((point, idx) => (
+                <li key={`why-${idx}`} className="flex items-start gap-2 text-white/95">
                   <Check className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  {point}
+                  <SiteEditableText page="home" section="why" fieldKey={`item${idx + 1}`} value={point} as="span" className="text-white/95" />
                 </li>
               ))}
             </ul>
@@ -292,7 +342,9 @@ export default function Home() {
       <section id="pricing" className="mx-auto max-w-[1240px] px-4 py-20 sm:px-8">
         <div className="mb-12 text-center">
           <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{t('home.navPricing')}</span>
-          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('pricing', 'title', t('home.pricingTitle'))}</h2>
+          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+            <SiteEditableText page="home" section="pricing" fieldKey="title" value={contentText('pricing', 'title', t('home.pricingTitle'))} as="span" />
+          </h2>
         </div>
 
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-3">
@@ -329,8 +381,12 @@ export default function Home() {
 
       <section className="mx-auto max-w-4xl px-4 pb-16 sm:px-8">
         <div className="mb-8 text-center">
-          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">{contentText('faq', 'title', t('common.faq'))}</span>
-          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{contentText('faq', 'title', t('common.faq'))}</h2>
+          <span className="mb-3 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">
+            <SiteEditableText page="home" section="faq" fieldKey="title" value={contentText('faq', 'title', t('common.faq'))} as="span" />
+          </span>
+          <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+            <SiteEditableText page="home" section="faq" fieldKey="title" value={contentText('faq', 'title', t('common.faq'))} as="span" />
+          </h2>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -353,15 +409,19 @@ export default function Home() {
         </div>
 
         <div className="mt-5 rounded-xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-          <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">{contentText('faq', 'help_title', t('home.faqHelpTitle'))}</p>
-          <p className="mb-3">{contentText('faq', 'help_description', t('home.faqHelpDesc'))}</p>
+          <p className="mb-3 font-medium text-slate-700 dark:text-slate-200">
+            <SiteEditableText page="home" section="faq" fieldKey="help_title" value={contentText('faq', 'help_title', t('home.faqHelpTitle'))} as="span" />
+          </p>
+          <p className="mb-3">
+            <SiteEditableText page="home" section="faq" fieldKey="help_description" value={contentText('faq', 'help_description', t('home.faqHelpDesc'))} multiline as="span" />
+          </p>
           <a
             href="https://t.me/hodunkooo"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
           >
-            {contentText('faq', 'help_button', t('home.faqHelpBtn'))}
+            <SiteEditableText page="home" section="faq" fieldKey="help_button" value={contentText('faq', 'help_button', t('home.faqHelpBtn'))} as="span" />
           </a>
         </div>
       </section>
@@ -369,14 +429,20 @@ export default function Home() {
       <section className="bg-gradient-to-r from-[#4f81ff] to-[#6b4ffb] py-14 text-white">
         <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-5 px-4 sm:px-8 lg:flex-row lg:items-center">
           <div>
-            <h2 className="text-3xl font-extrabold tracking-tight">{contentText('cta', 'title', t('home.readyScale'))}</h2>
-            <p className="mt-1 text-white/85">{contentText('cta', 'description', t('home.register30secCardless'))}</p>
+            <h2 className="text-3xl font-extrabold tracking-tight">
+              <SiteEditableText page="home" section="cta" fieldKey="title" value={contentText('cta', 'title', t('home.readyScale'))} as="span" className="text-white" />
+            </h2>
+            <p className="mt-1 text-white/85">
+              <SiteEditableText page="home" section="cta" fieldKey="description" value={contentText('cta', 'description', t('home.register30secCardless'))} multiline as="span" className="text-white/85" />
+            </p>
           </div>
           <div className="flex flex-wrap gap-3">
               <Link to="/login" className="rounded-xl border border-white/60 bg-white/12 px-6 py-3 font-semibold text-slate-100 backdrop-blur-sm transition hover:bg-white/18">
-                {contentText('bottom_cta', 'start_free', t('home.startFree'))}
+                <SiteEditableText page="home" section="bottom_cta" fieldKey="start_free" value={contentText('bottom_cta', 'start_free', t('home.startFree'))} as="span" />
               </Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">{contentText('bottom_cta', 'talk_to_us', t('home.talkToUs'))}</a>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/40 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">
+              <SiteEditableText page="home" section="bottom_cta" fieldKey="talk_to_us" value={contentText('bottom_cta', 'talk_to_us', t('home.talkToUs'))} as="span" />
+            </a>
           </div>
         </div>
       </section>
@@ -385,13 +451,19 @@ export default function Home() {
         <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-4 px-4 text-sm text-slate-500 dark:text-slate-400 sm:px-8 lg:flex-row lg:items-center">
           <Logo size="sm" showText={true} />
           <div className="flex flex-wrap gap-5">
-            <a href="#features" className="hover:text-slate-800 dark:hover:text-slate-100">{contentText('footer', 'features', t('home.navFeatures'))}</a>
-            <a href="#pricing" className="hover:text-slate-800 dark:hover:text-slate-100">{contentText('footer', 'pricing', t('home.navPricing'))}</a>
+            <a href="#features" className="hover:text-slate-800 dark:hover:text-slate-100">
+              <SiteEditableText page="home" section="footer" fieldKey="features" value={contentText('footer', 'features', t('home.navFeatures'))} as="span" />
+            </a>
+            <a href="#pricing" className="hover:text-slate-800 dark:hover:text-slate-100">
+              <SiteEditableText page="home" section="footer" fieldKey="pricing" value={contentText('footer', 'pricing', t('home.navPricing'))} as="span" />
+            </a>
             <Link to="/guide" className="hover:text-slate-800 dark:hover:text-slate-100">{t('common.documentation')}</Link>
             <Link to="/terms" className="hover:text-slate-800 dark:hover:text-slate-100">Terms</Link>
             <Link to="/privacy" className="hover:text-slate-800 dark:hover:text-slate-100">Privacy</Link>
             <Link to="/refund" className="hover:text-slate-800 dark:hover:text-slate-100">Refund</Link>
-            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800 dark:hover:text-slate-100">{contentText('footer', 'support', t('home.navSupport'))}</a>
+            <a href="https://t.me/hodunkooo" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800 dark:hover:text-slate-100">
+              <SiteEditableText page="home" section="footer" fieldKey="support" value={contentText('footer', 'support', t('home.navSupport'))} as="span" />
+            </a>
           </div>
           <span>© 2026 TrackFlow. {t('common.allRightsReserved')}</span>
         </div>

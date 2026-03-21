@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings, FileCode, MessageCircle, ArrowLeft, ExternalLink, Check } from 'lucide-react';
 import Logo from '../components/Logo.jsx';
+import SiteEditableText from '../components/SiteEditableText.jsx';
 import api from '../config/api.js';
 
 const TELEGRAM_URL = import.meta.env.VITE_TELEGRAM_USERNAME
@@ -14,20 +15,26 @@ export default function Guide() {
   const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
   const [pageContent, setPageContent] = useState({});
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await api.get('/api/page-content/guide');
-        if (!cancelled && res.data?.content) setPageContent(res.data.content);
-      } catch {
-        if (!cancelled) setPageContent({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadPageContent = useCallback(async () => {
+    try {
+      const res = await api.get('/api/page-content/guide');
+      if (res.data?.content) setPageContent(res.data.content);
+    } catch {
+      setPageContent({});
+    }
   }, []);
+
+  useEffect(() => {
+    loadPageContent();
+  }, [loadPageContent]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.page === 'guide') loadPageContent();
+    };
+    window.addEventListener('lehko-page-content-refresh', handler);
+    return () => window.removeEventListener('lehko-page-content-refresh', handler);
+  }, [loadPageContent]);
 
   const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
 
@@ -85,17 +92,27 @@ export default function Guide() {
       <main className="mx-auto max-w-[1280px] px-4 py-14 sm:px-8 lg:px-10">
         <section className="mb-10 text-center">
           <span className="mb-4 inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">
-            {contentText('hero', 'badge', t('guide.trackerBadge'))}
+            <SiteEditableText page="guide" section="hero" fieldKey="badge" value={contentText('hero', 'badge', t('guide.trackerBadge'))} as="span" />
           </span>
           <h1 className="mb-3 font-display text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            {contentText('hero', 'title', `${t('guide.heroLine1Before')} ${t('guide.heroLine1Highlight')} ${t('guide.heroLine2')}`)}
+            <SiteEditableText
+              page="guide"
+              section="hero"
+              fieldKey="title"
+              value={contentText('hero', 'title', `${t('guide.heroLine1Before')} ${t('guide.heroLine1Highlight')} ${t('guide.heroLine2')}`)}
+              as="span"
+            />
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-slate-600 leading-relaxed">
-            {contentText('hero', 'description', t('guide.heroDesc'))}
+            <SiteEditableText page="guide" section="hero" fieldKey="description" value={contentText('hero', 'description', t('guide.heroDesc'))} multiline as="span" className="text-lg text-slate-600" />
           </p>
           <div className="mt-6 flex justify-center gap-3">
-            <Link to="/setup" className="rounded-xl bg-violet-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800">{contentText('hero', 'primary_cta', t('guide.watchVideoTutorial'))}</Link>
-            <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">{contentText('hero', 'secondary_cta', t('guide.readFullDocs'))}</a>
+            <Link to="/setup" className="rounded-xl bg-violet-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800">
+              <SiteEditableText page="guide" section="hero" fieldKey="primary_cta" value={contentText('hero', 'primary_cta', t('guide.watchVideoTutorial'))} as="span" />
+            </Link>
+            <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+              <SiteEditableText page="guide" section="hero" fieldKey="secondary_cta" value={contentText('hero', 'secondary_cta', t('guide.readFullDocs'))} as="span" />
+            </a>
           </div>
         </section>
 
@@ -173,7 +190,9 @@ export default function Guide() {
         </section>
 
         <section className="mx-auto mt-10 max-w-4xl">
-          <h3 className="mb-4 text-2xl font-extrabold tracking-tight text-slate-900">{contentText('faq', 'title', t('guide.faqTitle'))}</h3>
+          <h3 className="mb-4 text-2xl font-extrabold tracking-tight text-slate-900">
+            <SiteEditableText page="guide" section="faq" fieldKey="title" value={contentText('faq', 'title', t('guide.faqTitle'))} as="span" />
+          </h3>
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             {[
               t('guide.faqQ1'),

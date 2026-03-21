@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
+import SiteEditableText from '../components/SiteEditableText.jsx';
 import { MessageCircle, Eye, Clock, ArrowRight, Sun, Moon } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -33,20 +34,26 @@ export default function Blog() {
   const [error, setError] = useState('');
   const [pageContent, setPageContent] = useState({});
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await api.get('/api/page-content/blog');
-        if (!cancelled && res.data?.content) setPageContent(res.data.content);
-      } catch {
-        if (!cancelled) setPageContent({});
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadPageContent = useCallback(async () => {
+    try {
+      const res = await api.get('/api/page-content/blog');
+      if (res.data?.content) setPageContent(res.data.content);
+    } catch {
+      setPageContent({});
+    }
   }, []);
+
+  useEffect(() => {
+    loadPageContent();
+  }, [loadPageContent]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.page === 'blog') loadPageContent();
+    };
+    window.addEventListener('lehko-page-content-refresh', handler);
+    return () => window.removeEventListener('lehko-page-content-refresh', handler);
+  }, [loadPageContent]);
 
   const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
 
@@ -104,7 +111,9 @@ export default function Blog() {
       </nav>
 
       <main className="mx-auto max-w-[1240px] px-4 py-8 sm:px-8">
-        <h1 className="mb-8 text-3xl font-bold text-slate-900 dark:text-slate-100">{contentText('hero', 'title', t('blog.title'))}</h1>
+        <h1 className="mb-8 text-3xl font-bold text-slate-900 dark:text-slate-100">
+          <SiteEditableText page="blog" section="hero" fieldKey="title" value={contentText('hero', 'title', t('blog.title'))} as="span" />
+        </h1>
 
         {loading && <p className="text-slate-500">{t('common.loading')}</p>}
         {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
@@ -179,9 +188,11 @@ export default function Blog() {
               </div>
 
               <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-violet-600 to-indigo-600 p-6 text-white">
-                <p className="text-sm font-medium opacity-90">{contentText('sidebar', 'cta_text', t('blog.ctaText'))}</p>
+                <p className="text-sm font-medium opacity-90">
+                  <SiteEditableText page="blog" section="sidebar" fieldKey="cta_text" value={contentText('sidebar', 'cta_text', t('blog.ctaText'))} multiline as="span" />
+                </p>
                 <Link to="/login" className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-slate-100">
-                  {contentText('sidebar', 'cta_button', t('blog.ctaButton'))} <ArrowRight className="w-4 h-4" />
+                  <SiteEditableText page="blog" section="sidebar" fieldKey="cta_button" value={contentText('sidebar', 'cta_button', t('blog.ctaButton'))} as="span" /> <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </aside>
