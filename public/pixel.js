@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.8 — extractPrice: BFS + scoped DOM fallback (v4.7 could return 0 on busy DOM)
+ * LehkoTrack Pixel v4.9 — lead price: data-attrs, scoped selector, .price w/o currency symbol
  * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
@@ -413,11 +413,62 @@
     );
   }
 
+  function parsePriceFromDataAttrs(el) {
+    if (!el || !el.getAttribute) return 0;
+    var attrs = ['data-price', 'data-amount', 'data-value', 'data-product-price', 'data-sum', 'data-total', 'data-cost', 'data-line-price', 'data-original-price', 'data-sale-price'];
+    for (var ai = 0; ai < attrs.length; ai++) {
+      var raw = el.getAttribute(attrs[ai]);
+      if (raw == null || raw === '') continue;
+      var cleaned = String(raw).replace(/[^\d.,-]/g, '');
+      if (/^\d+,\d{1,2}$/.test(cleaned)) cleaned = cleaned.replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+      var v = parseFloat(cleaned);
+      if (v > 0 && v < 10000000) return v;
+    }
+    var aria = el.getAttribute('aria-valuenow');
+    if (aria) {
+      var va = parseFloat(String(aria).replace(/[^\d.,-]/g, '').replace(/,/g, ''));
+      if (va > 0 && va < 10000000) return va;
+    }
+    return 0;
+  }
+
+  /** Try admin price selector inside product card / parents first (listing-safe), then global. */
+  function extractPriceFromSelectorNear(near) {
+    if (!cfg.priceSelector) return 0;
+    if (near) {
+      var walk = near.parentElement;
+      for (var pi = 0; pi < 6 && walk; pi++, walk = walk.parentElement) {
+        if (walk === document.body || walk === document.documentElement) break;
+        try {
+          var hit = walk.querySelector(cfg.priceSelector);
+          if (hit) {
+            var pp = parsePrice(hit.textContent);
+            if (pp > 0) return pp;
+          }
+        } catch (e) { /* invalid selector */ }
+      }
+    }
+    try {
+      var elGlobal = document.querySelector(cfg.priceSelector);
+      if (elGlobal) {
+        var pg = parsePrice(elGlobal.textContent);
+        if (pg > 0) return pg;
+      }
+    } catch (e) { /* */ }
+    return 0;
+  }
+
   function extractPrice(near) {
     if (cfg.staticPrice != null && cfg.staticPrice > 0) return cfg.staticPrice;
-    if (cfg.priceSelector) {
-      var el = document.querySelector(cfg.priceSelector);
-      if (el) { var p = parsePrice(el.textContent); if (p > 0) return p; }
+    if (near) {
+      var nearSel = extractPriceFromSelectorNear(near);
+      if (nearSel > 0) return nearSel;
+    } else if (cfg.priceSelector) {
+      try {
+        var elOnly = document.querySelector(cfg.priceSelector);
+        if (elOnly) { var p = parsePrice(elOnly.textContent); if (p > 0) return p; }
+      } catch (e) { /* */ }
     }
     if (!near) return 0;
 
@@ -446,6 +497,34 @@
       if (v > 0) return v;
       v = extractPriceFromScopeFallback(scope);
       if (v > 0) return v;
+    }
+    return 0;
+  }
+
+  /**
+   * Lead-only: many storefronts show "5 000" without ₴ or put price in data-*.
+   * Runs after extractPrice() so staticPrice / selector / BFS still win when they work.
+   */
+  function extractLeadPrice(btn) {
+    var p = extractPrice(btn);
+    if (p > 0) return p;
+    var el = btn;
+    for (var d = 0; d < 6 && el; d++) {
+      p = parsePriceFromDataAttrs(el);
+      if (p > 0) return p;
+      el = el.parentElement;
+    }
+    var scope = getProductScope(btn) || btn.parentElement;
+    if (scope && scope.querySelectorAll) {
+      var cand = scope.querySelectorAll(
+        '[class*="price"],[class*="Price"],[class*="cost"],[itemprop="price"],[itemtype*="Offer"],.amount,.woocommerce-Price-amount'
+      );
+      for (var i = 0; i < cand.length; i++) {
+        var t = (cand[i].textContent || '').trim();
+        if (t.length > 200) continue;
+        p = parsePrice(t);
+        if (p > 0) return p;
+      }
     }
     return 0;
   }
@@ -1020,7 +1099,7 @@
     var btn = target.closest(cfg.purchaseButtonSelector);
 
     if (btn) {
-      var price = extractPrice(btn);
+      var price = extractLeadPrice(btn);
       sendEvent('lead', price, null);
       storePendingSale(price);
       startConfirmationWatcher(price);
@@ -1049,7 +1128,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.8', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.9', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1326,7 +1405,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '4.8',
+    version: '4.9',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,
