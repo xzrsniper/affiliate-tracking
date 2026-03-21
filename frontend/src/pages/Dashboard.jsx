@@ -492,6 +492,8 @@ export default function Dashboard() {
   const totalSales = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.sales || 0), 0);
   const totalCarts = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.carts || 0), 0);
   const salesRevenue = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.sales_revenue ?? 0), 0);
+  const totalLeadRevenue = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.lead_revenue ?? 0), 0);
+  const totalRevenue = salesRevenue + totalLeadRevenue;
 
   const convRate = uniqueClicks > 0 ? ((totalSales / uniqueClicks) * 100).toFixed(1) : 0;
 
@@ -683,7 +685,12 @@ export default function Dashboard() {
         <StatCard
           icon={DollarSign}
           label={t('dashboard.revenue')}
-          value={`${salesRevenue.toLocaleString()} ₴`}
+          value={`${totalRevenue.toLocaleString()} ₴`}
+          description={
+            totalLeadRevenue > 0 || salesRevenue > 0
+              ? `${t('dashboard.revenueFromSales')}: ${salesRevenue.toLocaleString()} · ${t('dashboard.revenueFromLeads')}: ${totalLeadRevenue.toLocaleString()}`
+              : undefined
+          }
           bgColor="bg-emerald-100"
           iconColor="text-emerald-600"
         />
@@ -1520,7 +1527,7 @@ export default function Dashboard() {
 }
 
 // Stat Card Component
-function StatCard({ icon: Icon, label, value, bgColor, iconColor }) {
+function StatCard({ icon: Icon, label, value, description, bgColor, iconColor }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-5">
       <div className="flex items-center gap-3 mb-3">
@@ -1530,6 +1537,9 @@ function StatCard({ icon: Icon, label, value, bgColor, iconColor }) {
         <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
       </div>
       <p className="text-3xl font-bold text-slate-900 leading-none">{value}</p>
+      {description ? (
+        <p className="text-xs text-slate-500 mt-2 leading-snug">{description}</p>
+      ) : null}
     </div>
   );
 }

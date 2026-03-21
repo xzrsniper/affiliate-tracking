@@ -336,6 +336,8 @@
     "leads": "Leads (button)",
     "sales": "Sales",
     "revenue": "Revenue",
+    "revenueFromSales": "Sales",
+    "revenueFromLeads": "Leads",
     "clicksChartTitle": "Clicks in the last 7 days",
     "refreshChart": "Refresh chart",
     "noChartData": "No chart data yet",

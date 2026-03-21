@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.5 — Conversions with click_id only (ref optional); session metrics v4.4
+ * LehkoTrack Pixel v4.6 — Lead/cart order_value from DOM; revenue from leads + sales
  * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
@@ -604,7 +604,7 @@
   // Dedup rules:
   //   - With orderId: block same orderId permanently (prevents reload/back)
   //   - Without orderId: block rapid duplicates (lead: 12s — GTM+pixel double fire; sale: 3s)
-  //   - Lead: завжди відправляємо order_value 0 — дохід рахується тільки з sale (після покупки)
+  //   - Lead: order_value з extractPrice(btn) або trackLead({ amount }) — для lead_revenue в дашборді
   function sendEvent(eventType, value, orderId) {
     var ref = getRef();
     var clickId = getClickId();
@@ -613,7 +613,6 @@
       return;
     }
     markEngagement();
-    if (eventType === 'lead') value = 0;
 
     if (orderId) {
       // Permanent dedup by orderId — same order never sent twice
@@ -655,6 +654,9 @@
         '\n• Налаштуйте "Селектор ціни" або "Фіксована ціна" в адмінці LehkoTrack',
         '\n• Додайте ?total=500 до URL сторінки подяки',
         '\n• Викличте: window.LehkoTrack.trackPurchase({ amount: 500, orderId: "123" })');
+    }
+    if (eventType === 'lead' && (!value || value === 0)) {
+      console.warn('[LehkoTrack] ⚠️ Lead відправлено з сумою 0. Для доходу по лідах: селектор ціни біля кнопки або trackLead({ amount: … })');
     }
   }
 
@@ -921,7 +923,7 @@
     if (cfg.cartButtonSelector) {
       var cartBtn = target.closest(cfg.cartButtonSelector);
       if (cartBtn) {
-        sendEvent('cart', 0, null);
+        sendEvent('cart', extractPrice(cartBtn), null);
         return;
       }
     }
@@ -933,7 +935,7 @@
 
     if (btn) {
       var price = extractPrice(btn);
-      sendEvent('lead', 0, null);
+      sendEvent('lead', price, null);
       storePendingSale(price);
       startConfirmationWatcher(price);
     }
@@ -961,7 +963,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.5', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.6', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1238,7 +1240,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '4.3',
+    version: '4.6',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,

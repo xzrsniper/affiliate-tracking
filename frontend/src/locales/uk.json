@@ -336,6 +336,8 @@
     "leads": "Ліди (кнопка)",
     "sales": "Продажі",
     "revenue": "Дохід",
+    "revenueFromSales": "Продажі",
+    "revenueFromLeads": "Ліди",
     "clicksChartTitle": "Кліки за останні 7 днів",
     "refreshChart": "Оновити графік",
     "noChartData": "Поки що немає даних для графіку",
