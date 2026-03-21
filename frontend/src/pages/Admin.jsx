@@ -701,6 +701,14 @@ export default function Admin() {
                 <option value="privacy">{t('admin.pagePrivacy')}</option>
                 <option value="refund">{t('admin.pageRefund')}</option>
               </select>
+              {typeof __BUILD_ID__ !== 'undefined' && (
+                <p className="mt-3 font-mono text-xs text-violet-800/90 dark:text-violet-300/90">
+                  {t('admin.siteContentBuildLabel')} <span className="font-bold">{String(__BUILD_ID__)}</span>
+                </p>
+              )}
+              <p className="mt-2 text-xs leading-relaxed text-violet-900/80 dark:text-violet-200/80 whitespace-pre-wrap">
+                {t('admin.siteContentDeployReminder')}
+              </p>
             </div>
 
             {contentSuccess && (
