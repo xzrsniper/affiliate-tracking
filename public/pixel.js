@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.9 — lead price: data-attrs, scoped selector, .price w/o currency symbol
+ * LehkoTrack Pixel v5.0 — cross-subdomain cookies (click_id); form submit fallback for lead
  * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
@@ -50,12 +50,28 @@
     } catch (e) { return null; }
   }
 
+  /** So checkout.pay.shop.com sees click_id set on www.shop.com (localStorage is per-host). */
+  function cookieBaseDomain() {
+    var h = location.hostname;
+    if (!h || h === 'localhost' || /^(\d{1,3}\.){3}\d{1,3}$/.test(h)) return '';
+    var parts = h.split('.');
+    if (parts.length < 3) return ''; // apex example.com — host-only only
+    // Common multi-part public suffixes (avoid Domain=.co.uk)
+    var a = parts[parts.length - 2];
+    var b = parts[parts.length - 1];
+    if (b === 'uk' && a === 'co' && parts.length >= 4) return '.' + parts.slice(-3).join('.');
+    if (b === 'au' && a === 'com' && parts.length >= 4) return '.' + parts.slice(-3).join('.');
+    if (b === 'ua' && /^(com|net|org)$/.test(a) && parts.length >= 4) return '.' + parts.slice(-3).join('.');
+    return '.' + parts.slice(-2).join('.');
+  }
+
   function setCookie(name, val, minutes) {
     var d = new Date();
     var ms = (minutes != null ? minutes : 30) * 60 * 1000;
     d.setTime(d.getTime() + ms);
-    document.cookie = name + '=' + encodeURIComponent(val) +
-      ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+    var base = 'expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+    var dom = cookieBaseDomain();
+    document.cookie = name + '=' + encodeURIComponent(val) + ';' + base + (dom ? ';domain=' + dom : '');
   }
 
   function getCookie(name) {
@@ -1081,6 +1097,14 @@
   // Lead спрацьовує ТІЛЬКИ якщо purchaseButtonSelector налаштовано через Visual Mapper.
   // Cart спрацьовує ТІЛЬКИ якщо cartButtonSelector налаштовано через Visual Mapper.
   // Без налаштованого селектора — ліди/корзини не відправляються автоматично.
+  function fireLeadFromButton(btn) {
+    if (!btn) return;
+    var price = extractLeadPrice(btn);
+    sendEvent('lead', price, null);
+    storePendingSale(price);
+    startConfirmationWatcher(price);
+  }
+
   function onDocClick(e) {
     var target = e.target;
 
@@ -1099,11 +1123,28 @@
     var btn = target.closest(cfg.purchaseButtonSelector);
 
     if (btn) {
-      var price = extractLeadPrice(btn);
-      sendEvent('lead', price, null);
-      storePendingSale(price);
-      startConfirmationWatcher(price);
+      fireLeadFromButton(btn);
     }
+  }
+
+  /**
+   * Enter key submits form without a click on the button — capture phase submit fixes missing leads.
+   * Button click still fires first; sendEvent dedup (12s) drops the duplicate submit in the same action.
+   */
+  function onFormSubmit(e) {
+    if (!cfg.purchaseButtonSelector) return;
+    var form = e.target;
+    if (!form || form.nodeName.toUpperCase() !== 'FORM') return;
+    var btn = null;
+    try {
+      if (e.submitter && e.submitter.matches && e.submitter.matches(cfg.purchaseButtonSelector)) {
+        btn = e.submitter;
+      } else if (!e.submitter) {
+        btn = form.querySelector(cfg.purchaseButtonSelector);
+      }
+    } catch (err) { /* invalid selector */ }
+    if (!btn) return;
+    fireLeadFromButton(btn);
   }
 
   // ── 12. SPA URL-Change Watcher ────────────────────────────────────────
@@ -1128,7 +1169,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.9', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=5.0', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1405,7 +1446,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '4.9',
+    version: '5.0',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,
@@ -1468,6 +1509,7 @@
       if (docClickAttached) return;
       docClickAttached = true;
       document.addEventListener('click', onDocClick, true);
+      document.addEventListener('submit', onFormSubmit, true);
     }
 
     // checkSuccessOnLoad ТІЛЬКИ після завантаження конфігу — щоб staticPrice/priceSelector були доступні
