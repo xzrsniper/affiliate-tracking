@@ -318,6 +318,17 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
    - Frontend: вкажіть `frontend` директорію
 3. Налаштуйте змінні оточення
 
+## Схема БД (оновлення без втрати даних)
+
+Якщо **дохід по лідах**, **тип події** або **конверсії** поводяться дивно — на сервері з кореня проєкту (є `.env` з MySQL):
+
+```bash
+npm run db:verify
+npm run db:ensure-conversions
+```
+
+`db:ensure-conversions` додає/оновлює: `conversions.event_type` ENUM(`lead`,`sale`,`cart`), `click_id`, `order_id`, `websites.static_price` — узгоджено з кодом додатку.
+
 ## Після деплою
 
 ### Перевірка роботи

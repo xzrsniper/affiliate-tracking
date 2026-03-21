@@ -91,6 +91,44 @@ async function main() {
     }
   }
 
+  // ENUM conversions.event_type має містити 'cart' (інакше INSERT cart / Sequelize ламаються)
+  if (tableSet.has('conversions')) {
+    const [etRows] = await connection.execute(
+      `
+      SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'conversions' AND COLUMN_NAME = 'event_type'
+      `,
+      [dbName]
+    );
+    if (etRows.length) {
+      const ct = String(etRows[0].COLUMN_TYPE || '');
+      if (!ct.includes('cart')) {
+        console.log(`❌ conversions.event_type застарілий ENUM (немає cart): ${ct}`);
+        console.log('   Виконай на сервері: npm run db:ensure-conversions');
+        failures++;
+      } else {
+        console.log(`✅ conversions.event_type ENUM містить cart`);
+      }
+    }
+  }
+
+  if (tableSet.has('websites')) {
+    const [spRows] = await connection.execute(
+      `
+      SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'websites' AND COLUMN_NAME = 'static_price'
+      `,
+      [dbName]
+    );
+    if (spRows[0].c === 0) {
+      console.log('❌ Колонка відсутня: websites.static_price (потрібна для fallback ціни лідів)');
+      console.log('   Виконай: npm run db:ensure-conversions або npm run db:add-universal-tracker');
+      failures++;
+    } else {
+      console.log('✅ Колонка: websites.static_price');
+    }
+  }
+
   await connection.end();
 
   console.log('');
@@ -102,6 +140,7 @@ async function main() {
     console.log('   npm run db:add-click-id        — click_id у conversions (якщо треба)');
     console.log('   npm run db:add-page-content    — page_contents');
     console.log('   npm run db:add-blog-posts      — blog_posts');
+    console.log('   npm run db:ensure-conversions  — ENUM event_type+cart, click_id, order_id, static_price');
     process.exit(1);
   }
 

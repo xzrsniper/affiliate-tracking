@@ -28,8 +28,8 @@ const addEventType = async () => {
     } else {
       await connection.execute(`
         ALTER TABLE conversions
-        ADD COLUMN event_type ENUM('lead', 'sale') NOT NULL DEFAULT 'sale'
-        COMMENT 'lead = button click (intent), sale = confirmed purchase'
+        ADD COLUMN event_type ENUM('lead', 'sale', 'cart') NOT NULL DEFAULT 'sale'
+        COMMENT 'lead, sale, cart — узгоджено з models/Conversion.js'
       `);
       console.log('Added event_type column to conversions');
       
