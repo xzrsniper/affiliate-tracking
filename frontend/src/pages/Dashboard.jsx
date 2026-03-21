@@ -494,7 +494,8 @@ export default function Dashboard() {
   const totalCarts = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.carts || 0), 0);
   const salesRevenue = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.sales_revenue ?? 0), 0);
   const totalLeadRevenue = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.lead_revenue ?? 0), 0);
-  const totalRevenue = salesRevenue + totalLeadRevenue;
+  /** Картка «Дохід» — лише оплата (sale); ліди не додаються, щоб не подвоювати воронку */
+  const revenueCardValue = salesRevenue;
 
   const convRate = uniqueClicks > 0 ? ((totalSales / uniqueClicks) * 100).toFixed(1) : 0;
 
@@ -685,12 +686,19 @@ export default function Dashboard() {
         />
         <StatCard
           icon={DollarSign}
-          label={t('dashboard.revenue')}
-          value={`${totalRevenue.toLocaleString()} ₴`}
+          label={t('dashboard.revenuePayments')}
+          value={`${revenueCardValue.toLocaleString()} ₴`}
           description={
-            totalLeadRevenue > 0 || salesRevenue > 0
-              ? `${t('dashboard.revenueFromSales')}: ${salesRevenue.toLocaleString()} · ${t('dashboard.revenueFromLeads')}: ${totalLeadRevenue.toLocaleString()}`
-              : undefined
+            salesRevenue > 0 && totalLeadRevenue > 0
+              ? t('dashboard.revenueStatFootnoteBoth', {
+                  sales: salesRevenue.toLocaleString(),
+                  leads: totalLeadRevenue.toLocaleString()
+                })
+              : salesRevenue > 0
+                ? undefined
+                : totalLeadRevenue > 0
+                  ? t('dashboard.revenueStatFootnoteLeadsOnly', { leads: totalLeadRevenue.toLocaleString() })
+                  : undefined
           }
           bgColor="bg-emerald-100"
           iconColor="text-emerald-600"
