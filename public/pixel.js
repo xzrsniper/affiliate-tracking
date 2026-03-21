@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.7 — extractPrice: nearest/scope (no page-wide first match = wrong totals)
+ * LehkoTrack Pixel v4.8 — extractPrice: BFS + scoped DOM fallback (v4.7 could return 0 on busy DOM)
  * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
@@ -352,14 +352,14 @@
     var queue = [near];
     var seen = new WeakSet();
     var head = 0;
-    var maxIter = 140;
-    while (head < queue.length && head < maxIter) {
+    var maxPops = 800;
+    while (head < queue.length && head < maxPops) {
       var el = queue[head++];
       if (!el || seen.has(el)) continue;
       seen.add(el);
       if (!scope.contains(el)) continue;
       var t = el.textContent || '';
-      if (t.length <= 220 && /[\u20B4$\u20AC]|грн|uah|usd|eur/i.test(t)) {
+      if (t.length <= 280 && /[\u20B4$\u20AC]|грн|uah|usd|eur/i.test(t)) {
         var val = parsePrice(t);
         if (val > 0) return val;
       }
@@ -374,13 +374,42 @@
     return 0;
   }
 
+  /**
+   * When BFS misses (deep DOM / many nodes): scan scope only (not whole page).
+   * If several prices in the same scope, prefer the smaller when max/min >= 2 (line vs cart total).
+   */
+  function extractPriceFromScopeFallback(scope) {
+    if (!scope) return 0;
+    var nodes = scope.querySelectorAll('*');
+    var candidates = [];
+    for (var i = 0; i < nodes.length; i++) {
+      var t = nodes[i].textContent || '';
+      if (t.length > 280) continue;
+      if (!/[\u20B4$\u20AC]|грн|uah|usd|eur/i.test(t)) continue;
+      var val = parsePrice(t);
+      if (val > 0) candidates.push(val);
+    }
+    if (candidates.length === 0) return 0;
+    if (candidates.length === 1) return candidates[0];
+    var min = candidates[0];
+    var max = candidates[0];
+    for (var j = 1; j < candidates.length; j++) {
+      if (candidates[j] < min) min = candidates[j];
+      if (candidates[j] > max) max = candidates[j];
+    }
+    if (max >= min * 2 && min > 0) return min;
+    return candidates[0];
+  }
+
   function getProductScope(near) {
     if (!near || !near.closest) return null;
     return near.closest(
       '[data-product-id],[data-product],[itemtype*="Product"],' +
       '[class*="product-card"],[class*="product__"],[class*="item-product"],[class*="ProductCard"],' +
       'article.product,article[class*="product"],.woocommerce div.product,.summary.entry-summary,' +
-      '.product-inner,.product-detail,.product-item,.product-box,[class*="product-box"],[role="dialog"],.modal'
+      '.product-inner,.product-detail,.product-item,.product-box,[class*="product-box"],' +
+      '[class*="goods"],[class*="GoodCard"],[class*="offer"],.price-block,.cost,' +
+      '[role="dialog"],.modal'
     );
   }
 
@@ -414,6 +443,8 @@
       if (!scope || tried.has(scope)) continue;
       tried.add(scope);
       var v = extractPriceWithinScope(near, scope);
+      if (v > 0) return v;
+      v = extractPriceFromScopeFallback(scope);
       if (v > 0) return v;
     }
     return 0;
@@ -1018,7 +1049,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.7', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.8', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1295,7 +1326,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '4.7',
+    version: '4.8',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,
