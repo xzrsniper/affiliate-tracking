@@ -1,5 +1,6 @@
 /**
- * LehkoTrack Pixel v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection
+ * LehkoTrack Pixel v4.4 — Session duration & bounce via reliable POST (form + heartbeat)
+ * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
  *
@@ -77,10 +78,10 @@
   var SESSION_CLICK_ID_KEY = 'lehko_session_click_id';
   var SESSION_ENGAGED_KEY = 'lehko_session_engaged';
 
+  /** Потрібен лише click_id (з URL/cookie). ref не обов'язковий — інакше сесія не стартувала. */
   function ensureSessionTracking() {
-    var ref = getRef();
     var clickId = getClickId();
-    if (!ref || !clickId) return;
+    if (!clickId) return;
 
     var currentClickId = String(clickId);
     var savedClickId = ss(SESSION_CLICK_ID_KEY);
@@ -98,40 +99,62 @@
   }
 
   function markEngagement() {
-    if (!getRef()) return;
+    if (!getClickId()) return;
     ss(SESSION_ENGAGED_KEY, '1');
   }
 
-  function reportSessionMetrics() {
+  /** application/x-www-form-urlencoded — надійно парситься Express (sendBeacon + JSON часто ламався). */
+  function buildSessionBody() {
     var clickId = getClickId();
     var startedAt = parseInt(ss(SESSION_START_KEY) || '0', 10);
-    if (!clickId || !startedAt) return;
-
+    if (!clickId || !startedAt) return null;
     var durationSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
     var hadEngagement = ss(SESSION_ENGAGED_KEY) === '1';
-    var payload = JSON.stringify({
-      click_id: clickId,
-      duration_seconds: durationSeconds,
-      had_engagement: hadEngagement
-    });
+    return (
+      'click_id=' + encodeURIComponent(String(clickId)) +
+      '&duration_seconds=' + encodeURIComponent(String(durationSeconds)) +
+      '&had_engagement=' + encodeURIComponent(hadEngagement ? '1' : '0')
+    );
+  }
+
+  function reportSessionMetrics() {
+    ensureSessionTracking();
+    var body = buildSessionBody();
+    if (!body) return;
+
     var url = BASE_URL + '/api/track/session';
 
     try {
       if (navigator.sendBeacon) {
-        var blob = new Blob([payload], { type: 'application/json' });
-        // sendBeacon може повернути false (не вдалося поставити в чергу),
-        // тоді fallback через fetch має спрацювати.
-        var queued = navigator.sendBeacon(url, blob);
-        if (queued) return;
+        var blob = new Blob([body], { type: 'application/x-www-form-urlencoded' });
+        if (navigator.sendBeacon(url, blob)) return;
       }
-    } catch (e) { /* fallback below */ }
+    } catch (e) { /* fallback */ }
 
     fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload,
-      keepalive: true
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body,
+      keepalive: true,
+      mode: 'cors',
+      credentials: 'omit'
     }).catch(function () {});
+  }
+
+  var heartbeatTimer = null;
+  function startSessionHeartbeat() {
+    if (heartbeatTimer) return;
+    heartbeatTimer = setInterval(function () {
+      ensureSessionTracking();
+      reportSessionMetrics();
+    }, 25000);
+  }
+
+  function stopSessionHeartbeat() {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
   }
 
   function installEngagementTracking() {
@@ -140,10 +163,25 @@
       window.addEventListener(eventName, markEngagement, opts);
     });
 
-    window.addEventListener('pagehide', reportSessionMetrics, { capture: true });
-    document.addEventListener('visibilitychange', function () {
+    // Перемикання вкладки — зберегти час, але не глушити heartbeat
+    function onVisibilityHidden() {
       if (document.visibilityState === 'hidden') reportSessionMetrics();
-    }, true);
+    }
+
+    function onPageLeave() {
+      reportSessionMetrics();
+      stopSessionHeartbeat();
+    }
+
+    window.addEventListener('pagehide', onPageLeave, { capture: true });
+    window.addEventListener('beforeunload', onPageLeave, { capture: true });
+    document.addEventListener('visibilitychange', onVisibilityHidden, true);
+
+    startSessionHeartbeat();
+    setTimeout(function () {
+      ensureSessionTracking();
+      reportSessionMetrics();
+    }, 5000);
   }
 
   // ── 1b. Track click for "original" format links ───────────────────────
@@ -924,7 +962,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.3', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.4', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────

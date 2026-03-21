@@ -586,10 +586,16 @@ router.get('/view/:code', async (req, res, next) => {
 
 router.post('/session', async (req, res, next) => {
   try {
-    const clickId = parseInt(req.body.click_id ?? req.body.clickId ?? 0, 10);
-    const rawDuration = parseInt(req.body.duration_seconds ?? req.body.durationSeconds ?? 0, 10);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const clickId = parseInt(body.click_id ?? body.clickId ?? 0, 10);
+    const rawDuration = parseInt(body.duration_seconds ?? body.durationSeconds ?? 0, 10);
     const durationSeconds = Number.isFinite(rawDuration) ? Math.max(0, Math.min(rawDuration, 86400)) : 0;
-    const hadEngagement = req.body.had_engagement === true || req.body.had_engagement === 'true' || req.body.hadEngagement === true || req.body.hadEngagement === 'true';
+    const he = body.had_engagement ?? body.hadEngagement;
+    const hadEngagement =
+      he === true ||
+      he === 'true' ||
+      he === '1' ||
+      he === 1;
 
     if (!clickId) {
       return res.status(400).json({ error: 'click_id is required' });
