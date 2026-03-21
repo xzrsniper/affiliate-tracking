@@ -292,7 +292,19 @@
     "validLinkLimit": "Please enter a valid link limit (>= 0)",
     "errorUpdateLimit": "Failed to update link limit",
     "errorLoadUserData": "Failed to load user data",
-    "userFallback": "User"
+    "userFallback": "User",
+    "siteContentTab": "Site content",
+    "siteContentTitle": "Site content editor",
+    "siteContentHint": "Select a page below first. Changes apply without a rebuild. If you do not see the page list, hard-refresh: Ctrl+F5 (after git pull and npm run build on the server).",
+    "siteContentPageLabel": "Page to edit",
+    "siteContentSave": "Save and publish",
+    "siteContentSaving": "Saving…",
+    "pageHome": "Home",
+    "pageGuide": "Guide",
+    "pageBlog": "Blog",
+    "pageTerms": "Terms",
+    "pagePrivacy": "Privacy",
+    "pageRefund": "Refund"
   },
   "layout": {
     "menu": "Menu",

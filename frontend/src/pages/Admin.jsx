@@ -573,7 +573,7 @@ export default function Admin() {
             onClick={() => setActiveTab('content')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'content' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
           >
-            <FileText className="w-4 h-4 inline mr-1.5" /> Site Content
+            <FileText className="w-4 h-4 inline mr-1.5" /> {t('admin.siteContentTab')}
           </button>
         </div>
 
@@ -669,34 +669,38 @@ export default function Admin() {
 
         {activeTab === 'content' && (
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Real-time Content Editor</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Public pages: edit text and publish without deploy.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-300">Page</label>
-                <select
-                  value={contentPage}
-                  onChange={(e) => setContentPage(e.target.value)}
-                  className="min-w-[180px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200"
-                >
-                  <option value="home">Home</option>
-                  <option value="guide">Guide</option>
-                  <option value="blog">Blog</option>
-                  <option value="terms">Terms</option>
-                  <option value="privacy">Privacy</option>
-                  <option value="refund">Refund</option>
-                </select>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('admin.siteContentTitle')}</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('admin.siteContentHint')}</p>
               </div>
               <button
                 type="button"
                 onClick={handleSaveContent}
                 disabled={contentSaving || contentLoading}
-                className="px-4 py-2 rounded-lg bg-violet-700 text-white text-sm font-semibold hover:bg-violet-800 disabled:opacity-50"
+                className="shrink-0 px-4 py-2 rounded-lg bg-violet-700 text-white text-sm font-semibold hover:bg-violet-800 disabled:opacity-50"
               >
-                {contentSaving ? 'Saving...' : 'Save and Publish'}
+                {contentSaving ? t('admin.siteContentSaving') : t('admin.siteContentSave')}
               </button>
+            </div>
+
+            <div className="mb-6 rounded-xl border-2 border-violet-400/60 bg-violet-50/80 p-4 dark:border-violet-500/50 dark:bg-violet-950/40">
+              <label className="mb-2 block text-sm font-bold text-violet-900 dark:text-violet-200" htmlFor="admin-site-content-page">
+                {t('admin.siteContentPageLabel')}
+              </label>
+              <select
+                id="admin-site-content-page"
+                value={contentPage}
+                onChange={(e) => setContentPage(e.target.value)}
+                className="w-full max-w-xl rounded-lg border-2 border-violet-300 bg-white px-4 py-3 text-base font-semibold text-slate-900 shadow-sm dark:border-violet-600 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value="home">{t('admin.pageHome')}</option>
+                <option value="guide">{t('admin.pageGuide')}</option>
+                <option value="blog">{t('admin.pageBlog')}</option>
+                <option value="terms">{t('admin.pageTerms')}</option>
+                <option value="privacy">{t('admin.pagePrivacy')}</option>
+                <option value="refund">{t('admin.pageRefund')}</option>
+              </select>
             </div>
 
             {contentSuccess && (

@@ -292,7 +292,19 @@
     "validLinkLimit": "Вкажіть коректний ліміт посилань (>= 0)",
     "errorUpdateLimit": "Не вдалося оновити ліміт посилань",
     "errorLoadUserData": "Не вдалося завантажити дані користувача",
-    "userFallback": "Користувач"
+    "userFallback": "Користувач",
+    "siteContentTab": "Тексти сайту",
+    "siteContentTitle": "Редактор текстів сайту",
+    "siteContentHint": "Спочатку оберіть сторінку в списку нижче. Зміни зберігаються без перезбірки. Якщо не бачите список сторінок — зробіть жорстке оновлення: Ctrl+F5 (після git pull і npm run build на сервері).",
+    "siteContentPageLabel": "Сторінка для редагування",
+    "siteContentSave": "Зберегти та опублікувати",
+    "siteContentSaving": "Збереження…",
+    "pageHome": "Головна",
+    "pageGuide": "Гайд",
+    "pageBlog": "Блог",
+    "pageTerms": "Угода",
+    "pagePrivacy": "Конфіденційність",
+    "pageRefund": "Повернення"
   },
   "layout": {
     "menu": "Меню",
