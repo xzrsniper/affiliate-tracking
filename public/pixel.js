@@ -1,5 +1,5 @@
 /**
- * LehkoTrack Pixel v4.4 — Session duration & bounce via reliable POST (form + heartbeat)
+ * LehkoTrack Pixel v4.5 — Conversions with click_id only (ref optional); session metrics v4.4
  * (v4.3 — GTM/dataLayer price extraction, JSON-LD, enhanced success detection)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
@@ -607,8 +607,9 @@
   //   - Lead: завжди відправляємо order_value 0 — дохід рахується тільки з sale (після покупки)
   function sendEvent(eventType, value, orderId) {
     var ref = getRef();
-    if (!ref) {
-      console.warn('[LehkoTrack] Подія не відправлена: немає ref (зайдіть по трекінговому посиланню з click_id/ref)');
+    var clickId = getClickId();
+    if (!ref && !clickId) {
+      console.warn('[LehkoTrack] Подія не відправлена: немає ref і click_id (зайдіть по трекінговому посиланню)');
       return;
     }
     markEngagement();
@@ -631,12 +632,11 @@
     }
 
     var body = {
-      unique_code: ref,
       order_value: value || 0,
       event_type: eventType,
       site_id: SITE_ID
     };
-    var clickId = getClickId();
+    if (ref) body.unique_code = ref;
     if (clickId) body.click_id = clickId;
     if (orderId) body.order_id = orderId;
 
@@ -713,8 +713,7 @@
     var textSuccess = !urlSuccess && isSuccessPageByContent();
 
     if (!urlSuccess && !textSuccess) return;
-    var ref = getRef();
-    if (!ref) return;
+    if (!getRef() && !getClickId()) return;
 
     console.log('[LehkoTrack] Success page detected via', urlSuccess ? 'URL' : 'DOM text', ':', location.pathname);
 
@@ -962,7 +961,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.4', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=4.5', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1273,7 +1272,7 @@
             price = parseFloat(wooAf.revenue || wooAf.value || 0) || 0;
             orderId = wooAf.id || null;
           }
-          if (price > 0 && getRef()) {
+          if (price > 0 && (getRef() || getClickId())) {
             console.log('[LehkoTrack] dataLayer purchase intercepted: price', price, 'orderId', orderId);
             sendEvent('sale', price, orderId);
           }
@@ -1294,24 +1293,34 @@
     ensureSessionTracking();
     installEngagementTracking();
 
-    // Клік — завжди, навіть якщо config не завантажився
-    document.addEventListener('click', onDocClick, true);
     watchUrlChanges();
     hookDataLayer();
 
+    var docClickAttached = false;
+    function attachLeadCartClickOnce() {
+      if (docClickAttached) return;
+      docClickAttached = true;
+      document.addEventListener('click', onDocClick, true);
+    }
+
     // checkSuccessOnLoad ТІЛЬКИ після завантаження конфігу — щоб staticPrice/priceSelector були доступні
-    // Інакше sale відправляється з price=0, а потім dedup блокує повторну спробу з правильною ціною
+    // Лід/кошик: слухач кліку лише після fetchConfig, інакше селектори кнопок ще null
     fetchConfig().then(function () {
+      attachLeadCartClickOnce();
       decorateAllLinks();
       checkDeferredConversion();
       checkSuccessOnLoad();
       watchUrlChanges();
     }).catch(function () {
-      // Config не завантажився — все одно перевіряємо success page (ціна буде з URL або pending sale)
+      attachLeadCartClickOnce();
       decorateAllLinks();
       checkDeferredConversion();
       checkSuccessOnLoad();
     });
+
+    setTimeout(function () {
+      attachLeadCartClickOnce();
+    }, 2000);
 
     verify();
     setInterval(verify, 5 * 60 * 1000);

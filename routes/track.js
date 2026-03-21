@@ -638,7 +638,7 @@ router.post('/session', async (req, res, next) => {
  * - order_id: (optional) Order ID for duplicate prevention
  */
 router.post('/conversion', async (req, res, next) => {
-  const unique_code = req.body.unique_code || req.body.code || req.query.code;
+  let unique_code = req.body.unique_code || req.body.code || req.query.code;
   // Use ?? instead of || so that numeric 0 is not lost (0 is falsy with ||)
   const order_value = req.body.order_value ?? req.body.value ?? req.body.amount ?? req.body.total ?? req.query.value;
   const visitor_id = req.body.visitor_id || req.body.visitorId || req.headers['x-visitor-id'];
@@ -656,10 +656,24 @@ router.post('/conversion', async (req, res, next) => {
   });
 
   try {
+    if (!unique_code && click_id) {
+      const cid = parseInt(click_id, 10);
+      if (Number.isFinite(cid) && cid > 0) {
+        const clickRow = await Click.findByPk(cid);
+        if (clickRow) {
+          const resolvedLink = await Link.findByPk(clickRow.link_id);
+          if (resolvedLink) {
+            unique_code = resolvedLink.unique_code;
+            console.log('[Conversion] Resolved unique_code from click_id', { click_id: cid, unique_code });
+          }
+        }
+      }
+    }
+
     if (!unique_code) {
-      console.warn('[Conversion] Rejected: missing unique_code', { body: req.body });
-      return res.status(400).json({ 
-        error: 'unique_code is required',
+      console.warn('[Conversion] Rejected: missing unique_code (and could not resolve from click_id)', { body: req.body });
+      return res.status(400).json({
+        error: 'unique_code is required (or valid click_id)',
         received: Object.keys(req.body)
       });
     }
