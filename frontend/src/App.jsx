@@ -70,108 +70,110 @@ function AppRoutes() {
         </div>
       }
     >
-      <Routes>
-        {/* Route for pixel.js - redirects to API endpoint */}
-        <Route
-          path="/pixel.js"
-          element={<PixelJsRedirect />}
-        />
-        {/* Short tracking URLs: Nginx often serves SPA here; bounce to /api/links/go for real 302 */}
-        <Route path="/r/:code" element={<TrackingOutboundRedirect />} />
-        <Route path="/track/:code" element={<TrackingOutboundRedirect />} />
-        <Route
-          path="/"
-          element={<Home />}
-        />
-        <Route
-          path="/guide"
-          element={<Guide />}
-        />
-        <Route
-          path="/blog"
-          element={<Blog />}
-        />
-        <Route
-          path="/blog/:slug"
-          element={<BlogPost />}
-        />
-        <Route
-          path="/terms"
-          element={<Terms />}
-        />
-        <Route
-          path="/privacy"
-          element={<Privacy />}
-        />
-        <Route
-          path="/refund"
-          element={<Refund />}
-        />
-        <Route
-          path="/home-new"
-          element={<HomeNew />}
-        />
-        <Route
-          path="/login"
-          element={authenticated ? <Navigate to="/dashboard" replace /> : <Login />}
-        />
-        <Route
-          path="/verify-email"
-          element={authenticated ? <Navigate to="/dashboard" replace /> : <VerifyEmail />}
-        />
-        <Route
-          path="/confirm-password-change"
-          element={<ConfirmPasswordChange />}
-        />
-        <Route
-          path="/reset-password"
-          element={<ResetPassword />}
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin={true}>
-              <Admin />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/setup"
-          element={
-            <ProtectedRoute>
-              <Setup />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/console-code"
-          element={
-            <ProtectedRoute>
-              <ConsoleCode />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/success"
-          element={<Success />}
-        />
-      </Routes>
+      <main id="main-content">
+        <Routes>
+          {/* Route for pixel.js - redirects to API endpoint */}
+          <Route
+            path="/pixel.js"
+            element={<PixelJsRedirect />}
+          />
+          {/* Short tracking URLs: Nginx often serves SPA here; bounce to /api/links/go for real 302 */}
+          <Route path="/r/:code" element={<TrackingOutboundRedirect />} />
+          <Route path="/track/:code" element={<TrackingOutboundRedirect />} />
+          <Route
+            path="/"
+            element={<Home />}
+          />
+          <Route
+            path="/guide"
+            element={<Guide />}
+          />
+          <Route
+            path="/blog"
+            element={<Blog />}
+          />
+          <Route
+            path="/blog/:slug"
+            element={<BlogPost />}
+          />
+          <Route
+            path="/terms"
+            element={<Terms />}
+          />
+          <Route
+            path="/privacy"
+            element={<Privacy />}
+          />
+          <Route
+            path="/refund"
+            element={<Refund />}
+          />
+          <Route
+            path="/home-new"
+            element={<HomeNew />}
+          />
+          <Route
+            path="/login"
+            element={authenticated ? <Navigate to="/dashboard" replace /> : <Login />}
+          />
+          <Route
+            path="/verify-email"
+            element={authenticated ? <Navigate to="/dashboard" replace /> : <VerifyEmail />}
+          />
+          <Route
+            path="/confirm-password-change"
+            element={<ConfirmPasswordChange />}
+          />
+          <Route
+            path="/reset-password"
+            element={<ResetPassword />}
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/setup"
+            element={
+              <ProtectedRoute>
+                <Setup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/console-code"
+            element={
+              <ProtectedRoute>
+                <ConsoleCode />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/success"
+            element={<Success />}
+          />
+        </Routes>
+      </main>
     </Suspense>
   );
 }
