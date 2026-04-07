@@ -3,20 +3,8 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
-import {
-  ArrowRight,
-  BarChart3,
-  Check,
-  ChevronDown,
-  Moon,
-  Play,
-  ShieldCheck,
-  Sparkles,
-  Sun,
-  TrendingUp
-} from 'lucide-react';
 import Logo from '../components/Logo.jsx';
-import SiteEditableText from '../components/SiteEditableText.jsx';
+import SiteEditableText from '../components/SiteTextStatic.jsx';
 
 export default function Home() {
   const { t, i18n } = useTranslation();
@@ -179,7 +167,7 @@ export default function Home() {
               className="rounded-lg p-2 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-slate-100"
               title={theme === 'dark' ? t('common.lightTheme') : t('common.darkTheme')}
             >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <span aria-hidden="true" className="inline-block text-sm">{theme === 'dark' ? '☀' : '☾'}</span>
             </button>
             <Link to="/login" className="hidden rounded-[10px] border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 sm:block">
               <SiteEditableText page="home" section="nav" fieldKey="sign_in" value={contentText('nav', 'sign_in', t('home.signIn'))} />
@@ -194,7 +182,7 @@ export default function Home() {
       <section className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-12 px-4 pb-16 pt-16 sm:px-8 lg:grid-cols-2 lg:items-center lg:pt-20">
         <div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-            <Sparkles className="h-3.5 w-3.5" />{' '}
+            <span aria-hidden="true" className="inline-block text-xs">✦</span>{' '}
             <SiteEditableText page="home" section="hero" fieldKey="badge" value={contentText('hero', 'badge', t('home.newVersionLive'))} as="span" />
           </div>
 
@@ -219,10 +207,10 @@ export default function Home() {
 
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Link to="/login" className="inline-flex items-center gap-2 rounded-[12px] bg-[#6d5cf6] px-6 py-3.5 font-semibold text-white transition hover:bg-[#5d4af0] shadow-[0_10px_24px_rgba(109,92,246,0.28)]">
-              <SiteEditableText page="home" section="hero" fieldKey="cta_text" value={contentText('hero', 'cta_text', t('home.heroCta'))} as="span" /> <ArrowRight className="h-4 w-4" />
+              <SiteEditableText page="home" section="hero" fieldKey="cta_text" value={contentText('hero', 'cta_text', t('home.heroCta'))} as="span" /> <span aria-hidden="true">→</span>
             </Link>
             <button type="button" className="inline-flex items-center gap-2 rounded-[12px] border-2 border-[#6d5cf6] bg-white px-6 py-3.5 font-semibold text-[#6d5cf6] transition hover:bg-[#f0edff] dark:border-[#8b7bff] dark:bg-transparent dark:text-white dark:hover:bg-white/5">
-              <Play className="h-4 w-4" /> <SiteEditableText page="home" section="hero" fieldKey="watch_demo" value={contentText('hero', 'watch_demo', t('home.watchDemo'))} as="span" />
+              <span aria-hidden="true">▶</span> <SiteEditableText page="home" section="hero" fieldKey="watch_demo" value={contentText('hero', 'watch_demo', t('home.watchDemo'))} as="span" />
             </button>
           </div>
 
@@ -296,7 +284,7 @@ export default function Home() {
               {budgetPoints.map((point, idx) => (
                 <li key={`budget-${idx}`} className="flex items-start gap-3">
                   <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md border border-white/40 bg-white/15">
-                    <Check className="h-3.5 w-3.5" />
+                    <span aria-hidden="true" className="text-xs font-bold">✓</span>
                   </span>
                   <span className="text-white/95">
                     <SiteEditableText
@@ -314,7 +302,7 @@ export default function Home() {
           </div>
           <div className="rounded-3xl border border-white/20 bg-white/10 p-8 text-center backdrop-blur">
             <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-white/20">
-              <TrendingUp className="h-6 w-6" />
+              <span aria-hidden="true" className="text-xl">↗</span>
             </div>
             <p className="text-lg leading-relaxed text-white/95">
               <SiteEditableText
@@ -381,9 +369,9 @@ export default function Home() {
               <SiteEditableText page="home" section="money" fieldKey="description" value={contentText('money', 'description', t('home.moneyFromDesc'))} multiline as="span" className="leading-relaxed text-slate-600 dark:text-slate-300" />
             </p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="money" fieldKey="bullet1" value={contentText('money', 'bullet1', t('home.moneyFromBullet1'))} as="span" /></li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="money" fieldKey="bullet2" value={contentText('money', 'bullet2', t('home.moneyFromBullet2'))} as="span" /></li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="money" fieldKey="bullet3" value={contentText('money', 'bullet3', t('home.moneyFromBullet3'))} as="span" /></li>
+              <li className="flex items-start gap-2"><span aria-hidden="true" className="mt-0.5 text-sm font-bold text-violet-600">✓</span><SiteEditableText page="home" section="money" fieldKey="bullet1" value={contentText('money', 'bullet1', t('home.moneyFromBullet1'))} as="span" /></li>
+              <li className="flex items-start gap-2"><span aria-hidden="true" className="mt-0.5 text-sm font-bold text-violet-600">✓</span><SiteEditableText page="home" section="money" fieldKey="bullet2" value={contentText('money', 'bullet2', t('home.moneyFromBullet2'))} as="span" /></li>
+              <li className="flex items-start gap-2"><span aria-hidden="true" className="mt-0.5 text-sm font-bold text-violet-600">✓</span><SiteEditableText page="home" section="money" fieldKey="bullet3" value={contentText('money', 'bullet3', t('home.moneyFromBullet3'))} as="span" /></li>
             </ul>
           </div>
         </div>
@@ -397,9 +385,9 @@ export default function Home() {
               <SiteEditableText page="home" section="integration" fieldKey="description" value={contentText('integration', 'description', t('home.integration5minDesc'))} multiline as="span" className="leading-relaxed text-slate-600 dark:text-slate-300" />
             </p>
             <ul className="space-y-2 text-slate-700 dark:text-slate-300">
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="integration" fieldKey="bullet1" value={contentText('integration', 'bullet1', t('home.integrationBullet1'))} as="span" /></li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="integration" fieldKey="bullet2" value={contentText('integration', 'bullet2', t('home.integrationBullet2'))} as="span" /></li>
-              <li className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 text-violet-600" /><SiteEditableText page="home" section="integration" fieldKey="bullet3" value={contentText('integration', 'bullet3', t('home.integrationBullet3'))} as="span" /></li>
+              <li className="flex items-start gap-2"><span aria-hidden="true" className="mt-0.5 text-sm font-bold text-violet-600">✓</span><SiteEditableText page="home" section="integration" fieldKey="bullet1" value={contentText('integration', 'bullet1', t('home.integrationBullet1'))} as="span" /></li>
+              <li className="flex items-start gap-2"><span aria-hidden="true" className="mt-0.5 text-sm font-bold text-violet-600">✓</span><SiteEditableText page="home" section="integration" fieldKey="bullet2" value={contentText('integration', 'bullet2', t('home.integrationBullet2'))} as="span" /></li>
+              <li className="flex items-start gap-2"><span aria-hidden="true" className="mt-0.5 text-sm font-bold text-violet-600">✓</span><SiteEditableText page="home" section="integration" fieldKey="bullet3" value={contentText('integration', 'bullet3', t('home.integrationBullet3'))} as="span" /></li>
             </ul>
           </div>
           <div className="rounded-3xl bg-[#121525] p-6 font-mono text-sm text-[#96b5ff] shadow-xl">
@@ -423,7 +411,7 @@ export default function Home() {
             <ul className="space-y-2">
               {whyPoints.map((point, idx) => (
                 <li key={`why-${idx}`} className="flex items-start gap-2 text-white/95">
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span aria-hidden="true" className="mt-0.5 text-sm font-bold">✓</span>
                   <SiteEditableText page="home" section="why" fieldKey={`item${idx + 1}`} value={point} as="span" className="text-white/95" />
                 </li>
               ))}
@@ -431,17 +419,17 @@ export default function Home() {
           </div>
           <div className="space-y-4">
             <StatCard
-              icon={<ShieldCheck className="h-7 w-7" />}
+              icon={<span aria-hidden="true" className="text-2xl">🛡</span>}
               value={<SiteEditableText page="home" section="why_stats" fieldKey="card1_value" value={contentText('why_stats', 'card1_value', '100+')} as="span" />}
               label={<SiteEditableText page="home" section="why_stats" fieldKey="card1_label" value={contentText('why_stats', 'card1_label', t('home.statAccuracy'))} as="span" />}
             />
             <StatCard
-              icon={<BarChart3 className="h-7 w-7" />}
+              icon={<span aria-hidden="true" className="text-2xl">📊</span>}
               value={<SiteEditableText page="home" section="why_stats" fieldKey="card2_value" value={contentText('why_stats', 'card2_value', t('home.statSetupValue'))} as="span" />}
               label={<SiteEditableText page="home" section="why_stats" fieldKey="card2_label" value={contentText('why_stats', 'card2_label', t('home.statSetup'))} as="span" />}
             />
             <StatCard
-              icon={<TrendingUp className="h-7 w-7" />}
+              icon={<span aria-hidden="true" className="text-2xl">↗</span>}
               value={<SiteEditableText page="home" section="why_stats" fieldKey="card3_value" value={contentText('why_stats', 'card3_value', '24/7')} as="span" />}
               label={<SiteEditableText page="home" section="why_stats" fieldKey="card3_label" value={contentText('why_stats', 'card3_label', t('home.statMonitoring'))} as="span" />}
             />
@@ -488,7 +476,7 @@ export default function Home() {
                   <span className={`font-semibold ${open ? 'text-violet-700 dark:text-violet-300' : 'text-slate-800 dark:text-slate-200'}`}>
                     <SiteEditableText page="home" section="faq" fieldKey={`q${n}`} value={item.q} as="span" />
                   </span>
-                  <ChevronDown className={`h-5 w-5 text-slate-400 dark:text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  <span aria-hidden="true" className={`inline-block h-5 w-5 text-center text-slate-400 dark:text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}>⌄</span>
                 </button>
                 {open && (
                   <div className="px-5 pb-4 text-slate-600 dark:text-slate-300">
@@ -663,7 +651,7 @@ function PricingCard({ section, featured = false, popular = false, contact = fal
       <ul className="mb-6 space-y-2 text-sm text-slate-700 dark:text-slate-300">
         {cfg.itemKeys.map((ik, i) => (
           <li key={ik} className="flex items-start gap-2">
-            <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-violet-600" />
+            <span aria-hidden="true" className="mt-0.5 text-sm font-bold text-violet-600">✓</span>
             <SiteEditableText page="home" section={section} fieldKey={ik} value={c(ik, cfg.itemFbs[i])} as="span" />
           </li>
         ))}
