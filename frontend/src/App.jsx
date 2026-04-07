@@ -1,30 +1,30 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { SiteTextEditProvider } from './context/SiteTextEditContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import SiteTextEditOverlay from './components/SiteTextEditOverlay.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
-import Home from './pages/Home.jsx';
-import Login from './pages/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Admin from './pages/Admin.jsx';
-import Settings from './pages/Settings.jsx';
-import Success from './pages/Success.jsx';
-import Setup from './pages/Setup.jsx';
-import Guide from './pages/Guide.jsx';
-import VerifyEmail from './pages/VerifyEmail.jsx';
-import ConfirmPasswordChange from './pages/ConfirmPasswordChange.jsx';
-import ResetPassword from './pages/ResetPassword.jsx';
-import HomeNew from './pages/HomeNew.jsx';
-import ConsoleCode from './pages/ConsoleCode.jsx';
-import Blog from './pages/Blog.jsx';
-import BlogPost from './pages/BlogPost.jsx';
-import Terms from './pages/Terms.jsx';
-import Privacy from './pages/Privacy.jsx';
-import Refund from './pages/Refund.jsx';
-import TrackingOutboundRedirect from './pages/TrackingOutboundRedirect.jsx';
+const Home = lazy(() => import('./pages/Home.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Admin = lazy(() => import('./pages/Admin.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const Success = lazy(() => import('./pages/Success.jsx'));
+const Setup = lazy(() => import('./pages/Setup.jsx'));
+const Guide = lazy(() => import('./pages/Guide.jsx'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail.jsx'));
+const ConfirmPasswordChange = lazy(() => import('./pages/ConfirmPasswordChange.jsx'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
+const HomeNew = lazy(() => import('./pages/HomeNew.jsx'));
+const ConsoleCode = lazy(() => import('./pages/ConsoleCode.jsx'));
+const Blog = lazy(() => import('./pages/Blog.jsx'));
+const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
+const Terms = lazy(() => import('./pages/Terms.jsx'));
+const Privacy = lazy(() => import('./pages/Privacy.jsx'));
+const Refund = lazy(() => import('./pages/Refund.jsx'));
+const TrackingOutboundRedirect = lazy(() => import('./pages/TrackingOutboundRedirect.jsx'));
 
 // Component to redirect pixel.js to API endpoint
 function PixelJsRedirect() {
@@ -63,7 +63,14 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="text-slate-500">{t('common.loading')}</div>
+        </div>
+      }
+    >
+      <Routes>
         {/* Route for pixel.js - redirects to API endpoint */}
         <Route
           path="/pixel.js"
@@ -165,6 +172,7 @@ function AppRoutes() {
           element={<Success />}
         />
       </Routes>
+    </Suspense>
   );
 }
 

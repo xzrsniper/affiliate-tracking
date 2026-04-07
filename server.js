@@ -21,11 +21,29 @@ import pageContentRoutes from './routes/pageContent.js';
 import pageStructureRoutes from './routes/pageStructure.js';
 import blogRoutes from './routes/blog.js';
 import googleSheetsRoutes from './routes/googleSheets.js';
+import { BlogPost, PageContent } from './models/index.js';
+import { Op, fn, col } from 'sequelize';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SITE_URL = (process.env.SITE_URL || 'https://lehko.space').replace(/\/$/, '');
+
+function toIsoDate(value) {
+  if (!value) return new Date().toISOString();
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
 
 // Middleware
 // CORS: Allow requests from ANY origin (for JS pixel on client domains)
@@ -87,6 +105,83 @@ app.use(express.static('public', {
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
+});
+
+// Dynamic sitemap.xml with static pages, CMS pages, and blog posts.
+app.get('/sitemap.xml', async (req, res, next) => {
+  try {
+    const urls = [];
+    const pushUrl = (pathName, lastmod, priority) => {
+      urls.push({
+        loc: `${SITE_URL}${pathName === '/' ? '' : pathName}`,
+        lastmod: toIsoDate(lastmod),
+        priority: priority.toFixed(1)
+      });
+    };
+
+    const staticPublicPages = [
+      { path: '/', priority: 1.0 },
+      { path: '/guide', priority: 0.7 },
+      { path: '/blog', priority: 0.8 },
+      { path: '/terms', priority: 0.5 },
+      { path: '/privacy', priority: 0.5 },
+      { path: '/refund', priority: 0.5 },
+      { path: '/home-new', priority: 0.6 },
+      { path: '/success', priority: 0.4 }
+    ];
+
+    staticPublicPages.forEach((page) => pushUrl(page.path, new Date(), page.priority));
+
+    const pageRows = await PageContent.findAll({
+      attributes: ['page', [fn('MAX', col('updated_at')), 'lastmod']],
+      where: {
+        is_active: true,
+        page: { [Op.not]: null }
+      },
+      group: ['page'],
+      raw: true
+    });
+
+    const reservedPages = new Set(['dashboard', 'admin', 'settings', 'setup', 'login', 'register', 'console-code']);
+    const existingPaths = new Set(staticPublicPages.map((p) => p.path));
+
+    for (const row of pageRows) {
+      const pageName = String(row.page || '').trim().toLowerCase();
+      if (!pageName || reservedPages.has(pageName)) continue;
+      const pathName = pageName === 'home' ? '/' : `/${pageName}`;
+      if (existingPaths.has(pathName)) continue;
+      existingPaths.add(pathName);
+      pushUrl(pathName, row.lastmod, 0.6);
+    }
+
+    const blogPosts = await BlogPost.findAll({
+      attributes: ['slug', 'updated_at', 'published_at'],
+      where: {
+        published_at: { [Op.ne]: null }
+      },
+      order: [['published_at', 'DESC']],
+      raw: true
+    });
+
+    for (const post of blogPosts) {
+      if (!post.slug) continue;
+      pushUrl(`/blog/${post.slug}`, post.updated_at || post.published_at, 0.7);
+    }
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((url) => `  <url>
+    <loc>${escapeXml(url.loc)}</loc>
+    <lastmod>${url.lastmod}</lastmod>
+    <priority>${url.priority}</priority>
+  </url>`).join('\n')}
+</urlset>`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.send(xml);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Public config (для фронту: Google Client ID тощо) — щоб продакшн не залежав від VITE_* при білді
@@ -227,11 +322,22 @@ if (process.env.NODE_ENV === 'production') {
   });
 
   app.use(express.static(frontendPath, {
-    maxAge: '1h',
+    maxAge: '1y',
+    immutable: true,
     setHeaders: (res, filePath) => {
       if (filePath.endsWith('.html')) {
         noCacheHeaders(res);
+        return;
       }
+
+      // Vite build outputs hashed assets; safe to cache for a long time.
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        return;
+      }
+
+      // Other static files should still be cached to avoid repeated downloads.
+      res.setHeader('Cache-Control', 'public, max-age=604800');
     }
   }));
   app.get('*', (req, res) => {

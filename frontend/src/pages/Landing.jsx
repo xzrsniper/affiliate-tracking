@@ -234,7 +234,7 @@ export default function Landing() {
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <img 
-                      src="/logo.png" 
+                      src="/logo.svg" 
                       alt="LehkoTrack Logo" 
                       className="w-full h-full object-contain p-1.5"
                     />

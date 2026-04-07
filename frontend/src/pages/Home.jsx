@@ -37,7 +37,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadPageContent();
+    let timeoutId = null;
+    let idleId = null;
+
+    const run = () => {
+      loadPageContent();
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(run, { timeout: 1500 });
+    } else {
+      timeoutId = window.setTimeout(run, 350);
+    }
+
+    return () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      if (idleId && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+    };
   }, [loadPageContent]);
 
   useEffect(() => {

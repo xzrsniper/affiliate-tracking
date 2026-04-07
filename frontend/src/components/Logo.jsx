@@ -19,7 +19,7 @@ export default function Logo({ size = 'md', showText = true, className = '', lin
     <div className={`flex items-center space-x-3 ${className}`}>
       <div className={`${sizeClasses[size]} bg-gradient-to-br from-violet-600 via-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg shadow-violet-500/30 ring-1 ring-white/30`}>
         <img
-          src="/logo.png"
+          src="/logo.svg"
           alt="LehkoTrack logo"
           className="w-full h-full object-contain p-1.5"
           onError={(e) => {
