@@ -233,9 +233,9 @@ export default function Home() {
 
           <div className="rounded-[22px] border border-[#d8dfeb] bg-white p-5 shadow-[0_24px_80px_rgba(19,33,68,0.14)] dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
               <SiteEditableText page="home" section="demo" fieldKey="title" value={contentText('demo', 'title', t('home.campaignOverview'))} as="span" />
-            </h3>
+            </p>
             <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
               <SiteEditableText page="home" section="demo" fieldKey="live_badge" value={contentText('demo', 'live_badge', t('home.live'))} as="span" />
             </span>
