@@ -5,6 +5,15 @@ import { Op, fn, col } from 'sequelize';
 
 const router = express.Router();
 
+function csvEscape(value) {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 // All admin routes require authentication and super admin role
 router.use(authenticate);
 router.use(requireSuperAdmin);
@@ -297,6 +306,71 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
       },
       links: linksWithStats
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/conversions/export
+ * Export conversions with timestamp and amount to CSV
+ */
+router.get('/conversions/export', async (req, res, next) => {
+  try {
+    const conversions = await Conversion.findAll({
+      include: [
+        {
+          model: Link,
+          as: 'link',
+          attributes: ['id', 'name', 'unique_code', 'original_url'],
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'email']
+            }
+          ]
+        }
+      ],
+      attributes: ['id', 'event_type', 'order_id', 'order_value', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit: 50000
+    });
+
+    const header = [
+      'conversion_id',
+      'event_type',
+      'order_id',
+      'amount',
+      'created_at',
+      'link_id',
+      'link_name',
+      'link_code',
+      'link_url',
+      'user_id',
+      'user_email'
+    ];
+
+    const rows = conversions.map((conv) => [
+      conv.id,
+      conv.event_type || '',
+      conv.order_id || '',
+      conv.order_value ?? '',
+      conv.created_at ? new Date(conv.created_at).toISOString() : '',
+      conv.link?.id ?? '',
+      conv.link?.name || '',
+      conv.link?.unique_code || '',
+      conv.link?.original_url || '',
+      conv.link?.user?.id ?? '',
+      conv.link?.user?.email || ''
+    ]);
+
+    const csv = [header, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="conversions-${stamp}.csv"`);
+    res.send(csv);
   } catch (error) {
     next(error);
   }

@@ -207,6 +207,8 @@ export default function Admin() {
   const [limitEdits, setLimitEdits] = useState({});
   const [updating, setUpdating] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportStatus, setExportStatus] = useState('');
 
   // Blog state
   const [blogPosts, setBlogPosts] = useState([]);
@@ -485,6 +487,56 @@ export default function Admin() {
     }
   };
 
+  const handleExportConversionsCsv = async () => {
+    try {
+      setError('');
+      setExportStatus('');
+      setExportingCsv(true);
+      const response = await api.get('/api/admin/conversions/export', {
+        responseType: 'blob',
+        timeout: 60000,
+        headers: {
+          Accept: 'text/csv'
+        }
+      });
+
+      if (!response.data || response.data.size === 0) {
+        throw new Error('Export returned an empty file');
+      }
+
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const disposition = response.headers?.['content-disposition'] || '';
+      const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i);
+      link.href = url;
+      link.setAttribute('download', fileNameMatch?.[1] || `conversions-${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setExportStatus('CSV downloaded successfully');
+    } catch (err) {
+      let message = 'Failed to export conversions CSV';
+      const blobData = err.response?.data;
+      if (blobData instanceof Blob) {
+        try {
+          const text = await blobData.text();
+          const parsed = JSON.parse(text);
+          message = parsed?.error || parsed?.message || message;
+        } catch {
+          // Keep generic message for non-JSON blob responses
+        }
+      } else {
+        message = err.response?.data?.error || err.message || message;
+      }
+      setError(message);
+      setExportStatus(message);
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
   const getDisplayName = (user) => {
     if (user.name && String(user.name).trim()) return user.name;
     const emailPrefix = String(user.email || '').split('@')[0] || t('admin.userFallback');
@@ -534,10 +586,22 @@ export default function Admin() {
             >
               {t('admin.siteTextEditOpen')}
             </button>
-            <button className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">{t('admin.exportCsv')}</button>
+            <button
+              type="button"
+              onClick={handleExportConversionsCsv}
+              disabled={exportingCsv}
+              className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              {exportingCsv ? t('common.loading') : t('admin.exportCsv')}
+            </button>
             <button className="px-3 py-2 text-sm font-semibold rounded-lg bg-violet-700 text-white hover:bg-violet-800 transition-colors">{t('admin.inviteUser')}</button>
           </div>
         </div>
+        {exportStatus && (
+          <div className={`mb-4 rounded-lg border px-3 py-2 text-sm ${exportStatus.toLowerCase().includes('success') ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+            {exportStatus}
+          </div>
+        )}
 
         <div className="flex gap-2 mb-5 border-b border-slate-200 dark:border-slate-700">
           <button
