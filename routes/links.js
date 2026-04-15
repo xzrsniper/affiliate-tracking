@@ -582,6 +582,53 @@ router.post('/bulk-delete', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/links/:id/purchases
+ * Return recent sale conversions for a link (for dashboard popup)
+ */
+router.get('/:id/purchases', authenticate, async (req, res, next) => {
+  try {
+    const link = await Link.findOne({
+      where: {
+        id: req.params.id,
+        user_id: req.user.id
+      },
+      attributes: ['id', 'name', 'unique_code']
+    });
+
+    if (!link) {
+      return res.status(404).json({ error: 'Link not found' });
+    }
+
+    const sales = await Conversion.findAll({
+      where: {
+        link_id: link.id,
+        event_type: 'sale'
+      },
+      attributes: ['id', 'order_id', 'order_value', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit: 100
+    });
+
+    res.json({
+      success: true,
+      link: {
+        id: link.id,
+        name: link.name,
+        unique_code: link.unique_code
+      },
+      purchases: sales.map((sale) => ({
+        id: sale.id,
+        order_id: sale.order_id || null,
+        amount: Number(sale.order_value || 0),
+        created_at: sale.created_at
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/links/:id
  * Get single link by ID (belonging to current user)
  */

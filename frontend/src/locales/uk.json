@@ -461,7 +461,14 @@
     "snapshotApply": "Показати",
     "snapshotClear": "Скинути",
     "snapshotActive": "Дані станом на",
-    "snapshotHint": "Оберіть дату та годину, щоб побачити статистику, яка була на той момент"
+    "snapshotHint": "Оберіть дату та годину, щоб побачити статистику, яка була на той момент",
+    "purchasesBtn": "Покупки",
+    "purchasesTitle": "Покупки по посиланню",
+    "purchaseTime": "Час покупки",
+    "purchaseAmount": "Сума",
+    "purchaseOrderId": "Номер замовлення",
+    "noPurchasesYet": "Поки що немає покупок по цьому посиланню",
+    "errorLoadPurchases": "Не вдалося завантажити покупки"
   },
   "login": {
     "title": "Увійти в акаунт",

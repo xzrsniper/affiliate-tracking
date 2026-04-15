@@ -60,6 +60,9 @@ export default function Dashboard() {
   const [sortColumn, setSortColumn] = useState(''); // Sort column key
   const [sortDirection, setSortDirection] = useState('desc'); // 'asc' | 'desc'
   const [updating, setUpdating] = useState(false);
+  const [purchaseModalLink, setPurchaseModalLink] = useState(null);
+  const [purchaseModalItems, setPurchaseModalItems] = useState([]);
+  const [purchaseModalLoading, setPurchaseModalLoading] = useState(false);
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
@@ -307,6 +310,41 @@ export default function Dashboard() {
   };
 
   const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
+
+  const formatMoney = (value) => {
+    const isUk = i18n.language === 'uk';
+    const amount = Number(value || 0);
+    return isUk ? `${amount.toLocaleString('uk-UA')} ₴` : `$${amount.toLocaleString('en-US')}`;
+  };
+
+  const formatPurchaseTime = (value) => {
+    const isUk = i18n.language === 'uk';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString(isUk ? 'uk-UA' : 'en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const openPurchaseModal = async (link) => {
+    setPurchaseModalLink(link);
+    setPurchaseModalItems([]);
+    setPurchaseModalLoading(true);
+    setError('');
+
+    try {
+      const response = await api.get(`/api/links/${link.id}/purchases`);
+      setPurchaseModalItems(response.data?.purchases || []);
+    } catch (err) {
+      setError(err.response?.data?.error || t('dashboard.errorLoadPurchases'));
+    } finally {
+      setPurchaseModalLoading(false);
+    }
+  };
 
   // Export selected (or all filtered) links directly to Google Sheets
   const buildReportRows = (linksToExport) => {
@@ -1424,6 +1462,12 @@ export default function Dashboard() {
                                   {copiedLinkId === link.id ? t('common.copied') : t('common.copy')}
                                 </button>
                                 <button
+                                  onClick={() => openPurchaseModal(link)}
+                                  className="px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-sm"
+                                >
+                                  {t('dashboard.purchasesBtn')}
+                                </button>
+                                <button
                                   onClick={() => handleEditLink(link)}
                                   className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm"
                                 >
@@ -1457,6 +1501,52 @@ export default function Dashboard() {
                   </div>
                 </div>
           </>
+        </div>
+      )}
+
+      {/* Edit Link Modal */}
+      {purchaseModalLink && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setPurchaseModalLink(null)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">{t('dashboard.purchasesTitle')}</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  {(purchaseModalLink.name || purchaseModalLink.unique_code)} · {purchaseModalLink.tracking_url}
+                </p>
+              </div>
+              <button type="button" onClick={() => setPurchaseModalLink(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {purchaseModalLoading ? (
+              <div className="py-10 text-center text-slate-500">{t('common.loading')}</div>
+            ) : purchaseModalItems.length === 0 ? (
+              <div className="py-10 text-center text-slate-500">{t('dashboard.noPurchasesYet')}</div>
+            ) : (
+              <div className="rounded-xl border border-slate-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
+                      <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
+                      <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {purchaseModalItems.map((purchase) => (
+                      <tr key={purchase.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(purchase.created_at)}</td>
+                        <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(purchase.amount)}</td>
+                        <td className="px-4 py-3 text-slate-600">{purchase.order_id || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

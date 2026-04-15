@@ -461,7 +461,14 @@
     "snapshotApply": "Show",
     "snapshotClear": "Reset",
     "snapshotActive": "Viewing data as of",
-    "snapshotHint": "Select date and hour to see statistics as they were at that point in time"
+    "snapshotHint": "Select date and hour to see statistics as they were at that point in time",
+    "purchasesBtn": "Purchases",
+    "purchasesTitle": "Purchases for link",
+    "purchaseTime": "Purchase time",
+    "purchaseAmount": "Amount",
+    "purchaseOrderId": "Order ID",
+    "noPurchasesYet": "No purchases yet for this link",
+    "errorLoadPurchases": "Failed to load purchases"
   },
   "login": {
     "title": "Sign in",
