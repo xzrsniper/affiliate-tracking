@@ -644,13 +644,16 @@ router.post('/conversion', async (req, res, next) => {
   const order_value = req.body.order_value ?? req.body.value ?? req.body.amount ?? req.body.total ?? req.query.value;
   const visitor_id = req.body.visitor_id || req.body.visitorId || req.headers['x-visitor-id'];
   const order_id = req.body.order_id || req.body.orderId || req.body.order_number;
+  const originalOrderId = order_id !== undefined && order_id !== null && String(order_id).trim() !== ''
+    ? String(order_id).trim()
+    : null;
   const click_id = req.body.click_id || req.body.clickId || null;
   const event_type = (req.body.event_type === 'lead' || req.body.event_type === 'sale' || req.body.event_type === 'cart') ? req.body.event_type : 'sale';
 
   console.log('[Conversion] POST received', {
     unique_code: unique_code || '(missing)',
     order_value: order_value,
-    order_id: order_id,
+    order_id: originalOrderId,
     click_id: click_id,
     event_type: event_type,
     has_visitor_id: !!visitor_id
@@ -738,7 +741,7 @@ router.post('/conversion', async (req, res, next) => {
       }
     }
 
-    const normalizedOrderId = normalizeOrderId(order_id);
+    const normalizedOrderId = normalizeOrderId(originalOrderId);
     
     // Check for duplicate conversions (if order_id provided)
     let isDuplicate = false;
@@ -754,12 +757,12 @@ router.post('/conversion', async (req, res, next) => {
           const lockQuery = `
             SELECT * FROM conversions 
             WHERE link_id = ? 
-            AND (order_id = ? ${order_id && order_id !== normalizedOrderId ? 'OR order_id = ?' : ''})
+            AND (order_id = ? ${originalOrderId && originalOrderId !== normalizedOrderId ? 'OR order_id = ?' : ''})
             LIMIT 1
             FOR UPDATE
           `;
-          const lockParams = order_id && order_id !== normalizedOrderId 
-            ? [link.id, normalizedOrderId, order_id]
+          const lockParams = originalOrderId && originalOrderId !== normalizedOrderId 
+            ? [link.id, normalizedOrderId, originalOrderId]
             : [link.id, normalizedOrderId];
           
           const lockResults = await sequelize.query(lockQuery, {
@@ -779,7 +782,7 @@ router.post('/conversion', async (req, res, next) => {
             console.log('[Conversion Warning] Duplicate conversion detected - order_id already exists', {
               existing_id: existingConversion.id,
               order_id: normalizedOrderId,
-              original_order_id: order_id,
+              original_order_id: originalOrderId,
               link_id: link.id
             });
             
@@ -832,9 +835,9 @@ router.post('/conversion', async (req, res, next) => {
         event_type: event_type
       };
       
-      const finalNormalizedOrderId = normalizedOrderId || null;
-      if (finalNormalizedOrderId) {
-        conversionData.order_id = finalNormalizedOrderId;
+      if (originalOrderId) {
+        // Keep real store-issued order_id for dashboard visibility.
+        conversionData.order_id = originalOrderId;
       }
       
       if (click_id) {
@@ -873,7 +876,7 @@ router.post('/conversion', async (req, res, next) => {
       link_id: link.id,
       unique_code: unique_code,
       order_value: parsedOrderValue,
-      order_id: normalizedOrderId || order_id || 'none',
+      order_id: originalOrderId || normalizedOrderId || 'none',
       click_id: click_id || 'none',
       visitor_id: visitorFingerprint,
       is_duplicate: isDuplicate,
@@ -893,7 +896,7 @@ router.post('/conversion', async (req, res, next) => {
     if (error.isDuplicate && error.existingConversion) {
       console.log('[Conversion Warning] Duplicate conversion prevented by transaction lock', {
         existing_id: error.existingConversion.id,
-        order_id: normalizedOrderId || order_id,
+        order_id: originalOrderId || normalizedOrderId,
         link_id: link.id
       });
       
@@ -968,8 +971,11 @@ router.get('/conversion-pixel', async (req, res, next) => {
     }
 
     // Get order_id for duplicate prevention (accept both order_id and orderId from query)
-    const finalOrderId = order_id || orderId || null;
-    const normalizedFinalOrderId = normalizeOrderId(finalOrderId);
+    const finalOrderId = (order_id || orderId || null);
+    const originalFinalOrderId = finalOrderId !== undefined && finalOrderId !== null && String(finalOrderId).trim() !== ''
+      ? String(finalOrderId).trim()
+      : null;
+    const normalizedFinalOrderId = normalizeOrderId(originalFinalOrderId);
 
     // Check for duplicate conversions (if order_id provided)
     if (normalizedFinalOrderId) {
@@ -979,7 +985,7 @@ router.get('/conversion-pixel', async (req, res, next) => {
             link_id: link.id,
             [Op.or]: [
               { order_id: normalizedFinalOrderId },
-              ...(finalOrderId && finalOrderId !== normalizedFinalOrderId ? [{ order_id: finalOrderId }] : [])
+              ...(originalFinalOrderId && originalFinalOrderId !== normalizedFinalOrderId ? [{ order_id: originalFinalOrderId }] : [])
             ]
           }
         });
@@ -988,7 +994,7 @@ router.get('/conversion-pixel', async (req, res, next) => {
           console.log('[Conversion Pixel Warning] Duplicate conversion detected - order_id already exists', {
             existing_id: existingConversion.id,
             order_id: normalizedFinalOrderId,
-            original_order_id: finalOrderId,
+            original_order_id: originalFinalOrderId,
             link_id: link.id
           });
           
@@ -1011,9 +1017,8 @@ router.get('/conversion-pixel', async (req, res, next) => {
       order_value: parsedOrderValue
     };
     
-    // Use normalized order_id for consistency
-    if (normalizedFinalOrderId) {
-      conversionData.order_id = normalizedFinalOrderId;
+    if (originalFinalOrderId) {
+      conversionData.order_id = originalFinalOrderId;
     }
     
     let conversion;
@@ -1036,7 +1041,7 @@ router.get('/conversion-pixel', async (req, res, next) => {
         link_id: link.id,
         unique_code: trackingCode,
         order_value: parsedOrderValue,
-        order_id: normalizedFinalOrderId || finalOrderId || 'none',
+        order_id: originalFinalOrderId || normalizedFinalOrderId || 'none',
         source: 'cookie-based-pixel'
       });
     }
@@ -1069,6 +1074,9 @@ router.get('/conversion', async (req, res, next) => {
   try {
     const code = req.query.code || req.query.ref;
     const { value, visitor_id, order_id } = req.query;
+    const originalOrderIdGet = order_id !== undefined && order_id !== null && String(order_id).trim() !== ''
+      ? String(order_id).trim()
+      : null;
     const event_type = (req.query.event_type === 'lead' || req.query.event_type === 'sale' || req.query.event_type === 'cart') ? req.query.event_type : 'sale';
 
     if (!code) {
@@ -1115,7 +1123,7 @@ router.get('/conversion', async (req, res, next) => {
     }
 
     // Normalize order_id
-    const normalizedOrderIdGet = normalizeOrderId(order_id);
+    const normalizedOrderIdGet = normalizeOrderId(originalOrderIdGet);
     
     // Check for duplicate conversions (if order_id provided)
     if (normalizedOrderIdGet) {
@@ -1125,7 +1133,7 @@ router.get('/conversion', async (req, res, next) => {
             link_id: link.id,
             [Op.or]: [
               { order_id: normalizedOrderIdGet },
-              ...(order_id && order_id !== normalizedOrderIdGet ? [{ order_id: order_id }] : [])
+              ...(originalOrderIdGet && originalOrderIdGet !== normalizedOrderIdGet ? [{ order_id: originalOrderIdGet }] : [])
             ]
           }
         });
@@ -1134,7 +1142,7 @@ router.get('/conversion', async (req, res, next) => {
           console.log('[Conversion GET Warning] Duplicate conversion detected - order_id already exists', {
             existing_id: existingConversion.id,
             order_id: normalizedOrderIdGet,
-            original_order_id: order_id,
+            original_order_id: originalOrderIdGet,
             link_id: link.id
           });
           
@@ -1156,8 +1164,8 @@ router.get('/conversion', async (req, res, next) => {
       event_type: event_type
     };
     
-    if (normalizedOrderIdGet) {
-      conversionData.order_id = normalizedOrderIdGet;
+    if (originalOrderIdGet) {
+      conversionData.order_id = originalOrderIdGet;
     }
     
     let conversion;
@@ -1179,7 +1187,7 @@ router.get('/conversion', async (req, res, next) => {
       unique_code: code,
       order_value: parsedOrderValue,
       event_type: event_type,
-      order_id: normalizedOrderIdGet || order_id || 'none'
+      order_id: originalOrderIdGet || normalizedOrderIdGet || 'none'
     });
 
     // Return 1x1 transparent pixel
@@ -1339,7 +1347,10 @@ router.post('/conversion-server', async (req, res, next) => {
     }
 
     // Normalize order_id for duplicate prevention
-    const normalizedOrderId = normalizeOrderId(finalOrderId);
+    const originalServerOrderId = finalOrderId !== undefined && finalOrderId !== null && String(finalOrderId).trim() !== ''
+      ? String(finalOrderId).trim()
+      : null;
+    const normalizedOrderId = normalizeOrderId(originalServerOrderId);
 
     // Check for duplicate conversions using transaction lock
     const conversion = await sequelize.transaction(async (t) => {
@@ -1348,12 +1359,12 @@ router.post('/conversion-server', async (req, res, next) => {
           const lockQuery = `
             SELECT * FROM conversions 
             WHERE link_id = ? 
-            AND (order_id = ? ${finalOrderId && finalOrderId !== normalizedOrderId ? 'OR order_id = ?' : ''})
+            AND (order_id = ? ${originalServerOrderId && originalServerOrderId !== normalizedOrderId ? 'OR order_id = ?' : ''})
             LIMIT 1
             FOR UPDATE
           `;
-          const lockParams = finalOrderId && finalOrderId !== normalizedOrderId
-            ? [link.id, normalizedOrderId, finalOrderId]
+          const lockParams = originalServerOrderId && originalServerOrderId !== normalizedOrderId
+            ? [link.id, normalizedOrderId, originalServerOrderId]
             : [link.id, normalizedOrderId];
 
           const lockResults = await sequelize.query(lockQuery, {
@@ -1386,8 +1397,8 @@ router.post('/conversion-server', async (req, res, next) => {
         order_value: parsedOrderValue
       };
 
-      if (normalizedOrderId) {
-        conversionData.order_id = normalizedOrderId;
+      if (originalServerOrderId) {
+        conversionData.order_id = originalServerOrderId;
       }
 
       // Add click_id if provided (for server-to-server tracking with click reference)
@@ -1438,7 +1449,7 @@ router.post('/conversion-server', async (req, res, next) => {
       link_id: link.id,
       unique_code: trackingCode,
       order_value: parsedOrderValue,
-      order_id: normalizedOrderId || finalOrderId,
+      order_id: originalServerOrderId || normalizedOrderId,
       click_id: (click_id || clickId) || 'none',
       source: 'server-api',
       has_customer_email: !!(customer_email || customerEmail)
@@ -1451,7 +1462,7 @@ router.post('/conversion-server', async (req, res, next) => {
       order_value: parsedOrderValue,
       link_id: link.id,
       unique_code: trackingCode,
-      order_id: normalizedOrderId || finalOrderId
+      order_id: originalServerOrderId || normalizedOrderId
     });
   } catch (error) {
     console.error('[❌ Conversion Server Error]', {

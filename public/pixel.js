@@ -684,6 +684,38 @@
     return 0;
   }
 
+  function extractOrderIdFromGlobalVars() {
+    try {
+      var sources = [
+        window.wc_order_data,
+        window.Shopify && window.Shopify.checkout,
+        window.__order__,
+        window.orderData,
+        window.order_data,
+        window.checkoutData,
+        window.__CHECKOUT_DATA__
+      ];
+      for (var i = 0; i < sources.length; i++) {
+        var src = sources[i];
+        if (!src || typeof src !== 'object') continue;
+        var oid = src.order_id || src.orderId || src.order_number || src.orderNumber ||
+                  src.transaction_id || src.transactionId || src.id || null;
+        if (oid != null && String(oid).trim() !== '') return String(oid).trim();
+      }
+    } catch (e) { /* */ }
+    return null;
+  }
+
+  function extractOrderIdFromPageText() {
+    try {
+      var bodyText = (document.body && document.body.innerText ? document.body.innerText : '').substring(0, 8000);
+      if (!bodyText) return null;
+      var m = bodyText.match(/(?:order|замовлення|заказ)\s*(?:#|№|no\.?)\s*([A-Za-z0-9\-_]{3,})/i);
+      if (m && m[1]) return String(m[1]).trim();
+    } catch (e) { /* */ }
+    return null;
+  }
+
   // ── 4e. Extract price from meta tags ──────────────────────────────────
   function extractFromMeta() {
     try {
@@ -1060,7 +1092,7 @@
 
     // Priority: URL params > dataLayer > configured selector/static > pending from button click > full page scan
     var price = urlOrder.total || dataLayerPrice || extractPrice(null) || pendingPrice || extractPriceFromPage() || 0;
-    var orderId = urlOrder.orderId || dataLayerOrderId || null;
+    var orderId = urlOrder.orderId || dataLayerOrderId || extractOrderIdFromGlobalVars() || extractOrderIdFromPageText() || null;
 
     if (price === 0) {
       console.warn('[LehkoTrack] ⚠️ Sale відправляється з ціною 0! Ціну не вдалося витягнути автоматично.',
