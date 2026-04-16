@@ -207,6 +207,8 @@ export default function Admin() {
   const [limitEdits, setLimitEdits] = useState({});
   const [updating, setUpdating] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
+  const [revenueAdjEdits, setRevenueAdjEdits] = useState({});
+  const [revenueAdjSavingId, setRevenueAdjSavingId] = useState(null);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [exportStatus, setExportStatus] = useState('');
 
@@ -233,6 +235,19 @@ export default function Admin() {
   useEffect(() => {
     fetchUsers();
   }, [searchTerm]);
+
+  useEffect(() => {
+    if (!viewingUser?.links?.length) {
+      setRevenueAdjEdits({});
+      return;
+    }
+    const next = {};
+    viewingUser.links.forEach((l) => {
+      const adj = l.stats?.revenue_adjustment ?? l.revenue_adjustment ?? 0;
+      next[l.id] = String(adj);
+    });
+    setRevenueAdjEdits(next);
+  }, [viewingUser]);
 
   useEffect(() => {
     if (activeTab === 'blog') fetchBlogPosts();
@@ -484,6 +499,38 @@ export default function Admin() {
       setViewingUser(response.data);
     } catch (err) {
       setError(err.response?.data?.error || t('admin.errorLoadUserData'));
+    }
+  };
+
+  const formatAdminMoney = (amount) => {
+    const n = Number(amount) || 0;
+    const isUk = i18n.language === 'uk';
+    return isUk
+      ? `${n.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ₴`
+      : `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const handleSaveRevenueAdjustment = async (linkId) => {
+    const raw = revenueAdjEdits[linkId];
+    const num = parseFloat(String(raw).replace(',', '.'));
+    if (Number.isNaN(num)) {
+      setError(t('admin.validRevenueAdj'));
+      return;
+    }
+    const uid = viewingUser?.user?.id;
+    if (!uid) return;
+
+    setRevenueAdjSavingId(linkId);
+    setError('');
+    try {
+      await api.patch(`/api/admin/links/${linkId}/revenue-adjustment`, {
+        revenue_adjustment: num
+      });
+      await handleViewUser(uid);
+    } catch (err) {
+      setError(err.response?.data?.error || t('admin.errorSaveRevenueAdj'));
+    } finally {
+      setRevenueAdjSavingId(null);
     }
   };
 
@@ -1023,7 +1070,7 @@ export default function Admin() {
                         className="bg-slate-50 rounded-xl p-4 border border-slate-200"
                       >
                         <p className="font-semibold text-slate-900 mb-3 break-all">{link.original_url}</p>
-                        <div className="grid grid-cols-4 gap-4 text-sm">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                           <div>
                             <p className="text-slate-500">{t('dashboard.uniqueClicks')}</p>
                             <p className="font-bold text-slate-900">{link.stats.unique_clicks}</p>
@@ -1037,10 +1084,41 @@ export default function Admin() {
                             <p className="font-bold text-green-600">{link.stats.conversions}</p>
                           </div>
                           <div>
-                            <p className="text-slate-500">{t('dashboard.revenue')}</p>
+                            <p className="text-slate-500">{t('admin.revenueAdjusted')}</p>
                             <p className="font-bold text-emerald-600">
-                              ${link.stats.total_revenue}
+                              {formatAdminMoney(link.stats.total_revenue)}
                             </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm border-t border-slate-200 pt-4">
+                          <div>
+                            <p className="text-slate-500">{t('admin.revenueRaw')}</p>
+                            <p className="font-mono text-slate-800">
+                              {formatAdminMoney(link.stats.raw_total_revenue ?? link.stats.total_revenue)}
+                            </p>
+                          </div>
+                          <div className="sm:text-right sm:pl-4">
+                            <p className="text-slate-500 mb-1">{t('admin.revenueCorrection')}</p>
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={revenueAdjEdits[link.id] ?? '0'}
+                                onChange={(e) =>
+                                  setRevenueAdjEdits((prev) => ({ ...prev, [link.id]: e.target.value }))
+                                }
+                                className="w-36 px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveRevenueAdjustment(link.id)}
+                                disabled={revenueAdjSavingId === link.id}
+                                className="px-3 py-1.5 bg-violet-700 text-white rounded-lg text-sm font-semibold hover:bg-violet-800 disabled:opacity-50"
+                              >
+                                {revenueAdjSavingId === link.id ? t('common.loading') : t('common.save')}
+                              </button>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-2 text-left sm:text-right">{t('admin.revenueAdjHint')}</p>
                           </div>
                         </div>
                       </div>

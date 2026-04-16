@@ -67,6 +67,12 @@ const Link = sequelize.define('Link', {
     defaultValue: 'tracking',
     comment: 'tracking = lehko.space/track/code, original = original_url?ref=code'
   },
+  revenue_adjustment: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    defaultValue: 0.0,
+    comment: 'Manual revenue correction (added to raw sums); negative reduces displayed totals'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

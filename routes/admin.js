@@ -2,6 +2,7 @@ import express from 'express';
 import { User, Link, Click, Conversion } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
 import { Op, fn, col } from 'sequelize';
+import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 
 const router = express.Router();
 
@@ -189,7 +190,7 @@ router.get('/users/:id', async (req, res, next) => {
             {
               model: Conversion,
               as: 'conversions',
-              attributes: ['id', 'order_value', 'created_at']
+              attributes: ['id', 'order_value', 'event_type', 'created_at']
             }
           ]
         }
@@ -208,19 +209,32 @@ router.get('/users/:id', async (req, res, next) => {
     let totalRevenue = 0;
     const uniqueFingerprints = new Set();
 
-    links.forEach(link => {
+    links.forEach((link) => {
       const clicks = link.clicks || [];
       const conversions = link.conversions || [];
 
-      clicks.forEach(click => {
+      clicks.forEach((click) => {
         uniqueFingerprints.add(click.visitor_fingerprint);
         totalClicks++;
       });
 
-      conversions.forEach(conv => {
+      let rawTotal = 0;
+      let rawSales = 0;
+      let rawLead = 0;
+      let salesCount = 0;
+      conversions.forEach((conv) => {
         totalConversions++;
-        totalRevenue += parseFloat(conv.order_value || 0);
+        const v = parseFloat(conv.order_value || 0);
+        rawTotal += v;
+        if (conv.event_type === 'lead') rawLead += v;
+        else if (conv.event_type === 'sale' || conv.event_type === undefined || conv.event_type === null) {
+          rawSales += v;
+          salesCount += 1;
+        }
       });
+      const adj = parseFloat(link.revenue_adjustment || 0);
+      const adjusted = applyRevenueAdjustment(rawTotal, rawSales, rawLead, adj, salesCount);
+      totalRevenue += adjusted.total_revenue;
     });
 
     uniqueClicks = uniqueFingerprints.size;
@@ -258,6 +272,7 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
     // Get user's links with stats (same as user's own dashboard)
     const links = await Link.findAll({
       where: { user_id: user.id },
+      attributes: ['id', 'original_url', 'unique_code', 'created_at', 'revenue_adjustment'],
       include: [
         {
           model: Click,
@@ -267,17 +282,33 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
         {
           model: Conversion,
           as: 'conversions',
-          attributes: ['id', 'order_value', 'created_at']
+          attributes: ['id', 'order_value', 'event_type', 'created_at']
         }
       ],
       order: [['created_at', 'DESC']]
     });
 
     // Calculate stats for each link
-    const linksWithStats = links.map(link => {
+    const linksWithStats = links.map((link) => {
       const clicks = link.clicks || [];
       const conversions = link.conversions || [];
-      const uniqueFingerprints = new Set(clicks.map(c => c.visitor_fingerprint));
+      const uniqueFingerprints = new Set(clicks.map((c) => c.visitor_fingerprint));
+
+      let rawTotal = 0;
+      let rawSales = 0;
+      let rawLead = 0;
+      let salesCount = 0;
+      for (const conv of conversions) {
+        const v = parseFloat(conv.order_value || 0);
+        rawTotal += v;
+        if (conv.event_type === 'lead') rawLead += v;
+        else if (conv.event_type === 'sale' || conv.event_type === undefined || conv.event_type === null) {
+          rawSales += v;
+          salesCount += 1;
+        }
+      }
+      const adj = parseFloat(link.revenue_adjustment || 0);
+      const adjusted = applyRevenueAdjustment(rawTotal, rawSales, rawLead, adj, salesCount);
 
       return {
         id: link.id,
@@ -288,9 +319,11 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
           unique_clicks: uniqueFingerprints.size,
           total_clicks: clicks.length,
           conversions: conversions.length,
-          total_revenue: conversions.reduce((sum, conv) => 
-            sum + parseFloat(conv.order_value || 0), 0
-          ).toFixed(2)
+          total_revenue: adjusted.total_revenue,
+          sales_revenue: adjusted.sales_revenue,
+          lead_revenue: adjusted.lead_revenue,
+          raw_total_revenue: parseFloat(rawTotal.toFixed(2)),
+          revenue_adjustment: adj
         }
       };
     });
@@ -305,6 +338,50 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
         is_banned: user.is_banned
       },
       links: linksWithStats
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/admin/links/:linkId/revenue-adjustment
+ * Body: { revenue_adjustment: number } — додається до «сирої» суми з конверсій (від’ємне значення зменшує показаний дохід).
+ */
+router.patch('/links/:linkId/revenue-adjustment', async (req, res, next) => {
+  try {
+    const linkId = parseInt(req.params.linkId, 10);
+    if (!Number.isInteger(linkId) || linkId < 1) {
+      return res.status(400).json({ error: 'Invalid link id' });
+    }
+
+    const { revenue_adjustment } = req.body;
+    if (revenue_adjustment === undefined || revenue_adjustment === null || revenue_adjustment === '') {
+      return res.status(400).json({ error: 'revenue_adjustment is required' });
+    }
+
+    const adj = Number(revenue_adjustment);
+    if (Number.isNaN(adj)) {
+      return res.status(400).json({ error: 'revenue_adjustment must be a number' });
+    }
+    if (adj < -1e9 || adj > 1e9) {
+      return res.status(400).json({ error: 'revenue_adjustment out of allowed range' });
+    }
+
+    const link = await Link.findByPk(linkId);
+    if (!link) {
+      return res.status(404).json({ error: 'Link not found' });
+    }
+
+    link.revenue_adjustment = adj;
+    await link.save();
+
+    res.json({
+      success: true,
+      link: {
+        id: link.id,
+        revenue_adjustment: parseFloat(String(link.revenue_adjustment))
+      }
     });
   } catch (error) {
     next(error);

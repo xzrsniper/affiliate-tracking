@@ -30,6 +30,8 @@
     "db:add-blog-posts": "node scripts/add-blog-posts-table.js",
     "db:add-page-content": "node scripts/create-page-content-table.js",
     "db:add-google-sheets": "node scripts/add-google-sheets-fields.js",
+    "db:add-revenue-adjustment": "node scripts/add-revenue-adjustment-field.js",
+    "db:lookup-user": "node scripts/lookup-user-email.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"

@@ -5,6 +5,7 @@ import { generateUniqueCode } from '../utils/codeGenerator.js';
 import { runTrackingRedirect } from '../utils/trackingRedirect.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
+import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 
 const router = express.Router();
 
@@ -359,7 +360,7 @@ router.get('/my-links', async (req, res, next) => {
 
     const links = await Link.findAll({
       where: { user_id: req.user.id },
-      attributes: ['id', 'name', 'original_url', 'source_type', 'unique_code', 'link_format', 'created_at', 'user_id'],
+      attributes: ['id', 'name', 'original_url', 'source_type', 'unique_code', 'link_format', 'created_at', 'user_id', 'revenue_adjustment'],
       order: [['created_at', 'DESC']]
     });
 
@@ -481,17 +482,22 @@ router.get('/my-links', async (req, res, next) => {
       const totalClicks = parseInt(clickStats?.total_clicks || 0);
       const uniqueClicks = parseInt(clickStats?.unique_clicks || 0);
       const totalConversions = parseInt(conversionStats?.conversions || 0);
-      const totalRevenue = parseFloat(conversionStats?.total_revenue || 0);
+      const rawTotalRevenue = parseFloat(conversionStats?.total_revenue || 0);
       const totalLeads = parseInt(conversionStats?.leads || 0);
       const totalSales = parseInt(conversionStats?.sales || 0);
       const totalCarts = parseInt(conversionStats?.carts || 0);
-      const salesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
-      const leadRevenue = parseFloat(conversionStats?.lead_revenue || 0);
+      const rawSalesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
+      const rawLeadRevenue = parseFloat(conversionStats?.lead_revenue || 0);
       const measuredSessions = parseInt(clickStats?.measured_sessions || 0);
       const avgSessionSeconds = parseFloat(clickStats?.avg_session_seconds || 0);
       const bounces = parseInt(clickStats?.bounces || 0);
       const bounceRate = measuredSessions > 0 ? (bounces / measuredSessions) * 100 : 0;
-      const averageCheck = totalSales > 0 ? salesRevenue / totalSales : 0;
+      const adj = parseFloat(link.revenue_adjustment || 0);
+      const adjusted = applyRevenueAdjustment(rawTotalRevenue, rawSalesRevenue, rawLeadRevenue, adj, totalSales);
+      const totalRevenue = adjusted.total_revenue;
+      const salesRevenue = adjusted.sales_revenue;
+      const leadRevenue = adjusted.lead_revenue;
+      const averageCheck = adjusted.average_check;
 
       const domain = normalizeDomain(extractDomain(link.original_url));
       const isCodeConnected = domain ? connectedDomains.has(domain) : false;
@@ -529,12 +535,14 @@ router.get('/my-links', async (req, res, next) => {
           leads: totalLeads,
           sales: totalSales,
           carts: totalCarts,
-          total_revenue: parseFloat(totalRevenue.toFixed(2)),
-          sales_revenue: parseFloat(salesRevenue.toFixed(2)),
-          lead_revenue: parseFloat(leadRevenue.toFixed(2)),
+          total_revenue: totalRevenue,
+          sales_revenue: salesRevenue,
+          lead_revenue: leadRevenue,
+          revenue_adjustment: adj,
+          raw_total_revenue: parseFloat(rawTotalRevenue.toFixed(2)),
           avg_session_seconds: parseFloat(avgSessionSeconds.toFixed(2)),
           bounce_rate: parseFloat(bounceRate.toFixed(2)),
-          average_check: parseFloat(averageCheck.toFixed(2)),
+          average_check: averageCheck,
           measured_sessions: measuredSessions
         }
       };
@@ -648,7 +656,7 @@ router.get('/:id', async (req, res, next) => {
         {
           model: Conversion,
           as: 'conversions',
-          attributes: ['id', 'order_value', 'created_at']
+          attributes: ['id', 'order_value', 'event_type', 'created_at']
         }
       ]
     });
@@ -661,6 +669,25 @@ router.get('/:id', async (req, res, next) => {
     const clicks = link.clicks || [];
     const conversions = link.conversions || [];
     const uniqueFingerprints = new Set(clicks.map(c => c.visitor_fingerprint));
+
+    let rawSalesRev = 0;
+    let rawLeadRev = 0;
+    let rawTotalRev = 0;
+    let salesCount = 0;
+    for (const conv of conversions) {
+      const v = parseFloat(conv.order_value || 0);
+      rawTotalRev += v;
+      const et = conv.event_type;
+      if (et === 'lead') {
+        rawLeadRev += v;
+      } else if (et === 'sale' || et === undefined || et === null) {
+        rawSalesRev += v;
+        salesCount += 1;
+      }
+      // cart та інше: лише в загальній сумі (як у SQL total_revenue)
+    }
+    const adj = parseFloat(link.revenue_adjustment || 0);
+    const adjusted = applyRevenueAdjustment(rawTotalRev, rawSalesRev, rawLeadRev, adj, salesCount);
 
     res.json({
       success: true,
@@ -676,9 +703,12 @@ router.get('/:id', async (req, res, next) => {
           unique_clicks: uniqueFingerprints.size,
           total_clicks: clicks.length,
           conversions: conversions.length,
-          total_revenue: conversions.reduce((sum, conv) => 
-            sum + parseFloat(conv.order_value || 0), 0
-          ).toFixed(2)
+          total_revenue: adjusted.total_revenue,
+          sales_revenue: adjusted.sales_revenue,
+          lead_revenue: adjusted.lead_revenue,
+          revenue_adjustment: adj,
+          raw_total_revenue: parseFloat(rawTotalRev.toFixed(2)),
+          average_check: adjusted.average_check
         }
       }
     });

@@ -24,7 +24,8 @@ const REQUIRED_TABLES = [
 /** Таблиця → [колонки, які мають бути] */
 const REQUIRED_COLUMNS = {
   clicks: ['session_duration_seconds', 'had_engagement'],
-  conversions: ['event_type', 'click_id']
+  conversions: ['event_type', 'click_id'],
+  links: ['revenue_adjustment']
 };
 
 async function main() {
