@@ -32,6 +32,7 @@
     "db:add-google-sheets": "node scripts/add-google-sheets-fields.js",
     "db:add-revenue-adjustment": "node scripts/add-revenue-adjustment-field.js",
     "db:lookup-user": "node scripts/lookup-user-email.js",
+    "db:audit-conversions": "node scripts/audit-user-conversions.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"
