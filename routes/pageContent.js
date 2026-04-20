@@ -79,6 +79,8 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
       };
     });
 
+    res.removeHeader('Pragma');
+    res.removeHeader('Expires');
     res.setHeader(
       'Cache-Control',
       'public, max-age=120, stale-while-revalidate=600'
