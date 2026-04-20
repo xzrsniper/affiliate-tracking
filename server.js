@@ -66,11 +66,13 @@ app.use(cookieParser()); // Enable cookie parsing for conversion tracking
 
 // API responses should be fresh for dashboards; public CMS page JSON can be cached briefly.
 app.use('/api', (req, res, next) => {
-  const pathOnly = (req.originalUrl || '').split('?')[0];
-  if (
+  const raw = (req.originalUrl || '').split('?')[0];
+  const pathPart = req.path || raw;
+  const isPublicPageContentGet =
     req.method === 'GET' &&
-    /^\/api\/page-content\/[^/]+$/.test(pathOnly)
-  ) {
+    (/^\/api\/page-content\/[^/]+$/.test(raw) ||
+      /^\/page-content\/[^/]+$/.test(pathPart));
+  if (isPublicPageContentGet) {
     return next();
   }
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
