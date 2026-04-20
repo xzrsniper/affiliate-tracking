@@ -81,6 +81,22 @@ function normalizeDomain(domain) {
     .replace(/^www\./, '');
 }
 
+/** Same rules as GET /my-links — must stay consistent after PUT /:id */
+function buildTrackingUrlForLink(link, req) {
+  const format = link.link_format || 'tracking';
+  if (format === 'original') {
+    try {
+      const url = new URL(link.original_url);
+      url.searchParams.set('ref', link.unique_code);
+      return url.toString();
+    } catch {
+      const sep = link.original_url.includes('?') ? '&' : '?';
+      return `${link.original_url}${sep}ref=${link.unique_code}`;
+    }
+  }
+  return `${req.protocol}://${req.get('host')}/r/${link.unique_code}`;
+}
+
 function buildRangeCondition(range = '7d') {
   switch (range) {
     case 'all':
@@ -237,20 +253,10 @@ router.post('/create', async (req, res, next) => {
       link_format: resolvedFormat
     });
 
-    // Build tracking_url based on format
-    let trackingUrl;
-    if (resolvedFormat === 'original') {
-      try {
-        const url = new URL(original_url);
-        url.searchParams.set('ref', uniqueCode);
-        trackingUrl = url.toString();
-      } catch {
-        const sep = original_url.includes('?') ? '&' : '?';
-        trackingUrl = `${original_url}${sep}ref=${uniqueCode}`;
-      }
-    } else {
-      trackingUrl = `${req.protocol}://${req.get('host')}/r/${uniqueCode}`;
-    }
+    const trackingUrl = buildTrackingUrlForLink(
+      { original_url, unique_code: uniqueCode, link_format: resolvedFormat },
+      req
+    );
 
     res.status(201).json({
       success: true,
@@ -502,20 +508,7 @@ router.get('/my-links', async (req, res, next) => {
       const domain = normalizeDomain(extractDomain(link.original_url));
       const isCodeConnected = domain ? connectedDomains.has(domain) : false;
 
-      // Build tracking_url based on saved link_format
-      let trackingUrl;
-      if (link.link_format === 'original') {
-        try {
-          const url = new URL(link.original_url);
-          url.searchParams.set('ref', link.unique_code);
-          trackingUrl = url.toString();
-        } catch {
-          const sep = link.original_url.includes('?') ? '&' : '?';
-          trackingUrl = `${link.original_url}${sep}ref=${link.unique_code}`;
-        }
-      } else {
-        trackingUrl = `${req.protocol}://${req.get('host')}/r/${link.unique_code}`;
-      }
+      const trackingUrl = buildTrackingUrlForLink(link, req);
 
       return {
         id: link.id,
@@ -749,7 +742,8 @@ router.get('/:id', async (req, res, next) => {
         original_url: link.original_url,
         source_type: link.source_type,
         unique_code: link.unique_code,
-        tracking_url: `${req.protocol}://${req.get('host')}/track/${link.unique_code}`,
+        link_format: link.link_format || 'tracking',
+        tracking_url: buildTrackingUrlForLink(link, req),
         created_at: link.created_at,
         stats: {
           unique_clicks: uniqueFingerprints.size,
@@ -817,7 +811,8 @@ router.put('/:id', authenticate, async (req, res, next) => {
         original_url: link.original_url,
         source_type: link.source_type,
         unique_code: link.unique_code,
-        tracking_url: `${req.protocol}://${req.get('host')}/track/${link.unique_code}`,
+        link_format: link.link_format || 'tracking',
+        tracking_url: buildTrackingUrlForLink(link, req),
         created_at: link.created_at
       }
     });
