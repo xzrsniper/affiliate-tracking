@@ -1,5 +1,5 @@
 import express from 'express';
-import { Link, Click, Conversion, User, Website } from '../models/index.js';
+import { Link, Click, Conversion, LinkClick, User, Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
 import { runTrackingRedirect } from '../utils/trackingRedirect.js';
@@ -583,6 +583,58 @@ router.post('/bulk-delete', authenticate, async (req, res, next) => {
       success: true,
       deleted_count: deletedCount,
       requested_count: ids.length
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/links/:id/clear-stats
+ * Remove all clicks and conversions for this link (keeps the link row).
+ */
+router.post('/:id/clear-stats', authenticate, async (req, res, next) => {
+  try {
+    const linkId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(linkId) || linkId <= 0) {
+      return res.status(400).json({ error: 'Invalid link id' });
+    }
+
+    const link = await Link.findOne({
+      where: { id: linkId, user_id: req.user.id },
+      attributes: ['id']
+    });
+
+    if (!link) {
+      return res.status(404).json({ error: 'Link not found' });
+    }
+
+    let conversionsDeleted = 0;
+    let clicksDeleted = 0;
+    let linkClicksDeleted = 0;
+
+    await sequelize.transaction(async (transaction) => {
+      conversionsDeleted = await Conversion.destroy({
+        where: { link_id: linkId },
+        transaction
+      });
+      clicksDeleted = await Click.destroy({
+        where: { link_id: linkId },
+        transaction
+      });
+      linkClicksDeleted = await LinkClick.destroy({
+        where: { link_id: linkId },
+        transaction
+      });
+    });
+
+    res.json({
+      success: true,
+      deleted: {
+        conversions: conversionsDeleted,
+        clicks: clicksDeleted,
+        link_clicks: linkClicksDeleted
+      }
     });
   } catch (error) {
     next(error);

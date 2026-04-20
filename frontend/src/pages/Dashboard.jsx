@@ -32,7 +32,8 @@ import {
   ShoppingCart,
   Clock,
   FileSpreadsheet,
-  HelpCircle
+  HelpCircle,
+  Eraser
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [copied, setCopied] = useState(false); // Track if URL was copied
   const [copiedLinkId, setCopiedLinkId] = useState(null); // Track which link URL was copied
   const [editingLinkId, setEditingLinkId] = useState(null); // Track which link is being edited
+  const [pendingClearStatsId, setPendingClearStatsId] = useState(null); // Clear clicks/conversions for one link
   const [editForm, setEditForm] = useState({ original_url: '', name: '', source_type: '' });
   const [expandedLinkId, setExpandedLinkId] = useState(null); // Track which link is expanded
   const [searchQuery, setSearchQuery] = useState(''); // Search/filter links
@@ -276,6 +278,38 @@ export default function Dashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  /** Показ: кількість і сума в дужках (грн / $) */
+  const formatCountMoney = (count, amount, isUk) => {
+    const c = Number(count) || 0;
+    const a = Number(amount) || 0;
+    if (c <= 0 && a <= 0) return '—';
+    const amtStr = a.toLocaleString(isUk ? 'uk-UA' : 'en-US', {
+      minimumFractionDigits: a % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+    const countStr = c.toLocaleString(isUk ? 'uk-UA' : 'en-US');
+    if (isUk) return `${countStr} (${amtStr} грн)`;
+    return `${countStr} ($${amtStr})`;
+  };
+
+  const handleConfirmClearStats = async () => {
+    if (!pendingClearStatsId) return;
+    setUpdating(true);
+    setError('');
+    try {
+      await api.post(`/api/links/${pendingClearStatsId}/clear-stats`);
+      setPendingClearStatsId(null);
+      await fetchLinks(true, activeSnapshot || '', timeRange);
+      fetchChartData(i18n.language, activeSnapshot || '', sourceFilter, timeRange);
+      setSuccessMessage(t('dashboard.clearStatsSuccess'));
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || t('dashboard.clearStatsError'));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const getSourceTypeLabel = (sourceType) => {
     const keyMap = {
       'social_media': 'dashboard.sourceSocial',
@@ -366,8 +400,8 @@ export default function Dashboard() {
       t('dashboard.tableAvgTime'),
       t('dashboard.tableBounceRate'),
       t('dashboard.tableAvgCheck'),
-      t('dashboard.tableRevenueSales', 'Дохід (оплата)'),
-      t('dashboard.tableRevenueLeads', 'Дохід (ліди)')
+      t('dashboard.tableRevenueSales'),
+      t('dashboard.tableRevenueLeads')
     ];
     const rows = [
       [t('dashboard.exportReportBranding', 'Lehko'), t('dashboard.exportReportCreated', 'Звіт створено') + ': ' + dateStr],
@@ -383,6 +417,8 @@ export default function Dashboard() {
       const averageCheck = link.stats?.average_check || 0;
       const revenue = link.stats?.sales_revenue ?? 0;
       const leadRevenue = link.stats?.lead_revenue ?? 0;
+      const saleEvents = link.stats?.sales ?? 0;
+      const leadEvents = link.stats?.leads ?? 0;
       const avgTimeStr = formatDuration(avgTime);
       const bounceStr = formatPercent(bounceRate);
       const currency = isUk ? '₴' : '$';
@@ -395,8 +431,8 @@ export default function Dashboard() {
         avgTimeStr,
         bounceStr,
         averageCheck ? `${averageCheck.toLocaleString()} ${currency}` : '',
-        revenue ? `${currency}${revenue.toLocaleString()}` : '',
-        leadRevenue ? `${currency}${leadRevenue.toLocaleString()}` : ''
+        formatCountMoney(saleEvents, revenue, isUk),
+        formatCountMoney(leadEvents, leadRevenue, isUk)
       ]);
     });
     return rows;
@@ -1352,7 +1388,7 @@ export default function Dashboard() {
                             onClick={() => handleSort('revenue')}
                             className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                           >
-                            <span>{t('dashboard.tableRevenueSales', 'Дохід (оплата)')}</span>
+                            <span>{t('dashboard.tableRevenueSales')}</span>
                             {sortColumn === 'revenue' ? (
                               <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
@@ -1367,7 +1403,7 @@ export default function Dashboard() {
                               onClick={() => handleSort('leadRevenue')}
                               className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                             >
-                              <span>{t('dashboard.tableRevenueLeads', 'Дохід (ліди)')}</span>
+                              <span>{t('dashboard.tableRevenueLeads')}</span>
                               {sortColumn === 'leadRevenue' ? (
                                 <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                               ) : (
@@ -1434,20 +1470,18 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatDuration(avgTime)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatPercent(bounceRate)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{averageCheck.toLocaleString()} {isUk ? '₴' : '$'}</td>
-                            <td className="px-4 py-4 font-bold text-emerald-700 dark:text-emerald-400">
-                              {isUk ? '₴' : '$'}{revenue.toLocaleString()}
+                            <td className="px-4 py-4 font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                              {formatCountMoney(saleEvents, revenue, isUk)}
                             </td>
                             <td
                               className="px-4 py-4 font-bold text-amber-800 dark:text-amber-300 tabular-nums"
-                              title={leadRevenueTitle || undefined}
+                              title={leadRevenue <= 0 ? (leadRevenueTitle || undefined) : undefined}
                             >
-                              {leadRevenue > 0
-                                ? `${isUk ? '₴' : '$'}${leadRevenue.toLocaleString()}`
-                                : (
-                                  <span className="font-semibold text-slate-500 dark:text-slate-400 cursor-help border-b border-dotted border-slate-300 dark:border-slate-600">
-                                    {leadEvents > 0 ? `${isUk ? '₴' : '$'}0` : '—'}
-                                  </span>
-                                )}
+                              {leadEvents <= 0 && leadRevenue <= 0 ? (
+                                <span className="font-semibold text-slate-500 dark:text-slate-400">—</span>
+                              ) : (
+                                formatCountMoney(leadEvents, leadRevenue, isUk)
+                              )}
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
@@ -1466,6 +1500,13 @@ export default function Dashboard() {
                                   className="px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-sm"
                                 >
                                   {t('dashboard.purchasesBtn')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingClearStatsId(link.id)}
+                                  className="px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-sm"
+                                >
+                                  {t('dashboard.clearStats')}
                                 </button>
                                 <button
                                   onClick={() => handleEditLink(link)}
@@ -1600,15 +1641,67 @@ export default function Dashboard() {
                   className="w-full px-4 py-2.5 bg-white rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
                 />
               </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={handleCancelEdit} disabled={updating} className="px-5 py-2.5 border border-slate-300 rounded-xl text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-50 transition-all">
-                  {t('common.cancel')}
-                </button>
-                <button type="submit" disabled={updating} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center gap-2 transition-all">
-                  {updating ? t('common.refreshing') : <><Save className="w-4 h-4" /><span>{t('common.save')}</span></>}
-                </button>
+              <div className="flex flex-col gap-3 pt-2">
+                <div className="flex justify-end gap-3">
+                  <button type="button" onClick={handleCancelEdit} disabled={updating} className="px-5 py-2.5 border border-slate-300 rounded-xl text-slate-600 font-medium hover:bg-slate-50 disabled:opacity-50 transition-all">
+                    {t('common.cancel')}
+                  </button>
+                  <button type="submit" disabled={updating} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center gap-2 transition-all">
+                    {updating ? t('common.refreshing') : <><Save className="w-4 h-4" /><span>{t('common.save')}</span></>}
+                  </button>
+                </div>
+                <div className="border-t border-slate-200 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = editingLinkId;
+                      handleCancelEdit();
+                      setPendingClearStatsId(id);
+                    }}
+                    disabled={updating}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 text-amber-900 dark:text-amber-200 font-medium hover:bg-amber-50 dark:hover:bg-amber-950/40 disabled:opacity-50 transition-all"
+                  >
+                    <Eraser className="w-4 h-4" />
+                    {t('dashboard.clearStats')}
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Clear statistics confirmation */}
+      {pendingClearStatsId !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center">
+                <Eraser className="w-6 h-6 text-amber-700 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('dashboard.clearStatsConfirmTitle')}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{t('dashboard.clearStatsConfirmText')}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingClearStatsId(null)}
+                disabled={updating}
+                className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearStats}
+                disabled={updating}
+                className="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-50"
+              >
+                {updating ? t('common.refreshing') : t('dashboard.clearStatsConfirm')}
+              </button>
+            </div>
           </div>
         </div>
       )}
