@@ -79,6 +79,11 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
       };
     });
 
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=120, stale-while-revalidate=600'
+    );
+
     res.json({
       success: true,
       page,
@@ -88,6 +93,7 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
     // Якщо помилка пов'язана з базою даних, повертаємо успішну відповідь з порожнім контентом
     if (error.name === 'SequelizeConnectionError' || error.name === 'SequelizeDatabaseError' || error.message?.includes('database')) {
       console.warn('⚠️  Database not available, returning empty content:', error.message);
+      res.setHeader('Cache-Control', 'no-store');
       return res.json({
         success: true,
         page: req.params.page,
