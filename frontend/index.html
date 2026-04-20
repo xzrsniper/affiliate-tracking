@@ -16,6 +16,13 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="apple-touch-icon" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Minimal shell styles until async CSS applies (avoids long white flash when CSS is deferred) -->
+    <style>
+      html, body { margin: 0; background-color: #f6f8fc; color: #0f172a; }
+      @media (prefers-color-scheme: dark) {
+        html, body { background-color: #020617; color: #f1f5f9; }
+      }
+    </style>
     <!-- CSP disabled in dev mode; enable in production build -->
     <title>LehkoTrack</title>
     <!-- Google Sign-In Script -->

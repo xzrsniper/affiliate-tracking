@@ -1,8 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+/** Non-blocking load for hashed /assets/*.css (Lighthouse «render-blocking resources»). */
+function deferBundledCss() {
+  return {
+    name: 'defer-bundled-css',
+    apply: 'build',
+    transformIndexHtml(html) {
+      return html.replace(
+        /<link rel="stylesheet"([^>]*)>/g,
+        (full, attrs) => {
+          if (!/href="\/assets\/[^"]+\.css"/.test(attrs)) return full
+          return `<link rel="stylesheet"${attrs} media="print" onload="this.media='all'"><noscript><link rel="stylesheet"${attrs}></noscript>`
+        }
+      )
+    }
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), deferBundledCss()],
   server: {
     port: 5173,
     host: '0.0.0.0',
