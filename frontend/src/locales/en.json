@@ -818,6 +818,16 @@
     "localhostCheckAlert": "Automatic check is not available for localhost sites. Make sure the tracking code is installed on the site and use a public domain for verification.",
     "checkError": "Failed to verify site. Make sure the site is accessible from the internet."
   },
+  "notFound": {
+    "documentTitle": "Page not found — Lehko",
+    "title": "Page not found",
+    "subtitle": "The link may be outdated or the URL has a typo. Try home, sign up, or pick an article from our top reads below.",
+    "ctaTryFree": "Try for free",
+    "backHome": "Back to home",
+    "bestArticles": "Top articles",
+    "allArticles": "All blog posts",
+    "noArticlesYet": "No articles to show yet."
+  },
   "blog": {
     "title": "Lehko Blog",
     "popular": "Popular",

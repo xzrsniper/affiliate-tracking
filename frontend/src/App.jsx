@@ -25,6 +25,7 @@ const Terms = lazy(() => import('./pages/Terms.jsx'));
 const Privacy = lazy(() => import('./pages/Privacy.jsx'));
 const Refund = lazy(() => import('./pages/Refund.jsx'));
 const TrackingOutboundRedirect = lazy(() => import('./pages/TrackingOutboundRedirect.jsx'));
+const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
 // Component to redirect pixel.js to API endpoint
 function PixelJsRedirect() {
@@ -172,6 +173,7 @@ function AppRoutes() {
             path="/success"
             element={<Success />}
           />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </Suspense>
