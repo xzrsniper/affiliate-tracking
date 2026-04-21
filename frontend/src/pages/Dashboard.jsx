@@ -80,7 +80,7 @@ export default function Dashboard() {
   const [snapshotDate, setSnapshotDate] = useState(''); // 'YYYY-MM-DD'
   const [snapshotHour, setSnapshotHour] = useState(''); // '00'..'23'
   const [activeSnapshot, setActiveSnapshot] = useState(''); // applied value 'YYYY-MM-DDTHH'
-  const [timeRange, setTimeRange] = useState('7d');
+  const [timeRange, setTimeRange] = useState('today');
 
   // Auto-fetch links and chart on mount
   useEffect(() => {
@@ -181,9 +181,9 @@ export default function Dashboard() {
     setSnapshotDate('');
     setSnapshotHour('');
     setActiveSnapshot('');
-    setTimeRange('7d');
-    fetchLinks(true, '', '7d');
-    fetchChartData(i18n.language, '', sourceFilter, '7d');
+    setTimeRange('today');
+    fetchLinks(true, '', 'today');
+    fetchChartData(i18n.language, '', sourceFilter, 'today');
   };
 
   const handleCreateLink = async (e) => {
@@ -1210,8 +1210,22 @@ export default function Dashboard() {
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <>
-                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-                  <h3 className="text-2xl font-bold text-slate-900">{t('dashboard.linksSectionTitle')}</h3>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <h3 className="text-2xl font-bold text-slate-900">{t('dashboard.linksSectionTitle')}</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        fetchLinks(true, activeSnapshot, timeRange);
+                        fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
+                      }}
+                      disabled={loading}
+                      className="shrink-0 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                      <span>{t('common.refresh')}</span>
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2">
                     {sortedFilteredLinks.length > 0 && (
                       <button
