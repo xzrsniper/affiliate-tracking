@@ -47,7 +47,7 @@ const BlogPost = sequelize.define('BlogPost', {
     type: DataTypes.INTEGER,
     allowNull: false,
     defaultValue: 0,
-    comment: 'Кількість переглядів (для популярних)'
+    comment: 'Унікальні перегляди (для популярних); збільшується лише з нового ключа відвідувача'
   },
   created_at: {
     type: DataTypes.DATE,

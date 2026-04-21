@@ -2,7 +2,9 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { BlogPost } from '../models/index.js';
+import crypto from 'crypto';
+import sequelize from '../config/database.js';
+import { BlogPost, BlogPostUniqueView } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
 import { Op } from 'sequelize';
 
@@ -38,6 +40,16 @@ const upload = multer({
     cb(new Error('Тільки зображення дозволені'));
   }
 });
+
+/** Унікальний ключ відвідувача (той самий браузер + мережа → той самий ключ; F5 не додає перегляд). */
+function blogVisitorKey(req) {
+  const salt = process.env.BLOG_VIEW_SALT || process.env.JWT_SECRET || 'lehko-blog-views';
+  const raw = req.headers['x-forwarded-for'];
+  const fromXff = typeof raw === 'string' ? raw.split(',')[0].trim() : '';
+  const ip = fromXff || req.ip || req.socket?.remoteAddress || 'unknown';
+  const ua = String(req.headers['user-agent'] || '').slice(0, 512);
+  return crypto.createHash('sha256').update(`${salt}|${ip}|${ua}`).digest('hex').slice(0, 64);
+}
 
 function slugify(text) {
   return String(text)
@@ -171,7 +183,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-/** GET /api/blog/:slug — single post (increment view_count) */
+/** GET /api/blog/:slug — single post (лічильник view_count лише для нових унікальних відвідувачів) */
 router.get('/:slug', async (req, res, next) => {
   try {
     const post = await BlogPost.findOne({
@@ -185,7 +197,25 @@ router.get('/:slug', async (req, res, next) => {
       return res.status(404).json({ error: 'Статтю не знайдено', code: 'NOT_FOUND' });
     }
 
-    await post.increment('view_count');
+    const visitorKey = blogVisitorKey(req);
+
+    await sequelize.transaction(async (t) => {
+      try {
+        await BlogPostUniqueView.create(
+          { blog_post_id: post.id, visitor_key: visitorKey },
+          { transaction: t }
+        );
+      } catch (e) {
+        const duplicate =
+          e.name === 'SequelizeUniqueConstraintError' ||
+          e.parent?.code === 'ER_DUP_ENTRY';
+        if (!duplicate) throw e;
+        return;
+      }
+      await post.increment('view_count', { transaction: t });
+    });
+
+    await post.reload();
 
     res.json({
       success: true,
@@ -198,7 +228,7 @@ router.get('/:slug', async (req, res, next) => {
         featured_image: post.featured_image,
         author_name: post.author_name,
         published_at: post.published_at,
-        view_count: post.view_count + 1,
+        view_count: post.view_count,
         created_at: post.created_at,
         updated_at: post.updated_at
       }
