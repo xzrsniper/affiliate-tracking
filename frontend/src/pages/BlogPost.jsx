@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
-import { MessageCircle, Eye, Clock, Sun, Moon } from 'lucide-react';
+import { Eye, Clock, Sun, Moon } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const TELEGRAM_SUPPORT = `https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'hodunkooo'}`;
 
 function formatDate(d, locale) {
   if (!d) return '';
@@ -144,6 +145,40 @@ export default function BlogPost() {
           ].join(' ')}
           dangerouslySetInnerHTML={{ __html: decodedBody || '' }}
         />
+
+        <section
+          className="mt-10 border-y-2 border-slate-950 dark:border-slate-950"
+          aria-label={t('home.readyScale')}
+        >
+          <div className="bg-[#5b6aff] px-5 py-8 sm:px-10 sm:py-9">
+            <div className="flex flex-col items-stretch gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+              <div className="min-w-0 text-center lg:text-left">
+                <h2 className="text-xl font-bold leading-snug text-white sm:text-2xl">
+                  {t('home.readyScale')}
+                </h2>
+                <p className="mt-2 text-sm font-normal text-white/90 sm:text-base">
+                  {t('home.register30secCardless')}
+                </p>
+              </div>
+              <div className="flex w-full flex-col gap-3 sm:mx-auto sm:max-w-xs lg:mx-0 lg:w-auto lg:min-w-[220px] lg:shrink-0">
+                <Link
+                  to="/login?register=true"
+                  className="inline-flex w-full items-center justify-center rounded-full border border-white/90 bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white shadow-sm backdrop-blur-sm transition hover:bg-white/25"
+                >
+                  {t('home.startFree')}
+                </Link>
+                <a
+                  href={TELEGRAM_SUPPORT}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center rounded-full border border-white/90 bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white shadow-sm backdrop-blur-sm transition hover:bg-white/25"
+                >
+                  {t('blog.articleEndCtaContact')}
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
       </article>
 
       <footer className="border-t border-slate-200 dark:border-slate-800 mt-12 py-6 text-center text-sm text-slate-500 dark:text-slate-400">

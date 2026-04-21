@@ -838,7 +838,8 @@
     "backToBlog": "До блогу",
     "backHome": "На головну",
     "ctaText": "Хостинг для сайтів, VPS, реєстрація доменів.",
-    "ctaButton": "Перейти"
+    "ctaButton": "Перейти",
+    "articleEndCtaContact": "Зв'язатись з нами"
   },
   "adminBlog": {
     "tab": "Блог",

@@ -838,7 +838,8 @@
     "backToBlog": "Back to blog",
     "backHome": "Home",
     "ctaText": "Hosting for sites, VPS, domain registration.",
-    "ctaButton": "Go"
+    "ctaButton": "Go",
+    "articleEndCtaContact": "Contact us"
   },
   "adminBlog": {
     "tab": "Blog",
