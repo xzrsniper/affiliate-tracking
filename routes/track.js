@@ -271,14 +271,16 @@ router.post('/link-click', async (req, res, next) => {
 
 /**
  * Normalize order ID - remove prefixes like "ORDER-", "INV-", etc.
- * This ensures consistent order_id format for duplicate prevention
+ * Used only for duplicate detection; must NOT collapse composite ids (e.g. "2604/206" vs "2604/207"
+ * both became "2604" when we took only the first digit run — second real order was dropped).
  */
 const normalizeOrderId = (id) => {
   if (!id) return null;
   const str = String(id).trim();
-  const normalized = str.replace(/^(ORDER[-_]?|INV[-_]?|INVOICE[-_]?|TRANS[-_]?|TXN[-_]?)/i, '');
-  const digitsOnly = normalized.match(/\d+/);
-  return digitsOnly ? digitsOnly[0] : normalized;
+  if (!str) return null;
+  const stripped = str.replace(/^(ORDER[-_]?|INV[-_]?|INVOICE[-_]?|TRANS[-_]?|TXN[-_]?)/i, '').trim();
+  const core = stripped.length > 0 ? stripped : str;
+  return core.toLowerCase();
 };
 
 /**
