@@ -145,14 +145,16 @@ export default function BlogPost() {
           ].join(' ')}
           dangerouslySetInnerHTML={{ __html: decodedBody || '' }}
         />
+      </article>
 
-        <section
-          className="mt-10 border-y-2 border-slate-950 dark:border-slate-950"
-          aria-label={t('home.readyScale')}
-        >
-          <div className="bg-[#5b6aff] px-5 py-8 sm:px-10 sm:py-9">
+      <section
+        className="mt-10 w-full border-y-2 border-slate-950 dark:border-slate-950"
+        aria-label={t('home.readyScale')}
+      >
+        <div className="w-full bg-[#5b6aff]">
+          <div className="mx-auto w-full max-w-[1240px] px-4 py-8 sm:px-8 sm:py-9 lg:px-10">
             <div className="flex flex-col items-stretch gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
-              <div className="min-w-0 text-center lg:text-left">
+              <div className="min-w-0 text-center lg:text-left lg:max-w-2xl">
                 <h2 className="text-xl font-bold leading-snug text-white sm:text-2xl">
                   {t('home.readyScale')}
                 </h2>
@@ -178,8 +180,8 @@ export default function BlogPost() {
               </div>
             </div>
           </div>
-        </section>
-      </article>
+        </div>
+      </section>
 
       <footer className="border-t border-slate-200 dark:border-slate-800 mt-12 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
         <Link to="/blog" className="hover:text-slate-700 dark:hover:text-slate-300">{t('blog.backToBlog')}</Link>
