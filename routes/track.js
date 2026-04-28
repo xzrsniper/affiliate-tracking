@@ -831,6 +831,61 @@ router.post('/conversion', async (req, res, next) => {
         }
       }
 
+      // If sale arrives for the same tracked interaction that already created a lead,
+      // upgrade that row instead of creating a second conversion entry.
+      if (event_type === 'sale') {
+        const upgradeWhere = {
+          link_id: link.id,
+          event_type: 'lead'
+        };
+
+        const orClauses = [];
+        if (normalizedOrderId) {
+          orClauses.push(
+            { order_id: normalizedOrderId },
+            ...(originalOrderId && originalOrderId !== normalizedOrderId ? [{ order_id: originalOrderId }] : [])
+          );
+        }
+        const clickIdNum = click_id ? parseInt(click_id, 10) : null;
+        if (Number.isFinite(clickIdNum) && clickIdNum > 0) {
+          orClauses.push({ click_id: clickIdNum });
+        }
+
+        if (orClauses.length > 0) {
+          upgradeWhere[Op.or] = orClauses;
+
+          const leadToUpgrade = await Conversion.findOne({
+            where: upgradeWhere,
+            transaction: t,
+            lock: t.LOCK.UPDATE,
+            order: [['created_at', 'DESC']]
+          });
+
+          if (leadToUpgrade) {
+            leadToUpgrade.event_type = 'sale';
+            if (originalOrderId) {
+              leadToUpgrade.order_id = originalOrderId;
+            }
+            if (Number.isFinite(clickIdNum) && clickIdNum > 0) {
+              leadToUpgrade.click_id = clickIdNum;
+            }
+            // Keep max value so delayed/partial lead value does not overwrite real sale value.
+            leadToUpgrade.order_value = Math.max(
+              Number(leadToUpgrade.order_value || 0),
+              Number(parsedOrderValue || 0)
+            );
+            await leadToUpgrade.save({ transaction: t });
+            console.log('[Conversion] Upgraded lead to sale', {
+              conversion_id: leadToUpgrade.id,
+              link_id: link.id,
+              order_id: originalOrderId || null,
+              click_id: Number.isFinite(clickIdNum) && clickIdNum > 0 ? clickIdNum : null
+            });
+            return leadToUpgrade;
+          }
+        }
+      }
+
       const conversionData = {
         link_id: link.id,
         order_value: parsedOrderValue,
