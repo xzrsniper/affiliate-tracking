@@ -651,6 +651,8 @@ router.post('/conversion', async (req, res, next) => {
     : null;
   const click_id = req.body.click_id || req.body.clickId || null;
   const event_type = (req.body.event_type === 'lead' || req.body.event_type === 'sale' || req.body.event_type === 'cart') ? req.body.event_type : 'sale';
+  // Declared here (outside try/catch) so the catch block can safely reference it in log messages.
+  const normalizedOrderId = normalizeOrderId(originalOrderId);
 
   console.log('[Conversion] POST received', {
     unique_code: unique_code || '(missing)',
@@ -743,8 +745,6 @@ router.post('/conversion', async (req, res, next) => {
       }
     }
 
-    const normalizedOrderId = normalizeOrderId(originalOrderId);
-    
     // Check for duplicate conversions (if order_id provided)
     let isDuplicate = false;
     let existingConversion = null;
@@ -900,7 +900,13 @@ router.post('/conversion', async (req, res, next) => {
       if (click_id) {
         const clickIdNum = parseInt(click_id);
         if (!isNaN(clickIdNum) && clickIdNum > 0) {
-          conversionData.click_id = clickIdNum;
+          // Verify the click exists before linking — prevents FK constraint violations
+          const clickExists = await Click.findByPk(clickIdNum, { attributes: ['id'], transaction: t });
+          if (clickExists) {
+            conversionData.click_id = clickIdNum;
+          } else {
+            console.warn('[Conversion] click_id not found in clicks table, skipping FK', { click_id: clickIdNum });
+          }
         }
       }
       
@@ -908,10 +914,9 @@ router.post('/conversion', async (req, res, next) => {
         return await Conversion.create(conversionData, { transaction: t });
       } catch (createError) {
         const msg = createError.message || '';
-        if (msg.includes('order_id') || msg.includes('click_id') || msg.includes('event_type')) {
+        if (msg.includes('order_id') || msg.includes('event_type')) {
           console.warn('[Conversion Warning] Retrying without problematic fields:', createError.message);
           delete conversionData.order_id;
-          delete conversionData.click_id;
           // Keep event_type on first retry — stripping it stored leads as "sale" and broke lead_revenue
           try {
             return await Conversion.create(conversionData, { transaction: t });
