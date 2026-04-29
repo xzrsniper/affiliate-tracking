@@ -45,14 +45,25 @@ export default defineConfig({
       },
     },
   },
-  // Skip config file bundling to avoid esbuild EPERM
   clearScreen: false,
   optimizeDeps: {
     force: false,
   },
   build: {
     target: 'esnext',
-    minify: false,
+    minify: 'esbuild',
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'charts': ['recharts'],
+          'icons': ['lucide-react'],
+          'dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+          'i18n': ['i18next', 'react-i18next'],
+        },
+      },
+    },
   },
   define: {
     __BUILD_ID__: JSON.stringify(Date.now()),
