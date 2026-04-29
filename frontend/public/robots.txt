@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Skip technical and private routes
+Disallow: /api/
+Disallow: /track/
+Disallow: /r/
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /settings
+Disallow: /setup
+Disallow: /console-code
+
+Sitemap: https://lehko.space/sitemap.xml
