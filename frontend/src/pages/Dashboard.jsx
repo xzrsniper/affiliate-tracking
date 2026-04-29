@@ -372,7 +372,8 @@ export default function Dashboard() {
 
     try {
       const response = await api.get(`/api/links/${link.id}/purchases`);
-      setPurchaseModalItems(response.data?.purchases || []);
+      // Use full conversions list (includes event_type); fall back to legacy purchases array
+      setPurchaseModalItems(response.data?.conversions || response.data?.purchases || []);
     } catch (err) {
       setError(err.response?.data?.error || t('dashboard.errorLoadPurchases'));
     } finally {
@@ -1553,50 +1554,91 @@ export default function Dashboard() {
       )}
 
       {/* Edit Link Modal */}
-      {purchaseModalLink && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setPurchaseModalLink(null)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800">{t('dashboard.purchasesTitle')}</h3>
-                <p className="text-sm text-slate-500 mt-1">
-                  {(purchaseModalLink.name || purchaseModalLink.unique_code)} · {purchaseModalLink.tracking_url}
-                </p>
-              </div>
-              <button type="button" onClick={() => setPurchaseModalLink(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {purchaseModalLink && (() => {
+        const modalSales = purchaseModalItems.filter((c) => c.event_type === 'sale' || !c.event_type);
+        const modalLeads = purchaseModalItems.filter((c) => c.event_type === 'lead');
 
-            {purchaseModalLoading ? (
-              <div className="py-10 text-center text-slate-500">{t('common.loading')}</div>
-            ) : purchaseModalItems.length === 0 ? (
-              <div className="py-10 text-center text-slate-500">{t('dashboard.noPurchasesYet')}</div>
-            ) : (
-              <div className="rounded-xl border border-slate-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
-                      <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
-                      <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+        const ConvTable = ({ items, emptyKey, amountClass }) => (
+          items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 px-1">{t(emptyKey)}</p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
+                      <td className={`px-4 py-3 font-semibold ${amountClass}`}>{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {purchaseModalItems.map((purchase) => (
-                      <tr key={purchase.id} className="border-t border-slate-100">
-                        <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(purchase.created_at)}</td>
-                        <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(purchase.amount)}</td>
-                        <td className="px-4 py-3 text-slate-600">{purchase.order_id || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        );
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setPurchaseModalLink(null)}>
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800">{t('dashboard.purchasesTitle')}</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {(purchaseModalLink.name || purchaseModalLink.unique_code)} · {purchaseModalLink.tracking_url}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setPurchaseModalLink(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            )}
+
+              {purchaseModalLoading ? (
+                <div className="py-10 text-center text-slate-500">{t('common.loading')}</div>
+              ) : purchaseModalItems.length === 0 ? (
+                <div className="py-10 text-center text-slate-500">{t('dashboard.noPurchasesYet')}</div>
+              ) : (
+                <div className="space-y-6">
+                  {/* --- Confirmed sales --- */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                        {t('dashboard.convSectionSales')}
+                        <span className="ml-1 font-normal text-emerald-700">({modalSales.length})</span>
+                      </span>
+                      <span className="text-xs text-slate-400">{t('dashboard.convSaleNote')}</span>
+                    </div>
+                    <ConvTable items={modalSales} emptyKey="dashboard.convNoSales" amountClass="text-emerald-700" />
+                  </div>
+
+                  <div className="border-t border-slate-100" />
+
+                  {/* --- Purchase-intent leads --- */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                        {t('dashboard.convSectionLeads')}
+                        <span className="ml-1 font-normal text-amber-700">({modalLeads.length})</span>
+                      </span>
+                      <span className="text-xs text-slate-400">{t('dashboard.convLeadNote')}</span>
+                    </div>
+                    <ConvTable items={modalLeads} emptyKey="dashboard.convNoLeads" amountClass="text-amber-700" />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Edit Link Modal */}
       {editingLinkId && (

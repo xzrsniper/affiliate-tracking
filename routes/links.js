@@ -652,18 +652,22 @@ router.get('/:id/purchases', authenticate, async (req, res, next) => {
       return res.status(404).json({ error: 'Link not found' });
     }
 
-    const sales = await Conversion.findAll({
+    const conversions = await Conversion.findAll({
       where: {
-        link_id: link.id,
-        [Op.or]: [
-          { event_type: 'sale' },
-          { event_type: null }
-        ]
+        link_id: link.id
       },
-      attributes: ['id', 'order_id', 'order_value', 'created_at'],
+      attributes: ['id', 'order_id', 'order_value', 'event_type', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 500
     });
+
+    const mapped = conversions.map((c) => ({
+      id: c.id,
+      order_id: c.order_id || null,
+      amount: Number(c.order_value || 0),
+      event_type: c.event_type || 'sale',
+      created_at: c.created_at
+    }));
 
     res.json({
       success: true,
@@ -672,12 +676,10 @@ router.get('/:id/purchases', authenticate, async (req, res, next) => {
         name: link.name,
         unique_code: link.unique_code
       },
-      purchases: sales.map((sale) => ({
-        id: sale.id,
-        order_id: sale.order_id || null,
-        amount: Number(sale.order_value || 0),
-        created_at: sale.created_at
-      }))
+      // Legacy field kept for backwards compat: only confirmed sales
+      purchases: mapped.filter((c) => c.event_type === 'sale'),
+      // Full list with event_type for the structured modal
+      conversions: mapped
     });
   } catch (error) {
     next(error);
