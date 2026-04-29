@@ -1516,13 +1516,6 @@ export default function Dashboard() {
                                   {t('dashboard.purchasesBtn')}
                                 </button>
                                 <button
-                                  type="button"
-                                  onClick={() => setPendingClearStatsId(link.id)}
-                                  className="px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-sm"
-                                >
-                                  {t('dashboard.clearStats')}
-                                </button>
-                                <button
                                   onClick={() => handleEditLink(link)}
                                   className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm"
                                 >
