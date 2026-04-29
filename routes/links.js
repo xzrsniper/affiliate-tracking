@@ -655,11 +655,14 @@ router.get('/:id/purchases', authenticate, async (req, res, next) => {
     const sales = await Conversion.findAll({
       where: {
         link_id: link.id,
-        event_type: 'sale'
+        [Op.or]: [
+          { event_type: 'sale' },
+          { event_type: null }
+        ]
       },
       attributes: ['id', 'order_id', 'order_value', 'created_at'],
       order: [['created_at', 'DESC']],
-      limit: 100
+      limit: 500
     });
 
     res.json({
