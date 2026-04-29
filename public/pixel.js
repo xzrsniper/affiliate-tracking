@@ -919,7 +919,7 @@
   // ── 5. Event Sender ────────────────────────────────────────────────────
   // Dedup rules:
   //   - With orderId: block same orderId permanently (prevents reload/back)
-  //   - Without orderId: block rapid duplicates (lead: 12s — GTM+pixel double fire; sale: 3s)
+  //   - Without orderId: block rapid duplicates (lead: 60s via localStorage; sale: 3s via sessionStorage)
   //   - Lead: order_value з extractPrice(btn) або trackLead({ amount }) — для lead_revenue в дашборді
   function sendEvent(eventType, value, orderId) {
     var ref = getRef();
@@ -935,14 +935,14 @@
       var orderKey = 'lehko_oid_' + eventType + '_' + orderId;
       try { if (ls(orderKey)) { console.log('[LehkoTrack] Dedup: orderId already sent', orderId); return; } ls(orderKey, '1'); } catch (e) { /* */ }
     } else {
-      // Anti-double: lead 12s (GTM + pixel обидва можуть викликати на один клік), sale 3s
-      var dedupMs = eventType === 'lead' ? 12000 : 3000;
+      // Anti-double: lead 60s via localStorage (survives page reload/tab reopen), sale 3s via sessionStorage
+      var dedupMs = eventType === 'lead' ? 60000 : 3000;
       var tsKey = 'lehko_ts_' + eventType;
       var now = Date.now();
       try {
-        var lastTs = parseInt(ss(tsKey) || '0');
+        var lastTs = parseInt((eventType === 'lead' ? ls(tsKey) : ss(tsKey)) || '0');
         if (now - lastTs < dedupMs) { console.log('[LehkoTrack] Dedup: duplicate blocked', eventType, '(within', dedupMs / 1000, 's)'); return; }
-        ss(tsKey, String(now));
+        if (eventType === 'lead') { ls(tsKey, String(now)); } else { ss(tsKey, String(now)); }
       } catch (e) { /* */ }
     }
 
@@ -1264,7 +1264,7 @@
 
   /**
    * Enter key submits form without a click on the button — capture phase submit fixes missing leads.
-   * Button click still fires first; sendEvent dedup (12s) drops the duplicate submit in the same action.
+   * Button click still fires first; sendEvent dedup (60s) drops the duplicate submit in the same action.
    */
   function onFormSubmit(e) {
     if (!cfg.purchaseButtonSelector) return;

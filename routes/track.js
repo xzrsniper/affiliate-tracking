@@ -801,8 +801,8 @@ router.post('/conversion', async (req, res, next) => {
           // Continue without duplicate check
         }
       } else {
-        // No order_id: block duplicate same event_type from same link (lead: 15s, sale: 3s)
-        const dedupSeconds = event_type === 'lead' ? 15 : 3;
+        // No order_id: block duplicate same event_type from same link (lead: 60s, sale: 3s)
+        const dedupSeconds = event_type === 'lead' ? 60 : 3;
         const recentResults = await sequelize.query(`
           SELECT * FROM conversions 
           WHERE link_id = ? 
