@@ -2,7 +2,9 @@ import axios from 'axios';
 
 const DEFAULT_API_BASE_URL =
   typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    ? window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? `http://localhost:3000`
+      : '' // production: Nginx proxies /api → :3000, no port needed
     : 'http://localhost:3000';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
