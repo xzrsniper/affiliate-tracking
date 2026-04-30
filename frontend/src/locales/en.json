@@ -427,6 +427,8 @@
     "exportReportCreated": "Report created",
     "tableRevenueSales": "Conversions (income)",
     "tableRevenueLeads": "Leads (income)",
+    "tableConversions": "Conversions",
+    "leadsShort": "leads",
     "leadRevenueColumnHelp": "Only lead events (button click from the mapper) with an amount. Thank-you / purchase revenue goes under “Conversions (income)” and is not duplicated here.",
     "leadRevenueHintSaleOnly": "You have sales in this period but no lead events with amount — this column stays empty. Payment amounts appear under “Conversions (income)”.",
     "leadRevenueHintLeadsNoAmount": "You have lead events but amount is 0 — set a fixed site price in LehkoTrack or data-price on the button.",

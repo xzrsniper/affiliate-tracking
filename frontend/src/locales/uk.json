@@ -427,6 +427,8 @@
     "exportReportCreated": "Звіт створено",
     "tableRevenueSales": "Конверсії (дохід)",
     "tableRevenueLeads": "Ліди (дохід)",
+    "tableConversions": "Конверсії",
+    "leadsShort": "ліди",
     "leadRevenueColumnHelp": "Тільки події типу «лід» (клік по кнопці з мапера) з полем суми. Оплата зі сторінки подяки йде в «Конверсії (дохід)» і сюди не дублюється.",
     "leadRevenueHintSaleOnly": "За період є оплата (sale), але немає подій lead з сумою — тому тут порожньо. Сума оплати в колонці «Конверсії (дохід)».",
     "leadRevenueHintLeadsNoAmount": "Є події ліду, але сума 0 — задайте фіксовану ціну сайту в LehkoTrack або data-price на кнопці.",

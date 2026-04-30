@@ -1403,35 +1403,13 @@ export default function Dashboard() {
                             onClick={() => handleSort('revenue')}
                             className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                           >
-                            <span>{t('dashboard.tableRevenueSales')}</span>
+                            <span>{t('dashboard.tableConversions')}</span>
                             {sortColumn === 'revenue' ? (
                               <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
                             ) : (
                               <span className="text-slate-400">↕</span>
                             )}
                           </button>
-                        </th>
-                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleSort('leadRevenue')}
-                              className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
-                            >
-                              <span>{t('dashboard.tableRevenueLeads')}</span>
-                              {sortColumn === 'leadRevenue' ? (
-                                <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                              ) : (
-                                <span className="text-slate-400">↕</span>
-                              )}
-                            </button>
-                            <span
-                              className="cursor-help text-slate-400 hover:text-violet-600"
-                              title={t('dashboard.leadRevenueColumnHelp')}
-                            >
-                              <HelpCircle className="w-3.5 h-3.5" aria-hidden />
-                            </span>
-                          </div>
                         </th>
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">{t('dashboard.tableActions')}</th>
                       </tr>
@@ -1485,18 +1463,29 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatDuration(avgTime)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatPercent(bounceRate)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{averageCheck.toLocaleString()} {isUk ? '₴' : '$'}</td>
-                            <td className="px-4 py-4 font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                              {formatCountMoney(saleEvents, revenue, isUk)}
-                            </td>
-                            <td
-                              className="px-4 py-4 font-bold text-amber-800 dark:text-amber-300 tabular-nums"
-                              title={leadRevenue <= 0 ? (leadRevenueTitle || undefined) : undefined}
-                            >
-                              {leadEvents <= 0 && leadRevenue <= 0 ? (
-                                <span className="font-semibold text-slate-500 dark:text-slate-400">—</span>
-                              ) : (
-                                formatCountMoney(leadEvents, leadRevenue, isUk)
-                              )}
+                            <td className="px-4 py-4 tabular-nums">
+                              <div className="flex flex-col gap-1.5">
+                                {/* Confirmed sales — real revenue */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                                  {saleEvents > 0 ? (
+                                    <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                                      {formatCountMoney(saleEvents, revenue, isUk)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                </div>
+                                {/* Lead count only — no fake revenue */}
+                                {leadEvents > 0 && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                                    <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                                      {leadEvents} {t('dashboard.leadsShort')}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
