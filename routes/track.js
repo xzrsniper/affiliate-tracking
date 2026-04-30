@@ -727,6 +727,16 @@ router.post('/conversion', async (req, res, next) => {
       }
     }
 
+    // Lead with suspiciously high DOM-extracted value: reset and use reliable fallback instead
+    const LEAD_MAX_REASONABLE = 50000;
+    if (event_type === 'lead' && parsedOrderValue > LEAD_MAX_REASONABLE) {
+      console.warn('[Conversion] Lead order_value too large (likely DOM mis-parse), resetting to 0', {
+        raw_value: parsedOrderValue,
+        link_id: link.id
+      });
+      parsedOrderValue = 0;
+    }
+
     // Lead with 0 from pixel: static_price (site_id / domain / single site) or last sale on same link
     if (event_type === 'lead' && parsedOrderValue === 0) {
       const siteIdRaw = req.body.site_id ?? req.query.site_id;
