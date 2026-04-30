@@ -107,22 +107,36 @@ export async function resolveLeadStaticPrice(link, siteIdFromBody) {
 }
 
 /**
- * Last sale on same link — typical same SKU price when static_price not configured.
+ * Median of last 10 sales on same link.
+ * Using median instead of the last sale prevents a single outlier order
+ * from inflating all subsequent lead estimates.
  */
 export async function resolveLeadFromLastSale(linkId) {
-  const row = await Conversion.findOne({
+  const rows = await Conversion.findAll({
     where: {
       link_id: linkId,
       event_type: 'sale',
       order_value: { [Op.gt]: 0 }
     },
     order: [['created_at', 'DESC']],
+    limit: 10,
     attributes: ['order_value']
   });
-  if (!row) return null;
-  const v = parseFloat(row.order_value);
-  if (Number.isFinite(v) && v > 0 && v < 10000000) return v;
-  return null;
+  if (!rows || rows.length === 0) return null;
+
+  const values = rows
+    .map((r) => parseFloat(r.order_value))
+    .filter((v) => Number.isFinite(v) && v > 0 && v < 10000000)
+    .sort((a, b) => a - b);
+
+  if (values.length === 0) return null;
+
+  const mid = Math.floor(values.length / 2);
+  const median = values.length % 2 !== 0
+    ? values[mid]
+    : (values[mid - 1] + values[mid]) / 2;
+
+  return Number.isFinite(median) && median > 0 ? median : null;
 }
 
 /** Full chain for lead with parsedOrderValue === 0. */
