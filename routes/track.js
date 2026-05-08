@@ -1287,13 +1287,17 @@ router.get('/conversion', async (req, res, next) => {
  * - amount: (alternative) Purchase amount
  * - value: (alternative) Purchase amount
  * - ref_code: (optional) Tracking code - if not provided, will try to get from cookie
- * - customer_email: (optional) Customer email - used to find ref if cookie/ref_code not available
+ * - customer_email: (optional) Stored as metadata by integrator if needed (not used for attribution lookup)
  * - customer_id: (optional) Customer ID
  * - timestamp: (optional) Order timestamp
  * - metadata: (optional) Additional order data
  * 
  * Cookie support:
  * - aff_ref_code: Automatically read from cookie if ref_code not provided in body
+ *
+ * Attribution safety:
+ * - We DO NOT infer ref_code from "latest click by email" because that can misattribute unknown purchases.
+ * - If ref_code/cookie are absent, provide click_id from the tracked session.
  * 
  * Usage examples:
  * 
@@ -1372,40 +1376,37 @@ router.post('/conversion-server', async (req, res, next) => {
       });
     }
 
-    // Find tracking code (priority: ref_code in body > cookie > customer_email lookup)
+    // Find tracking code (priority: ref_code in body > cookie)
     let trackingCode = ref_code || refCode || req.cookies?.aff_ref_code;
 
-    // If no tracking code found, try to find via customer_email (last 24 hours)
-    if (!trackingCode && (customer_email || customerEmail)) {
-      try {
-        const email = customer_email || customerEmail;
-        const recentClick = await Click.findOne({
-          where: {
-            created_at: {
-              [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+    // If no tracking code found, try to resolve it from a trusted click_id reference.
+    if (!trackingCode) {
+      const finalClickId = click_id || clickId;
+      const clickIdNum = parseInt(finalClickId, 10);
+      if (Number.isFinite(clickIdNum) && clickIdNum > 0) {
+        try {
+          const clickRow = await Click.findByPk(clickIdNum, { attributes: ['id', 'link_id'] });
+          if (clickRow) {
+            const resolvedLink = await Link.findByPk(clickRow.link_id, { attributes: ['id', 'unique_code'] });
+            if (resolvedLink?.unique_code) {
+              trackingCode = resolvedLink.unique_code;
+              console.log('[Conversion Server] Resolved tracking code from click_id', {
+                click_id: clickIdNum,
+                tracking_code: trackingCode
+              });
             }
-          },
-          order: [['created_at', 'DESC']],
-          include: [{
-            model: Link,
-            required: true
-          }]
-        });
-
-        if (recentClick?.Link) {
-          trackingCode = recentClick.Link.unique_code;
-          console.log(`[Conversion Server] Found ref via customer_email lookup: ${trackingCode}`);
+          }
+        } catch (lookupError) {
+          console.warn('[Conversion Server] click_id lookup failed:', lookupError);
         }
-      } catch (lookupError) {
-        console.warn('[Conversion Server] Customer email lookup failed:', lookupError);
       }
     }
 
     if (!trackingCode) {
       return res.status(400).json({
         error: 'Tracking code not found',
-        message: 'No tracking code found. Ensure user clicked tracking link first, or provide ref_code in request.',
-        hint: 'Tracking code can be provided via: 1) ref_code in body, 2) aff_ref_code cookie, 3) customer_email lookup'
+        message: 'No trusted tracking code found. Provide ref_code or click_id, or ensure aff_ref_code cookie is available.',
+        hint: 'Tracking code can be provided via: 1) ref_code in body, 2) aff_ref_code cookie, 3) click_id in body'
       });
     }
 
@@ -1476,7 +1477,7 @@ router.post('/conversion-server', async (req, res, next) => {
       // Add click_id if provided (for server-to-server tracking with click reference)
       const finalClickId = click_id || clickId;
       if (finalClickId) {
-        const clickIdNum = parseInt(finalClickId);
+        const clickIdNum = parseInt(finalClickId, 10);
         if (!isNaN(clickIdNum) && clickIdNum > 0) {
           conversionData.click_id = clickIdNum;
         }
