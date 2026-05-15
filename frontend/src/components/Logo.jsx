@@ -1,47 +1,26 @@
 import { Link } from 'react-router-dom';
 
-export default function Logo({ size = 'md', showText = true, className = '', linkTo = null }) {
-  const sizeClasses = {
-    sm: 'w-8 h-8',
-    md: 'w-10 h-10',
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16'
-  };
-
-  const textSizeClasses = {
-    sm: 'text-lg',
-    md: 'text-xl',
-    lg: 'text-2xl',
-    xl: 'text-3xl'
+export default function Logo({ size = 'md', variant = 'default', className = '', linkTo = null }) {
+  const heightClasses = {
+    sm: 'h-8',
+    md: 'h-10',
+    lg: 'h-12',
+    xl: 'h-16'
   };
 
   const logoContent = (
-    <div className={`flex items-center space-x-3 ${className}`}>
-      <div className={`${sizeClasses[size]} bg-gradient-to-br from-violet-600 via-violet-500 to-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg shadow-violet-500/30 ring-1 ring-white/30`}>
-        <img
-          src="/logo.svg"
-          alt="LehkoTrack logo"
-          className="w-full h-full object-contain p-1.5"
-          onError={(e) => {
-            e.target.style.display = 'none';
-            const parent = e.target.parentElement;
-            if (parent) {
-              parent.innerHTML = '<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>';
-            }
-          }}
-        />
-      </div>
-      {showText && (
-        <span className={`${textSizeClasses[size]} font-bold tracking-tight text-slate-900`}>
-          LehkoTrack
-        </span>
-      )}
+    <div className={`flex items-center gap-3 ${className}`}>
+      <img
+        src={variant === 'on-dark' ? '/logo-on-dark.png' : '/logo.png'}
+        alt="lehko space"
+        className={`${heightClasses[size]} w-auto object-contain flex-shrink-0`}
+      />
     </div>
   );
 
   if (linkTo) {
     return (
-      <Link to={linkTo} className="flex items-center cursor-pointer">
+      <Link to={linkTo} className="inline-flex items-center cursor-pointer">
         {logoContent}
       </Link>
     );

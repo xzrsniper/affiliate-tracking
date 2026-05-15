@@ -398,16 +398,11 @@ function CanvasElementView({ element }) {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
                 <div className="mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      <img 
-                        src="/logo.svg" 
-                        alt="LehkoTrack Logo" 
-                        className="w-full h-full object-contain p-1.5"
-                      />
-                    </div>
-                    <span className="text-xl font-bold text-white">LehkoTrack</span>
-                  </div>
+                  <img
+                    src="/logo-on-dark.png"
+                    alt="lehko space"
+                    className="h-10 w-auto object-contain"
+                  />
                 </div>
                 <p className="text-slate-400">
                   Професійна система відстеження affiliate трафіку
