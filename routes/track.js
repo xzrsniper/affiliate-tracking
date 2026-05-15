@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { Link, Click, Conversion, TrackerVerification, Website, LinkClick } from '../models/index.js';
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { resolveLeadOrderValueFallback } from '../utils/leadOrderValueFallback.js';
+import { applyAffiliateConversionEffects, getAffiliateOwnerForLink } from '../utils/affiliate.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
@@ -885,6 +886,7 @@ router.post('/conversion', async (req, res, next) => {
               Number(parsedOrderValue || 0)
             );
             await leadToUpgrade.save({ transaction: t });
+            await applyAffiliateConversionEffects(leadToUpgrade, link, 'sale', t);
             console.log('[Conversion] Upgraded lead to sale', {
               conversion_id: leadToUpgrade.id,
               link_id: link.id,
@@ -901,7 +903,14 @@ router.post('/conversion', async (req, res, next) => {
         order_value: parsedOrderValue,
         event_type: event_type
       };
-      
+
+      if (event_type === 'lead') {
+        const affiliateOwner = await getAffiliateOwnerForLink(link, t);
+        if (affiliateOwner) {
+          conversionData.lead_status = 'pending';
+        }
+      }
+
       if (originalOrderId) {
         // Keep real store-issued order_id for dashboard visibility.
         conversionData.order_id = originalOrderId;
@@ -921,19 +930,26 @@ router.post('/conversion', async (req, res, next) => {
       }
       
       try {
-        return await Conversion.create(conversionData, { transaction: t });
+        const created = await Conversion.create(conversionData, { transaction: t });
+        await applyAffiliateConversionEffects(created, link, event_type, t);
+        return created;
       } catch (createError) {
         const msg = createError.message || '';
-        if (msg.includes('order_id') || msg.includes('event_type')) {
+        if (msg.includes('order_id') || msg.includes('event_type') || msg.includes('lead_status')) {
           console.warn('[Conversion Warning] Retrying without problematic fields:', createError.message);
           delete conversionData.order_id;
+          if (msg.includes('lead_status')) delete conversionData.lead_status;
           // Keep event_type on first retry — stripping it stored leads as "sale" and broke lead_revenue
           try {
-            return await Conversion.create(conversionData, { transaction: t });
+            const created = await Conversion.create(conversionData, { transaction: t });
+            await applyAffiliateConversionEffects(created, link, event_type, t);
+            return created;
           } catch (e2) {
             if (e2.message && String(e2.message).includes('event_type')) {
               delete conversionData.event_type;
-              return await Conversion.create(conversionData, { transaction: t });
+              const created = await Conversion.create(conversionData, { transaction: t });
+              await applyAffiliateConversionEffects(created, link, event_type, t);
+              return created;
             }
             throw e2;
           }

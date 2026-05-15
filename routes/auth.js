@@ -197,10 +197,12 @@ router.post('/google', async (req, res, next) => {
         user: {
           id: user.id,
           email: user.email,
-          role: user.role,
-          link_limit: user.link_limit,
-          is_banned: user.is_banned,
-          has_password: !!user.password_hash
+        role: user.role,
+        link_limit: user.link_limit,
+        affiliate_commission_percent: user.affiliate_commission_percent,
+        affiliate_balance: user.affiliate_balance,
+        is_banned: user.is_banned,
+        has_password: !!user.password_hash
         }
       });
   } catch (error) {
@@ -298,6 +300,8 @@ router.get('/verify-email', async (req, res, next) => {
         email: user.email,
         role: user.role,
         link_limit: user.link_limit,
+        affiliate_commission_percent: user.affiliate_commission_percent,
+        affiliate_balance: user.affiliate_balance,
         is_banned: user.is_banned
       }
     });
@@ -395,6 +399,8 @@ router.post('/login', async (req, res, next) => {
         email: user.email,
         role: user.role,
         link_limit: user.link_limit,
+        affiliate_commission_percent: user.affiliate_commission_percent,
+        affiliate_balance: user.affiliate_balance,
         is_banned: user.is_banned,
         has_password: true
       }
@@ -412,6 +418,8 @@ router.get('/me', authenticate, async (req, res) => {
       email: req.user.email,
       role: req.user.role,
       link_limit: req.user.link_limit,
+      affiliate_commission_percent: req.user.affiliate_commission_percent,
+      affiliate_balance: req.user.affiliate_balance,
       is_banned: req.user.is_banned,
       email_verified: req.user.email_verified,
       created_at: req.user.created_at,

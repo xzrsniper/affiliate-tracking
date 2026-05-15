@@ -211,6 +211,11 @@ export default function Admin() {
   const [revenueAdjSavingId, setRevenueAdjSavingId] = useState(null);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [exportStatus, setExportStatus] = useState('');
+  const [affiliateEdits, setAffiliateEdits] = useState({});
+  const [balanceEdits, setBalanceEdits] = useState({});
+  const [leadsUserId, setLeadsUserId] = useState('');
+  const [affiliateLeads, setAffiliateLeads] = useState([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
 
   // Blog state
   const [blogPosts, setBlogPosts] = useState([]);
@@ -422,6 +427,21 @@ export default function Admin() {
         setLimitEdits(
           Object.fromEntries((response.data.users || []).map((u) => [u.id, String(u.link_limit ?? 0)]))
         );
+        setAffiliateEdits(
+          Object.fromEntries((response.data.users || []).map((u) => [
+            u.id,
+            {
+              isAffiliate: u.role === 'affiliate',
+              percent: u.affiliate_commission_percent != null ? String(u.affiliate_commission_percent) : '10'
+            }
+          ]))
+        );
+        setBalanceEdits(
+          Object.fromEntries((response.data.users || []).map((u) => [
+            u.id,
+            String(u.affiliate_balance ?? 0)
+          ]))
+        );
       } else if (Array.isArray(response.data)) {
         setUsers(response.data);
         setLimitEdits(
@@ -499,6 +519,88 @@ export default function Admin() {
       setViewingUser(response.data);
     } catch (err) {
       setError(err.response?.data?.error || t('admin.errorLoadUserData'));
+    }
+  };
+
+  const handleSaveAffiliateRole = async (userId) => {
+    const edit = affiliateEdits[userId];
+    if (!edit) return;
+    const percent = parseFloat(edit.percent);
+    if (edit.isAffiliate && (Number.isNaN(percent) || percent < 0 || percent > 100)) {
+      setError('Вкажіть комісію від 0 до 100%');
+      return;
+    }
+    setUpdating(true);
+    try {
+      await api.patch(`/api/admin/users/${userId}/affiliate`, {
+        role: edit.isAffiliate ? 'affiliate' : 'user',
+        commission_percent: edit.isAffiliate ? percent : undefined
+      });
+      await fetchUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || t('admin.errorUpdateUser'));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSaveAffiliateBalance = async (userId) => {
+    const raw = balanceEdits[userId];
+    const balance = parseFloat(raw);
+    if (Number.isNaN(balance) || balance < 0) {
+      setError('Баланс має бути невід\'ємним числом');
+      return;
+    }
+    setUpdating(true);
+    try {
+      await api.patch(`/api/admin/users/${userId}/balance`, { balance });
+      await fetchUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || t('admin.errorUpdateUser'));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const fetchAffiliateLeads = async (userId) => {
+    if (!userId) {
+      setAffiliateLeads([]);
+      return;
+    }
+    setLeadsLoading(true);
+    try {
+      const response = await api.get(`/api/admin/users/${userId}/leads`, { params: { status: 'pending' } });
+      setAffiliateLeads(response.data.leads || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не вдалося завантажити ліди');
+      setAffiliateLeads([]);
+    } finally {
+      setLeadsLoading(false);
+    }
+  };
+
+  const handleApproveLead = async (conversionId) => {
+    setUpdating(true);
+    try {
+      await api.post(`/api/admin/conversions/${conversionId}/approve-lead`);
+      if (leadsUserId) await fetchAffiliateLeads(leadsUserId);
+      await fetchUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не вдалося підтвердити лід');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleRejectLead = async (conversionId) => {
+    setUpdating(true);
+    try {
+      await api.post(`/api/admin/conversions/${conversionId}/reject-lead`);
+      if (leadsUserId) await fetchAffiliateLeads(leadsUserId);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не вдалося відхилити лід');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -902,7 +1004,8 @@ export default function Admin() {
           >
             <option value="all">{t('admin.allRoles')}</option>
             <option value="super_admin">{t('layout.superAdmin')}</option>
-            <option value="user">{t('admin.affiliate')}</option>
+            <option value="user">User</option>
+            <option value="affiliate">Афілейт</option>
           </select>
 
           <select
@@ -915,6 +1018,74 @@ export default function Admin() {
             <option value="unverified">{t('admin.unverified')}</option>
             <option value="banned">{t('admin.banned')}</option>
           </select>
+        </div>
+
+        <div className="mb-6 bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-lg font-bold text-slate-900 mb-3">Модерація лідів (афілейти)</h3>
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Афілейт</label>
+              <select
+                value={leadsUserId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setLeadsUserId(id);
+                  fetchAffiliateLeads(id);
+                }}
+                className="min-w-[240px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+              >
+                <option value="">— оберіть юзера —</option>
+                {users.filter((u) => u.role === 'affiliate').map((u) => (
+                  <option key={u.id} value={String(u.id)}>{u.email}</option>
+                ))}
+              </select>
+            </div>
+            {leadsUserId && (
+              <button
+                type="button"
+                onClick={() => fetchAffiliateLeads(leadsUserId)}
+                disabled={leadsLoading}
+                className="px-4 py-2 bg-violet-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+              >
+                Оновити
+              </button>
+            )}
+          </div>
+          {leadsLoading ? (
+            <p className="text-sm text-slate-500">Завантаження лідів…</p>
+          ) : leadsUserId && affiliateLeads.length === 0 ? (
+            <p className="text-sm text-slate-500">Немає лідів на підтвердження.</p>
+          ) : leadsUserId ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-600">
+                    <th className="text-left px-3 py-2">Дата</th>
+                    <th className="text-left px-3 py-2">Лінк</th>
+                    <th className="text-left px-3 py-2">Сума</th>
+                    <th className="text-left px-3 py-2">Комісія</th>
+                    <th className="text-left px-3 py-2">Дії</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {affiliateLeads.map((lead) => (
+                    <tr key={lead.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2">{new Date(lead.created_at).toLocaleString('uk-UA')}</td>
+                      <td className="px-3 py-2">{lead.link_name || lead.link_code || lead.link_id}</td>
+                      <td className="px-3 py-2 font-semibold">{formatAdminMoney(lead.order_value)}</td>
+                      <td className="px-3 py-2 text-emerald-700">{formatAdminMoney(lead.commission_amount)}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => handleApproveLead(lead.id)} disabled={updating} className="px-3 py-1 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-50">Підтвердити</button>
+                          <button type="button" onClick={() => handleRejectLead(lead.id)} disabled={updating} className="px-3 py-1 bg-red-600 text-white rounded text-xs font-semibold disabled:opacity-50">Відхилити</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
 
         {error && (
@@ -943,6 +1114,8 @@ export default function Admin() {
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.status')}</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.links')}</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.limit')}</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Афілейт %</th>
+                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Баланс</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.joined')}</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.actions')}</th>
                   </tr>
@@ -964,8 +1137,10 @@ export default function Admin() {
                       <td className="px-4 py-4">
                         {user.role === 'super_admin' ? (
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-700 border border-violet-200">{t('layout.superAdmin')}</span>
+                        ) : user.role === 'affiliate' ? (
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Афілейт</span>
                         ) : (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{t('admin.affiliate')}</span>
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">User</span>
                         )}
                       </td>
                       <td className="px-4 py-4">
@@ -991,6 +1166,75 @@ export default function Admin() {
                             {t('common.save')}
                           </button>
                         </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        {user.role === 'super_admin' ? (
+                          <span className="text-slate-400 text-xs">—</span>
+                        ) : (
+                          <div className="flex flex-col gap-2 min-w-[140px]">
+                            <label className="flex items-center gap-2 text-xs text-slate-600">
+                              <input
+                                type="checkbox"
+                                checked={affiliateEdits[user.id]?.isAffiliate ?? user.role === 'affiliate'}
+                                onChange={(e) => setAffiliateEdits((prev) => ({
+                                  ...prev,
+                                  [user.id]: {
+                                    ...(prev[user.id] || { percent: '10' }),
+                                    isAffiliate: e.target.checked
+                                  }
+                                }))}
+                              />
+                              Афілейт
+                            </label>
+                            {(affiliateEdits[user.id]?.isAffiliate ?? user.role === 'affiliate') && (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.1"
+                                  value={affiliateEdits[user.id]?.percent ?? ''}
+                                  onChange={(e) => setAffiliateEdits((prev) => ({
+                                    ...prev,
+                                    [user.id]: { ...(prev[user.id] || { isAffiliate: true }), percent: e.target.value }
+                                  }))}
+                                  className="w-16 px-2 py-1 bg-white rounded-lg border border-slate-200 text-sm"
+                                />
+                                <span className="text-xs text-slate-500">%</span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => handleSaveAffiliateRole(user.id)}
+                              disabled={updating}
+                              className="px-2 py-1 bg-violet-700 text-white rounded text-xs font-semibold disabled:opacity-50"
+                            >
+                              Зберегти роль
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {user.role === 'affiliate' ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={balanceEdits[user.id] ?? user.affiliate_balance ?? 0}
+                              onChange={(e) => setBalanceEdits((prev) => ({ ...prev, [user.id]: e.target.value }))}
+                              className="w-24 px-2 py-1 bg-white rounded-lg border border-slate-200 text-sm"
+                            />
+                            <button
+                              onClick={() => handleSaveAffiliateBalance(user.id)}
+                              disabled={updating}
+                              className="px-2 py-1 bg-slate-800 text-white rounded text-xs"
+                            >
+                              OK
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-slate-600">{new Date(user.created_at).toLocaleDateString(i18n.language === 'uk' ? 'uk-UA' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                       <td className="px-4 py-4">

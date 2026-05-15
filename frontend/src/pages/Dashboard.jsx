@@ -81,6 +81,7 @@ export default function Dashboard() {
   const [snapshotHour, setSnapshotHour] = useState(''); // '00'..'23'
   const [activeSnapshot, setActiveSnapshot] = useState(''); // applied value 'YYYY-MM-DDTHH'
   const [timeRange, setTimeRange] = useState('today');
+  const [affiliateSummary, setAffiliateSummary] = useState(null);
 
   // Auto-fetch links and chart on mount
   useEffect(() => {
@@ -155,6 +156,7 @@ export default function Dashboard() {
       const params = snapshot ? { snapshot } : (range && range !== 'custom' ? { range } : {});
       const response = await api.get('/api/links/my-links', { params });
       setLinks(response.data.links || []);
+      setAffiliateSummary(response.data.summary?.affiliate || null);
       setLastUpdated(new Date());
     } catch (err) {
       setError(err.response?.data?.error || t('dashboard.errorLoadLinks'));
@@ -569,8 +571,19 @@ export default function Dashboard() {
   const totalCarts = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.carts || 0), 0);
   const salesRevenue = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.sales_revenue ?? 0), 0);
   const totalLeadRevenue = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.lead_revenue ?? 0), 0);
-  /** Картка «Дохід» — лише оплата (sale); ліди не додаються, щоб не подвоювати воронку */
-  const revenueCardValue = salesRevenue;
+  const isAffiliate = user?.role === 'affiliate';
+  const affiliateCommissionPercent = affiliateSummary?.commission_percent ?? user?.affiliate_commission_percent;
+  const affiliateBalance = parseFloat(affiliateSummary?.balance ?? user?.affiliate_balance ?? 0);
+  const totalAffiliateEarnings = sourceFilteredLinks.reduce(
+    (sum, link) => sum + (link.stats?.affiliate_earnings ?? 0),
+    0
+  );
+  const totalPendingLeads = sourceFilteredLinks.reduce(
+    (sum, link) => sum + (link.stats?.pending_leads ?? 0),
+    0
+  );
+  /** Афілейт: заробіток (%); звичайний user: оплати (sale) */
+  const revenueCardValue = isAffiliate ? totalAffiliateEarnings : salesRevenue;
 
   const convRate = uniqueClicks > 0 ? ((totalSales / uniqueClicks) * 100).toFixed(1) : 0;
 
@@ -759,21 +772,37 @@ export default function Dashboard() {
           bgColor="bg-green-100"
           iconColor="text-green-600"
         />
+        {isAffiliate && (
+          <StatCard
+            icon={DollarSign}
+            label="Баланс"
+            value={`${affiliateBalance.toLocaleString()} ₴`}
+            description={affiliateCommissionPercent != null ? `Комісія: ${affiliateCommissionPercent}%` : undefined}
+            bgColor="bg-violet-100"
+            iconColor="text-violet-600"
+          />
+        )}
         <StatCard
           icon={DollarSign}
-          label={t('dashboard.revenuePayments')}
+          label={isAffiliate ? 'Мій заробіток' : t('dashboard.revenuePayments')}
           value={`${revenueCardValue.toLocaleString()} ₴`}
           description={
-            salesRevenue > 0 && totalLeadRevenue > 0
-              ? t('dashboard.revenueStatFootnoteBoth', {
-                  sales: salesRevenue.toLocaleString(),
-                  leads: totalLeadRevenue.toLocaleString()
-                })
-              : salesRevenue > 0
-                ? undefined
-                : totalLeadRevenue > 0
-                  ? t('dashboard.revenueStatFootnoteLeadsOnly', { leads: totalLeadRevenue.toLocaleString() })
-                  : undefined
+            isAffiliate
+              ? (totalPendingLeads > 0
+                ? `Очікує підтвердження лідів: ${totalPendingLeads}`
+                : affiliateCommissionPercent != null
+                  ? `Комісія ${affiliateCommissionPercent}% від продажів і підтверджених лідів`
+                  : undefined)
+              : salesRevenue > 0 && totalLeadRevenue > 0
+                ? t('dashboard.revenueStatFootnoteBoth', {
+                    sales: salesRevenue.toLocaleString(),
+                    leads: totalLeadRevenue.toLocaleString()
+                  })
+                : salesRevenue > 0
+                  ? undefined
+                  : totalLeadRevenue > 0
+                    ? t('dashboard.revenueStatFootnoteLeadsOnly', { leads: totalLeadRevenue.toLocaleString() })
+                    : undefined
           }
           bgColor="bg-emerald-100"
           iconColor="text-emerald-600"

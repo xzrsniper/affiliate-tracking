@@ -42,6 +42,11 @@ const Conversion = sequelize.define('Conversion', {
     defaultValue: 'sale',
     comment: 'lead = button click (intent), sale = confirmed purchase, cart = add to cart'
   },
+  lead_status: {
+    type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+    allowNull: true,
+    comment: 'Affiliate lead moderation: pending until admin approves/rejects'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

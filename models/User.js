@@ -25,9 +25,20 @@ const User = sequelize.define('User', {
     unique: true
   },
   role: {
-    type: DataTypes.ENUM('user', 'super_admin'),
+    type: DataTypes.ENUM('user', 'super_admin', 'affiliate'),
     allowNull: false,
     defaultValue: 'user'
+  },
+  affiliate_commission_percent: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: true,
+    comment: 'Commission % for affiliate role (0-100)'
+  },
+  affiliate_balance: {
+    type: DataTypes.DECIMAL(12, 2),
+    allowNull: false,
+    defaultValue: 0.0,
+    comment: 'Affiliate wallet balance'
   },
   link_limit: {
     type: DataTypes.INTEGER,

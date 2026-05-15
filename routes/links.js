@@ -6,6 +6,7 @@ import { runTrackingRedirect } from '../utils/trackingRedirect.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
+import { commissionFromOrder, isAffiliateUser, parseCommissionPercent } from '../utils/affiliate.js';
 
 const router = express.Router();
 
@@ -432,7 +433,9 @@ router.get('/my-links', async (req, res, next) => {
           SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN 1 ELSE 0 END) as sales,
           SUM(CASE WHEN event_type = 'cart' THEN 1 ELSE 0 END) as carts,
           COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue,
-          COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) as lead_revenue
+          COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) as lead_revenue,
+          COALESCE(SUM(CASE WHEN event_type = 'lead' AND lead_status = 'approved' THEN order_value ELSE 0 END), 0) as approved_lead_revenue,
+          SUM(CASE WHEN event_type = 'lead' AND lead_status = 'pending' THEN 1 ELSE 0 END) as pending_leads
         FROM conversions
         WHERE link_id IN (?)${snapshotCondition}
         GROUP BY link_id
@@ -481,6 +484,9 @@ router.get('/my-links', async (req, res, next) => {
       if (normalized) connectedDomains.add(normalized);
     });
 
+    const isAffiliate = isAffiliateUser(req.user);
+    const affiliatePercent = isAffiliate ? parseCommissionPercent(req.user.affiliate_commission_percent) : null;
+
     const linksWithStats = links.map((link) => {
       const clickStats = clickStatsByLinkId.get(link.id) || {};
       const conversionStats = conversionStatsByLinkId.get(link.id) || {};
@@ -494,6 +500,8 @@ router.get('/my-links', async (req, res, next) => {
       const totalCarts = parseInt(conversionStats?.carts || 0);
       const rawSalesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
       const rawLeadRevenue = parseFloat(conversionStats?.lead_revenue || 0);
+      const rawApprovedLeadRevenue = parseFloat(conversionStats?.approved_lead_revenue || 0);
+      const pendingLeads = parseInt(conversionStats?.pending_leads || 0);
       const measuredSessions = parseInt(clickStats?.measured_sessions || 0);
       const avgSessionSeconds = parseFloat(clickStats?.avg_session_seconds || 0);
       const bounces = parseInt(clickStats?.bounces || 0);
@@ -509,6 +517,14 @@ router.get('/my-links', async (req, res, next) => {
       const isCodeConnected = domain ? connectedDomains.has(domain) : false;
 
       const trackingUrl = buildTrackingUrlForLink(link, req);
+
+      const affiliateEarningsSales = isAffiliate && affiliatePercent != null
+        ? commissionFromOrder(salesRevenue, affiliatePercent)
+        : 0;
+      const affiliateEarningsLeads = isAffiliate && affiliatePercent != null
+        ? commissionFromOrder(rawApprovedLeadRevenue, affiliatePercent)
+        : 0;
+      const affiliateEarnings = parseFloat((affiliateEarningsSales + affiliateEarningsLeads).toFixed(2));
 
       return {
         id: link.id,
@@ -531,6 +547,10 @@ router.get('/my-links', async (req, res, next) => {
           total_revenue: totalRevenue,
           sales_revenue: salesRevenue,
           lead_revenue: leadRevenue,
+          pending_leads: pendingLeads,
+          affiliate_earnings: affiliateEarnings,
+          affiliate_earnings_sales: affiliateEarningsSales,
+          affiliate_earnings_leads: affiliateEarningsLeads,
           revenue_adjustment: adj,
           raw_total_revenue: parseFloat(rawTotalRevenue.toFixed(2)),
           avg_session_seconds: parseFloat(avgSessionSeconds.toFixed(2)),
@@ -547,7 +567,13 @@ router.get('/my-links', async (req, res, next) => {
       summary: {
         total_links: links.length,
         link_limit: req.user.link_limit,
-        remaining_slots: Math.max(0, req.user.link_limit - links.length)
+        remaining_slots: Math.max(0, req.user.link_limit - links.length),
+        ...(isAffiliate ? {
+          affiliate: {
+            commission_percent: affiliatePercent,
+            balance: parseFloat(req.user.affiliate_balance || 0)
+          }
+        } : {})
       }
     });
   } catch (error) {
