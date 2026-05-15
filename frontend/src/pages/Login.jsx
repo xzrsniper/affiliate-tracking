@@ -364,7 +364,7 @@ export default function Login() {
           <div className="absolute -bottom-24 -left-16 h-[320px] w-[320px] rounded-full bg-white/10" />
           <div className="relative z-10">
             <div className="mb-12">
-              <Logo size="lg" variant="on-dark" linkTo={null} />
+              <Logo size="lg" variant="dark-bg" linkTo={null} />
             </div>
             <h1 className="text-[50px] font-extrabold leading-[1.08] tracking-[-0.03em] mb-4">
               {t('login.marketingHeadlineLine1')}<br />{t('login.marketingHeadlineLine2')}
