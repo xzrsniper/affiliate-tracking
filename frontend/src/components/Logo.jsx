@@ -1,47 +1,41 @@
 import { Link } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 /**
  * variant:
- * - light-bg — білий/світлий фон (logo.png)
- * - dark-bg — темний фон (logo-on-dark.png)
- * - auto — перемикається разом із dark mode (для шапок сайту)
+ * - light-bg — світлий фон (wordmark на фіолетовій плашці)
+ * - dark-bg — темний фон (прозорий wordmark)
+ * - auto — за поточною темою
  */
 export default function Logo({ size = 'md', variant = 'auto', className = '', linkTo = null }) {
+  const { theme } = useTheme();
+
   const sizeClasses = {
-    sm: 'h-9 max-w-[130px]',
-    md: 'h-11 max-w-[170px]',
-    lg: 'h-14 max-w-[210px]',
-    xl: 'h-16 max-w-[250px]'
+    sm: 'h-8 max-w-[120px]',
+    md: 'h-10 max-w-[160px]',
+    lg: 'h-11 max-w-[190px]',
+    xl: 'h-14 max-w-[230px]'
   };
 
   const imgClass = `${sizeClasses[size]} w-auto object-contain object-left flex-shrink-0`;
 
-  const lightLogo = (
-    <img src="/logo.png" alt="lehko space" className={imgClass} />
-  );
-
-  const darkLogo = (
+  const wordmark = (
     <img src="/logo-on-dark.png" alt="lehko space" className={imgClass} />
   );
 
-  let logoVisual = null;
-  if (variant === 'light-bg') {
-    logoVisual = lightLogo;
-  } else if (variant === 'dark-bg') {
-    logoVisual = darkLogo;
-  } else {
-    logoVisual = (
-      <>
-        <img src="/logo.png" alt="lehko space" className={`${imgClass} dark:hidden`} />
-        <img src="/logo-on-dark.png" alt="lehko space" className={`${imgClass} hidden dark:block`} />
-      </>
-    );
-  }
+  const useBrandPlate =
+    variant === 'light-bg' || (variant === 'auto' && theme === 'light');
+
+  const logoVisual = useBrandPlate ? (
+    <div className="inline-flex items-center rounded-xl bg-gradient-to-br from-violet-600 via-violet-500 to-indigo-600 px-3 py-2 shadow-md shadow-violet-500/25">
+      {wordmark}
+    </div>
+  ) : (
+    wordmark
+  );
 
   const logoContent = (
-    <div className={`inline-flex items-center ${className}`}>
-      {logoVisual}
-    </div>
+    <div className={`inline-flex items-center ${className}`}>{logoVisual}</div>
   );
 
   if (linkTo) {
