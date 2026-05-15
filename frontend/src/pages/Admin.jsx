@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
@@ -209,6 +210,7 @@ export default function Admin() {
   const [updating, setUpdating] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
   const [viewingUserLoading, setViewingUserLoading] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [revenueAdjEdits, setRevenueAdjEdits] = useState({});
   const [revenueAdjSavingId, setRevenueAdjSavingId] = useState(null);
   const [exportingCsv, setExportingCsv] = useState(false);
@@ -532,6 +534,22 @@ export default function Admin() {
     } finally {
       setViewingUserLoading(false);
     }
+  };
+
+  const openEditUser = (user) => {
+    setLimitEdits((prev) => ({ ...prev, [user.id]: String(user.link_limit ?? 0) }));
+    setAffiliateEdits((prev) => ({
+      ...prev,
+      [user.id]: {
+        isAffiliate: user.role === 'affiliate',
+        percent: String(user.affiliate_commission_percent ?? 10)
+      }
+    }));
+    setBalanceEdits((prev) => ({
+      ...prev,
+      [user.id]: String(user.affiliate_balance ?? 0)
+    }));
+    setEditingUser(user);
   };
 
   const handleSaveAffiliateRole = async (userId) => {
@@ -1259,10 +1277,10 @@ export default function Admin() {
                             {t('admin.view')}
                           </button>
                           <button
-                            onClick={() => {
-                              setLimitEdits((prev) => ({ ...prev, [user.id]: String(user.link_limit ?? 0) }));
-                            }}
-                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm"
+                            type="button"
+                            onClick={() => openEditUser(user)}
+                            disabled={user.role === 'super_admin'}
+                            className="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t('common.edit')}
                           </button>
@@ -1294,9 +1312,16 @@ export default function Admin() {
           </>
         )}
 
-        {viewingUser && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-violet-100">
+        {viewingUser &&
+          createPortal(
+            <div
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10001] p-4"
+              onClick={() => setViewingUser(null)}
+            >
+            <div
+              className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-violet-100"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="p-6 border-b border-slate-200 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">
@@ -1388,17 +1413,139 @@ export default function Admin() {
                 )}
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 
-      {siteTextModalOpen && (
-        <div
-          className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-600 dark:bg-slate-900">
+      {editingUser &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setEditingUser(null)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{t('common.edit')}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{editingUser.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">{t('admin.limit')}</label>
+              <input
+                type="number"
+                min="0"
+                value={limitEdits[editingUser.id] ?? editingUser.link_limit ?? 0}
+                onChange={(e) => setLimitEdits((prev) => ({ ...prev, [editingUser.id]: e.target.value }))}
+                className="mb-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              />
+
+              {editingUser.role !== 'super_admin' && (
+                <div className="mb-4 space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                  <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate'}
+                      onChange={(e) => setAffiliateEdits((prev) => ({
+                        ...prev,
+                        [editingUser.id]: {
+                          ...(prev[editingUser.id] || { percent: '10' }),
+                          isAffiliate: e.target.checked
+                        }
+                      }))}
+                    />
+                    Афілейт
+                  </label>
+                  {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={affiliateEdits[editingUser.id]?.percent ?? ''}
+                        onChange={(e) => setAffiliateEdits((prev) => ({
+                          ...prev,
+                          [editingUser.id]: { ...(prev[editingUser.id] || { isAffiliate: true }), percent: e.target.value }
+                        }))}
+                        className="w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                      />
+                      <span className="text-sm text-slate-500">%</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
+                <div className="mb-4">
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Баланс</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={balanceEdits[editingUser.id] ?? editingUser.affiliate_balance ?? 0}
+                    onChange={(e) => setBalanceEdits((prev) => ({ ...prev, [editingUser.id]: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-600 dark:text-slate-200"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={updating}
+                  onClick={async () => {
+                    await handleUpdateLinkLimit(editingUser.id);
+                    if (editingUser.role !== 'super_admin') {
+                      await handleSaveAffiliateRole(editingUser.id);
+                      if (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') {
+                        await handleSaveAffiliateBalance(editingUser.id);
+                      }
+                    }
+                    setEditingUser(null);
+                  }}
+                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {updating ? t('common.loading') : t('common.save')}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {siteTextModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setSiteTextModalOpen(false)}
+          >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="mb-2 text-lg font-bold text-slate-900 dark:text-slate-100">{t('admin.siteTextEditModalHeading')}</h3>
             <p className="mb-4 text-sm text-slate-600 dark:text-slate-400">{t('admin.siteTextEditModalDesc')}</p>
             <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">{t('admin.siteContentPageLabel')}</label>
@@ -1434,7 +1581,8 @@ export default function Admin() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </Layout>
   );

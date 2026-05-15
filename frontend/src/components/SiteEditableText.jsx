@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useSiteTextEdit } from '../context/SiteTextEditContext.jsx';
@@ -92,14 +93,19 @@ export default function SiteEditableText({
         {children !== undefined ? children : displayText}
       </Tag>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="site-text-edit-title"
-        >
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-600 dark:bg-slate-900">
+      {open &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="site-text-edit-title"
+            onClick={() => setOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+              onClick={(e) => e.stopPropagation()}
+            >
             <button
               type="button"
               className="absolute right-3 top-3 rounded-lg p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -148,8 +154,9 @@ export default function SiteEditableText({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </>
   );
 }

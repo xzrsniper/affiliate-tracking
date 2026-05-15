@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
-import SiteEditableText from '../components/SiteTextStatic.jsx';
+import SiteEditableText from '../components/SiteEditableText.jsx';
 
 export default function Home() {
   const { t, i18n } = useTranslation();
