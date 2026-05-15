@@ -1,7 +1,7 @@
 import express from 'express';
 import { User, Link, Click, Conversion } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
-import { Op, fn, col } from 'sequelize';
+import { Op, fn, col, QueryTypes } from 'sequelize';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 import sequelize from '../config/database.js';
 import {
@@ -276,44 +276,72 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Get user's links with stats (same as user's own dashboard)
     const links = await Link.findAll({
       where: { user_id: user.id },
       attributes: ['id', 'original_url', 'unique_code', 'created_at', 'revenue_adjustment'],
-      include: [
-        {
-          model: Click,
-          as: 'clicks',
-          attributes: ['id', 'visitor_fingerprint', 'created_at']
-        },
-        {
-          model: Conversion,
-          as: 'conversions',
-          attributes: ['id', 'order_value', 'event_type', 'created_at']
-        }
-      ],
       order: [['created_at', 'DESC']]
     });
 
-    // Calculate stats for each link
-    const linksWithStats = links.map((link) => {
-      const clicks = link.clicks || [];
-      const conversions = link.conversions || [];
-      const uniqueFingerprints = new Set(clicks.map((c) => c.visitor_fingerprint));
+    if (links.length === 0) {
+      return res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          link_limit: user.link_limit,
+          is_banned: user.is_banned,
+          affiliate_commission_percent: user.affiliate_commission_percent,
+          affiliate_balance: user.affiliate_balance
+        },
+        links: []
+      });
+    }
 
-      let rawTotal = 0;
-      let rawSales = 0;
-      let rawLead = 0;
-      let salesCount = 0;
-      for (const conv of conversions) {
-        const v = parseFloat(conv.order_value || 0);
-        rawTotal += v;
-        if (conv.event_type === 'lead') rawLead += v;
-        else if (conv.event_type === 'sale' || conv.event_type === undefined || conv.event_type === null) {
-          rawSales += v;
-          salesCount += 1;
-        }
-      }
+    const linkIds = links.map((l) => l.id);
+
+    const [clickStatsRows, conversionStatsRows] = await Promise.all([
+      sequelize.query(`
+        SELECT
+          link_id,
+          COUNT(*) AS total_clicks,
+          COUNT(DISTINCT visitor_fingerprint) AS unique_clicks
+        FROM clicks
+        WHERE link_id IN (?)
+        GROUP BY link_id
+      `, {
+        replacements: [linkIds],
+        type: QueryTypes.SELECT
+      }),
+      sequelize.query(`
+        SELECT
+          link_id,
+          COUNT(*) AS conversions,
+          COALESCE(SUM(order_value), 0) AS total_revenue,
+          COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) AS sales_revenue,
+          COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) AS lead_revenue,
+          SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN 1 ELSE 0 END) AS sales
+        FROM conversions
+        WHERE link_id IN (?)
+        GROUP BY link_id
+      `, {
+        replacements: [linkIds],
+        type: QueryTypes.SELECT
+      })
+    ]);
+
+    const clickByLink = new Map(clickStatsRows.map((r) => [Number(r.link_id), r]));
+    const convByLink = new Map(conversionStatsRows.map((r) => [Number(r.link_id), r]));
+
+    const linksWithStats = links.map((link) => {
+      const clickStats = clickByLink.get(link.id) || {};
+      const convStats = convByLink.get(link.id) || {};
+      const totalClicks = parseInt(clickStats.total_clicks || 0, 10);
+      const uniqueClicks = parseInt(clickStats.unique_clicks || 0, 10);
+      const rawTotal = parseFloat(convStats.total_revenue || 0);
+      const rawSales = parseFloat(convStats.sales_revenue || 0);
+      const rawLead = parseFloat(convStats.lead_revenue || 0);
+      const salesCount = parseInt(convStats.sales || 0, 10);
       const adj = parseFloat(link.revenue_adjustment || 0);
       const adjusted = applyRevenueAdjustment(rawTotal, rawSales, rawLead, adj, salesCount);
 
@@ -323,9 +351,9 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
         unique_code: link.unique_code,
         created_at: link.created_at,
         stats: {
-          unique_clicks: uniqueFingerprints.size,
-          total_clicks: clicks.length,
-          conversions: conversions.length,
+          unique_clicks: uniqueClicks,
+          total_clicks: totalClicks,
+          conversions: parseInt(convStats.conversions || 0, 10),
           total_revenue: adjusted.total_revenue,
           sales_revenue: adjusted.sales_revenue,
           lead_revenue: adjusted.lead_revenue,
@@ -342,7 +370,9 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
         email: user.email,
         role: user.role,
         link_limit: user.link_limit,
-        is_banned: user.is_banned
+        is_banned: user.is_banned,
+        affiliate_commission_percent: user.affiliate_commission_percent,
+        affiliate_balance: user.affiliate_balance
       },
       links: linksWithStats
     });

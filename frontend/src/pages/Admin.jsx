@@ -15,7 +15,8 @@ import {
   Users,
   Plus,
   Trash2,
-  Upload
+  Upload,
+  Loader2
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -207,6 +208,7 @@ export default function Admin() {
   const [limitEdits, setLimitEdits] = useState({});
   const [updating, setUpdating] = useState(false);
   const [viewingUser, setViewingUser] = useState(null);
+  const [viewingUserLoading, setViewingUserLoading] = useState(false);
   const [revenueAdjEdits, setRevenueAdjEdits] = useState({});
   const [revenueAdjSavingId, setRevenueAdjSavingId] = useState(null);
   const [exportingCsv, setExportingCsv] = useState(false);
@@ -514,11 +516,21 @@ export default function Admin() {
   };
 
   const handleViewUser = async (userId) => {
+    const cached = users.find((u) => u.id === userId);
+    setViewingUser({
+      user: cached || { id: userId, email: '…' },
+      links: [],
+      loading: true
+    });
+    setViewingUserLoading(true);
     try {
       const response = await api.get(`/api/admin/users/${userId}/impersonate`);
-      setViewingUser(response.data);
+      setViewingUser({ ...response.data, loading: false });
     } catch (err) {
+      setViewingUser(null);
       setError(err.response?.data?.error || t('admin.errorLoadUserData'));
+    } finally {
+      setViewingUserLoading(false);
     }
   };
 
@@ -1288,7 +1300,7 @@ export default function Admin() {
               <div className="p-6 border-b border-slate-200 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">
-                    {t('admin.linksFor', { email: viewingUser.user.email })}
+                    {t('admin.linksFor', { email: viewingUser.user?.email || '…' })}
                   </h2>
                   <p className="text-slate-500 mt-1">
                     {t('admin.totalLinksCount', { count: viewingUser.links?.length || 0 })}
@@ -1302,7 +1314,12 @@ export default function Admin() {
                 </button>
               </div>
               <div className="p-6">
-                {viewingUser.links.length === 0 ? (
+                {viewingUserLoading || viewingUser.loading ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+                    <Loader2 className="w-8 h-8 animate-spin text-violet-600 mb-3" />
+                    <p className="text-sm">{t('common.loading')}</p>
+                  </div>
+                ) : viewingUser.links?.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-slate-500">{t('admin.noLinksYet')}</p>
                   </div>
