@@ -43,7 +43,7 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-[#f7fbfd] text-slate-900 lg:flex">
       <aside className="w-full lg:w-60 lg:fixed lg:h-screen left-0 top-0 flex flex-col bg-white border-b lg:border-b-0 lg:border-r border-slate-200">
         <div className="p-5 border-b border-slate-100 w-full">
-          <Logo size="lg" variant="light-bg" linkTo="/" />
+          <Logo size="lg" variant="auto" linkTo="/" className="w-full [&_img]:h-12 [&_img]:max-w-[min(100%,200px)]" />
         </div>
 
         <div className="px-3 pt-4 pb-2">
