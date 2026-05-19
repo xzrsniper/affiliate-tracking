@@ -10,5 +10,9 @@ Disallow: /admin
 Disallow: /settings
 Disallow: /setup
 Disallow: /console-code
+Disallow: /home-new
+Disallow: /success
+Disallow: /login
+Disallow: /register
 
 Sitemap: https://lehko.space/sitemap.xml
