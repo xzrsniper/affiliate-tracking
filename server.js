@@ -134,9 +134,7 @@ app.get('/sitemap.xml', async (req, res, next) => {
       { path: '/blog', priority: 0.8 },
       { path: '/terms', priority: 0.5 },
       { path: '/privacy', priority: 0.5 },
-      { path: '/refund', priority: 0.5 },
-      { path: '/home-new', priority: 0.6 },
-      { path: '/success', priority: 0.4 }
+      { path: '/refund', priority: 0.5 }
     ];
 
     staticPublicPages.forEach((page) => pushUrl(page.path, new Date(), page.priority));
