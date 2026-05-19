@@ -12,7 +12,8 @@ import {
   Moon,
   Globe,
   FileText,
-  MessageCircle
+  MessageCircle,
+  BookOpen
 } from 'lucide-react';
 import Logo from './Logo.jsx';
 
@@ -34,9 +35,13 @@ export default function Layout({ children }) {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('layout.dashboard') },
     ...(canAccessAdmin ? [{ path: '/admin', icon: Users, label: t('layout.admin') }] : []),
-    { path: '/blog', icon: FileText, label: t('common.blog') },
     { path: '/setup', icon: Code, label: t('layout.setup') },
     { path: '/settings', icon: Settings, label: t('layout.settings') }
+  ];
+
+  const resourceItems = [
+    { path: '/blog', icon: BookOpen, label: t('common.blog'), matchPrefix: true },
+    { path: '/guide', icon: FileText, label: t('common.documentation'), matchPrefix: false }
   ];
 
   return (
@@ -74,13 +79,26 @@ export default function Layout({ children }) {
           <div className="px-2 pt-2 pb-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{t('layout.resources')}</p>
           </div>
-          <a
-            href="/guide"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-          >
-            <FileText className="w-4 h-4" />
-            <span>{t('common.documentation')}</span>
-          </a>
+          {resourceItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.matchPrefix
+              ? location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+              : location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  active
+                    ? 'bg-violet-50 text-violet-700'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
           <a
             href="https://t.me/hodunkooo"
             target="_blank"
