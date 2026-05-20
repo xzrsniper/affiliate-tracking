@@ -9,6 +9,7 @@ import TrackerVerification from './TrackerVerification.js';
 import LinkClick from './LinkClick.js';
 import BlogPost from './BlogPost.js';
 import BlogPostUniqueView from './BlogPostUniqueView.js';
+import LinkVariant from './LinkVariant.js';
 
 // Define Associations
 
@@ -22,6 +23,12 @@ Link.belongsTo(User, {
   foreignKey: 'user_id',
   as: 'user'
 });
+
+Link.hasMany(LinkVariant, { foreignKey: 'link_id', as: 'variants', onDelete: 'CASCADE' });
+LinkVariant.belongsTo(Link, { foreignKey: 'link_id', as: 'link' });
+
+Click.belongsTo(LinkVariant, { foreignKey: 'variant_id', as: 'variant' });
+LinkVariant.hasMany(Click, { foreignKey: 'variant_id', as: 'clicks' });
 
 // Link -> Clicks (One-to-Many)
 Link.hasMany(Click, {
@@ -72,6 +79,7 @@ export {
   TrackerVerification,
   LinkClick,
   BlogPost,
+  LinkVariant,
   BlogPostUniqueView
 };
 
@@ -86,5 +94,6 @@ export default {
   TrackerVerification,
   LinkClick,
   BlogPost,
+  LinkVariant,
   BlogPostUniqueView
 };

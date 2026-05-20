@@ -36,6 +36,7 @@
     "db:audit-conversions": "node scripts/audit-user-conversions.js",
     "db:add-affiliate": "node scripts/add-affiliate-system.js",
     "db:backfill-affiliate-sales": "node scripts/backfill-affiliate-sale-moderation.js",
+    "db:add-split-test": "node scripts/add-link-split-test.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"

@@ -67,6 +67,27 @@ const Link = sequelize.define('Link', {
     defaultValue: 'tracking',
     comment: 'tracking = lehko.space/track/code, original = original_url?ref=code'
   },
+  split_enabled: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    comment: 'A/B split test with multiple destination URLs'
+  },
+  split_phase: {
+    type: DataTypes.ENUM('exploring', 'completed'),
+    allowNull: true,
+    comment: 'exploring = random split; completed = winner chosen'
+  },
+  split_exploration_limit: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Clicks (45-55) before auto winner selection'
+  },
+  split_winner_variant_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Winning link_variants.id after exploration'
+  },
   revenue_adjustment: {
     type: DataTypes.DECIMAL(12, 2),
     allowNull: false,

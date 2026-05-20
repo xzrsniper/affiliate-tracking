@@ -7,6 +7,8 @@ import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 import { commissionFromOrder, isAffiliateUser, parseCommissionPercent } from '../utils/affiliate.js';
+import { randomExplorationLimit, getSplitStatsForLink } from '../utils/splitTest.js';
+import LinkVariant from '../models/LinkVariant.js';
 
 const router = express.Router();
 
@@ -203,65 +205,117 @@ router.post('/export-sheets', async (req, res, next) => {
  */
 router.post('/create', async (req, res, next) => {
   try {
-    const { original_url, name, source_type, link_format } = req.body;
+    const {
+      original_url,
+      name,
+      source_type,
+      link_format,
+      split_enabled,
+      variants: variantsBody
+    } = req.body;
 
-    if (!original_url) {
+    const isSplit = Boolean(split_enabled);
+    let resolvedOriginalUrl = original_url;
+    let normalizedVariants = [];
+
+    if (isSplit) {
+      if (!Array.isArray(variantsBody) || variantsBody.length < 2) {
+        return res.status(400).json({ error: 'A/B split requires at least 2 destination URLs' });
+      }
+      if (variantsBody.length > 6) {
+        return res.status(400).json({ error: 'Maximum 6 URLs in A/B split test' });
+      }
+
+      normalizedVariants = variantsBody.map((v, i) => {
+        let url = String(v.url || v.destination_url || '').trim();
+        if (!url) return null;
+        if (!url.match(/^https?:\/\//i)) url = `https://${url}`;
+        try {
+          new URL(url);
+        } catch {
+          return null;
+        }
+        return {
+          label: String(v.label || v.name || String.fromCharCode(65 + i)).slice(0, 64),
+          destination_url: url,
+          sort_order: i
+        };
+      }).filter(Boolean);
+
+      if (normalizedVariants.length < 2) {
+        return res.status(400).json({ error: 'Provide at least 2 valid destination URLs' });
+      }
+      resolvedOriginalUrl = normalizedVariants[0].destination_url;
+    } else if (!resolvedOriginalUrl) {
       return res.status(400).json({ error: 'original_url is required' });
     }
 
-    // Validate URL format
     try {
-      new URL(original_url);
+      new URL(resolvedOriginalUrl);
     } catch (e) {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
 
-    // Validate link_format
-    const validFormats = ['tracking', 'original'];
-    const resolvedFormat = validFormats.includes(link_format) ? link_format : 'tracking';
+    const validFormats = ['tracking', 'original', 'lehko'];
+    let resolvedFormat = validFormats.includes(link_format) ? link_format : 'tracking';
+    if (resolvedFormat === 'lehko') resolvedFormat = 'tracking';
+    if (isSplit && resolvedFormat === 'original') {
+      return res.status(400).json({
+        error: 'A/B split test requires LehkoTrack domain (lehko.space/r/...). Choose "Домен LehkoTrack" format.'
+      });
+    }
 
-    // Critical Logic: Check if user has reached link_limit
-    const currentLinkCount = await Link.count({ 
-      where: { user_id: req.user.id } 
+    const currentLinkCount = await Link.count({
+      where: { user_id: req.user.id }
     });
 
     if (currentLinkCount >= req.user.link_limit) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: `Link limit reached. You have reached your maximum of ${req.user.link_limit} links. Please contact admin to increase your limit.`,
         current_links: currentLinkCount,
         link_limit: req.user.link_limit
       });
     }
 
-    // Generate unique code using nanoid
     let uniqueCode;
     let codeExists = true;
-    
-    // Ensure code is unique (retry if collision - very unlikely with nanoid)
+
     while (codeExists) {
       uniqueCode = generateUniqueCode();
       const existingLink = await Link.findOne({ where: { unique_code: uniqueCode } });
       codeExists = !!existingLink;
     }
 
-    // Create the link
+    const explorationLimit = isSplit ? randomExplorationLimit() : null;
+
     const link = await Link.create({
       user_id: req.user.id,
-      original_url: original_url,
+      original_url: resolvedOriginalUrl,
       name: name || null,
       source_type: source_type || null,
       unique_code: uniqueCode,
-      link_format: resolvedFormat
+      link_format: isSplit ? 'tracking' : resolvedFormat,
+      split_enabled: isSplit,
+      split_phase: isSplit ? 'exploring' : null,
+      split_exploration_limit: explorationLimit
     });
 
-    const trackingUrl = buildTrackingUrlForLink(
-      { original_url, unique_code: uniqueCode, link_format: resolvedFormat },
-      req
-    );
+    if (isSplit) {
+      await LinkVariant.bulkCreate(
+        normalizedVariants.map((v) => ({
+          link_id: link.id,
+          label: v.label,
+          destination_url: v.destination_url,
+          sort_order: v.sort_order
+        }))
+      );
+    }
+
+    const trackingUrl = buildTrackingUrlForLink(link, req);
 
     res.status(201).json({
       success: true,
-      message: 'Link created successfully',
+      message: isSplit ? 'A/B split link created successfully' : 'Link created successfully',
       link: {
         id: link.id,
         name: link.name,
@@ -270,6 +324,9 @@ router.post('/create', async (req, res, next) => {
         unique_code: link.unique_code,
         link_format: link.link_format,
         tracking_url: trackingUrl,
+        split_enabled: link.split_enabled,
+        split_phase: link.split_phase,
+        split_exploration_limit: link.split_exploration_limit,
         created_at: link.created_at
       },
       usage: {
@@ -278,6 +335,31 @@ router.post('/create', async (req, res, next) => {
         remaining: req.user.link_limit - (currentLinkCount + 1)
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/links/:id/split-stats
+ * Per-variant A/B statistics (available even after winner is chosen).
+ */
+router.get('/:id/split-stats', async (req, res, next) => {
+  try {
+    const linkId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(linkId)) {
+      return res.status(400).json({ error: 'Invalid link id' });
+    }
+
+    const stats = await getSplitStatsForLink(linkId, req.user.id);
+    if (!stats) {
+      return res.status(404).json({ error: 'Link not found' });
+    }
+    if (!stats.split_enabled) {
+      return res.status(400).json({ error: 'This link is not an A/B split test' });
+    }
+
+    res.json({ success: true, ...stats });
   } catch (error) {
     next(error);
   }
@@ -540,6 +622,10 @@ router.get('/my-links', async (req, res, next) => {
         unique_code: link.unique_code,
         link_format: link.link_format || 'tracking',
         tracking_url: trackingUrl,
+        split_enabled: Boolean(link.split_enabled),
+        split_phase: link.split_phase,
+        split_exploration_limit: link.split_exploration_limit,
+        split_winner_variant_id: link.split_winner_variant_id,
         created_at: link.created_at,
         code_connected: isCodeConnected,
         domain: domain,

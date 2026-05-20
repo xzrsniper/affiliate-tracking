@@ -16,6 +16,11 @@ const Click = sequelize.define('Click', {
     },
     onDelete: 'CASCADE'
   },
+  variant_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'A/B split variant for this click'
+  },
   visitor_fingerprint: {
     type: DataTypes.STRING(255),
     allowNull: false,

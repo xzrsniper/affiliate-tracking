@@ -33,8 +33,19 @@ import {
   Clock,
   FileSpreadsheet,
   HelpCircle,
-  Eraser
+  Eraser,
+  Shuffle,
+  PlusCircle
 } from 'lucide-react';
+
+const EMPTY_NEW_LINK = {
+  original_url: '',
+  name: '',
+  source_type: '',
+  link_format: 'lehko',
+  split_enabled: false,
+  variants: [{ label: 'A', url: '' }, { label: 'B', url: '' }]
+};
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
@@ -43,14 +54,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newLink, setNewLink] = useState({ 
-    original_url: '', 
-    name: '', 
-    source_type: '',
-    link_format: 'original'
-  });
+  const [newLink, setNewLink] = useState({ ...EMPTY_NEW_LINK });
   const [creating, setCreating] = useState(false);
-  const [createdLink, setCreatedLink] = useState(null); // Store newly created link
+  const [createdLink, setCreatedLink] = useState(null);
+  const [splitStatsLink, setSplitStatsLink] = useState(null);
+  const [splitStatsData, setSplitStatsData] = useState(null);
+  const [splitStatsLoading, setSplitStatsLoading] = useState(false);
   const [copied, setCopied] = useState(false); // Track if URL was copied
   const [copiedLinkId, setCopiedLinkId] = useState(null); // Track which link URL was copied
   const [editingLinkId, setEditingLinkId] = useState(null); // Track which link is being edited
@@ -195,22 +204,65 @@ export default function Dashboard() {
     setCreatedLink(null);
 
     try {
-      const response = await api.post('/api/links/create', newLink);
+      const payload = {
+        name: newLink.name,
+        source_type: newLink.source_type,
+        link_format: newLink.link_format,
+        split_enabled: newLink.split_enabled
+      };
+      if (newLink.split_enabled) {
+        payload.variants = newLink.variants
+          .filter((v) => String(v.url || '').trim())
+          .map((v, i) => ({
+            label: v.label || String.fromCharCode(65 + i),
+            url: v.url
+          }));
+      } else {
+        payload.original_url = newLink.original_url;
+      }
+
+      const response = await api.post('/api/links/create', payload);
       const newLinkData = response.data.link;
-      // tracking_url is now computed server-side based on link_format
       setCreatedLink(newLinkData);
-      
       setLinks([newLinkData, ...links]);
-      setNewLink({ original_url: '', name: '', source_type: '', link_format: 'original' });
+      setNewLink({ ...EMPTY_NEW_LINK });
       setShowCreateForm(false);
-      // Auto-refresh disabled - user can manually refresh if needed
-      // Show popup instead of success message
-      // createdLink state will show the popup
     } catch (err) {
       setError(err.response?.data?.error || t('dashboard.errorCreate'));
     } finally {
       setCreating(false);
     }
+  };
+
+  const openSplitStatsModal = async (link) => {
+    setSplitStatsLink(link);
+    setSplitStatsData(null);
+    setSplitStatsLoading(true);
+    try {
+      const res = await api.get(`/api/links/${link.id}/split-stats`);
+      setSplitStatsData(res.data);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Не вдалося завантажити A/B статистику');
+      setSplitStatsLink(null);
+    } finally {
+      setSplitStatsLoading(false);
+    }
+  };
+
+  const addVariantField = () => {
+    if (newLink.variants.length >= 6) return;
+    const nextLabel = String.fromCharCode(65 + newLink.variants.length);
+    setNewLink({ ...newLink, variants: [...newLink.variants, { label: nextLabel, url: '' }] });
+  };
+
+  const updateVariant = (index, field, value) => {
+    const variants = newLink.variants.map((v, i) => (i === index ? { ...v, [field]: value } : v));
+    setNewLink({ ...newLink, variants });
+  };
+
+  const removeVariant = (index) => {
+    if (newLink.variants.length <= 2) return;
+    setNewLink({ ...newLink, variants: newLink.variants.filter((_, i) => i !== index) });
   };
 
   const handleEditLink = (link) => {
@@ -987,6 +1039,67 @@ export default function Dashboard() {
                 <option value="other">{t('dashboard.sourceOther')}</option>
               </select>
             </div>
+            <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newLink.split_enabled}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setNewLink({
+                      ...newLink,
+                      split_enabled: on,
+                      link_format: on ? 'lehko' : newLink.link_format
+                    });
+                  }}
+                  className="h-4 w-4 rounded border-violet-400 text-violet-600"
+                />
+                <span className="text-sm font-semibold text-violet-900">A/B Спліт-тест посилань</span>
+              </label>
+              <p className="mt-2 text-xs text-violet-800/80 leading-relaxed">
+                Перші 45–55 кліків — випадковий розподіл між URL. Потім система обере переможця (більше продажів) і направлятиме весь трафік туди.
+                Потрібен домен LehkoTrack (lehko.space/r/…).
+              </p>
+            </div>
+
+            {newLink.split_enabled ? (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-slate-700">
+                  URL для спліт-тесту <span className="text-red-500">*</span> (мін. 2, макс. 6)
+                </label>
+                {newLink.variants.map((variant, index) => (
+                  <div key={index} className="flex flex-wrap items-center gap-2">
+                    <span className="w-8 text-center text-sm font-bold text-violet-600">{variant.label || String.fromCharCode(65 + index)}</span>
+                    <input
+                      type="url"
+                      required={index < 2}
+                      value={variant.url}
+                      onChange={(e) => {
+                        let url = e.target.value.trim();
+                        if (url && !url.match(/^https?:\/\//i)) url = `https://${url}`;
+                        updateVariant(index, 'url', url);
+                      }}
+                      placeholder={`https://shop.com/product-${index + 1}`}
+                      className="flex-1 min-w-[200px] px-4 py-3 bg-slate-50 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 text-slate-900"
+                    />
+                    {newLink.variants.length > 2 && (
+                      <button type="button" onClick={() => removeVariant(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" aria-label="Видалити">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {newLink.variants.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={addVariantField}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-violet-700 hover:text-violet-900"
+                  >
+                    <PlusCircle className="w-4 h-4" /> Додати ще URL
+                  </button>
+                )}
+              </div>
+            ) : (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 {t('dashboard.targetUrlLabel')} <span className="text-red-500">*</span>
@@ -997,7 +1110,6 @@ export default function Dashboard() {
                 value={newLink.original_url}
                 onChange={(e) => {
                   let url = e.target.value.trim();
-                  // Auto-add https:// if protocol is missing
                   if (url && !url.match(/^https?:\/\//i)) {
                     url = 'https://' + url;
                   }
@@ -1010,13 +1122,14 @@ export default function Dashboard() {
                 <p className="mt-1 text-sm text-amber-600">{t('dashboard.checkUrl')}</p>
               )}
             </div>
+            )}
 
             {/* Link format selection */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-3">
                 {t('dashboard.linkFormatLabel')}
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${newLink.split_enabled ? 'opacity-60 pointer-events-none' : ''}`}>
                 {/* Original-based format */}
                 <button
                   type="button"
@@ -1071,7 +1184,7 @@ export default function Dashboard() {
                 type="button"
                 onClick={() => {
                   setShowCreateForm(false);
-                  setNewLink({ original_url: '', name: '', source_type: '', link_format: 'original' });
+                  setNewLink({ ...EMPTY_NEW_LINK });
                 }}
                 className="px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-all"
               >
@@ -1478,7 +1591,15 @@ export default function Dashboard() {
                               />
                             </td>
                             <td className="px-5 py-4">
-                              <div className="font-semibold text-slate-900">{link.name || link.unique_code}</div>
+                              <div className="font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+                                {link.name || link.unique_code}
+                                {link.split_enabled && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold uppercase">
+                                    <Shuffle className="w-3 h-3" /> A/B
+                                    {link.split_phase === 'completed' ? ' · winner' : ' · test'}
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-violet-600 text-[13px] break-all">{link.tracking_url}</div>
                             </td>
                             <td className="px-4 py-4">
@@ -1534,6 +1655,15 @@ export default function Dashboard() {
                                 >
                                   {t('dashboard.purchasesBtn')}
                                 </button>
+                                {link.split_enabled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openSplitStatsModal(link)}
+                                    className="px-3 py-1.5 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50 text-sm"
+                                  >
+                                    A/B
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => handleEditLink(link)}
                                   className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm"
@@ -1568,6 +1698,72 @@ export default function Dashboard() {
                   </div>
                 </div>
           </>
+        </div>
+      )}
+
+      {splitStatsLink && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSplitStatsLink(null)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">A/B Спліт-тест</h2>
+                <p className="text-sm text-slate-500">{splitStatsLink.name || splitStatsLink.unique_code}</p>
+              </div>
+              <button type="button" onClick={() => setSplitStatsLink(null)} className="p-2 rounded-lg hover:bg-slate-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {splitStatsLoading ? (
+              <p className="text-slate-500 py-8 text-center">Завантаження…</p>
+            ) : splitStatsData ? (
+              <>
+                <div className="mb-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                  {splitStatsData.split_phase === 'completed' ? (
+                    <span>
+                      <strong>Фаза завершена.</strong> Переможець:{' '}
+                      <span className="text-violet-700 font-semibold">{splitStatsData.winner?.label || '—'}</span>
+                      {' '}— усі нові кліки йдуть на це посилання.
+                    </span>
+                  ) : (
+                    <span>
+                      <strong>Тестування:</strong> {splitStatsData.exploration_clicks_used} / {splitStatsData.split_exploration_limit} кліків
+                      до автоматичного вибору переможця.
+                    </span>
+                  )}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600">
+                        <th className="text-left px-3 py-2">Варіант</th>
+                        <th className="text-left px-3 py-2">URL</th>
+                        <th className="text-right px-3 py-2">Кліки</th>
+                        <th className="text-right px-3 py-2">Продажі</th>
+                        <th className="text-right px-3 py-2">Дохід</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(splitStatsData.variants || []).map((v) => {
+                        const isWinner = splitStatsData.split_winner_variant_id === v.id;
+                        return (
+                          <tr key={v.id} className={`border-t border-slate-100 ${isWinner ? 'bg-violet-50/60' : ''}`}>
+                            <td className="px-3 py-2 font-semibold">
+                              {v.label}
+                              {isWinner && <span className="ml-2 text-xs text-violet-600">🏆</span>}
+                            </td>
+                            <td className="px-3 py-2 max-w-[220px] truncate text-slate-500" title={v.destination_url}>{v.destination_url}</td>
+                            <td className="px-3 py-2 text-right">{v.clicks}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-emerald-700">{v.sales}</td>
+                            <td className="px-3 py-2 text-right">{Number(v.revenue).toLocaleString('uk-UA')} ₴</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
       )}
 
