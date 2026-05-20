@@ -904,7 +904,7 @@ router.post('/conversion', async (req, res, next) => {
         event_type: event_type
       };
 
-      if (event_type === 'lead') {
+      if (event_type === 'lead' || event_type === 'sale') {
         const affiliateOwner = await getAffiliateOwnerForLink(link, t);
         if (affiliateOwner) {
           conversionData.lead_status = 'pending';

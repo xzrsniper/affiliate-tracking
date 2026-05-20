@@ -218,6 +218,7 @@ export default function Admin() {
   const [affiliateEdits, setAffiliateEdits] = useState({});
   const [balanceEdits, setBalanceEdits] = useState({});
   const [leadsUserId, setLeadsUserId] = useState('');
+  const [leadsStatusFilter, setLeadsStatusFilter] = useState('pending');
   const [affiliateLeads, setAffiliateLeads] = useState([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
 
@@ -592,17 +593,17 @@ export default function Admin() {
     }
   };
 
-  const fetchAffiliateLeads = async (userId) => {
+  const fetchAffiliateLeads = async (userId, status = leadsStatusFilter) => {
     if (!userId) {
       setAffiliateLeads([]);
       return;
     }
     setLeadsLoading(true);
     try {
-      const response = await api.get(`/api/admin/users/${userId}/leads`, { params: { status: 'pending' } });
-      setAffiliateLeads(response.data.leads || []);
+      const response = await api.get(`/api/admin/users/${userId}/leads`, { params: { status } });
+      setAffiliateLeads(response.data.items || response.data.leads || []);
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося завантажити ліди');
+      setError(err.response?.data?.error || 'Не вдалося завантажити покупки');
       setAffiliateLeads([]);
     } finally {
       setLeadsLoading(false);
@@ -616,7 +617,7 @@ export default function Admin() {
       if (leadsUserId) await fetchAffiliateLeads(leadsUserId);
       await fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося підтвердити лід');
+      setError(err.response?.data?.error || 'Не вдалося підтвердити');
     } finally {
       setUpdating(false);
     }
@@ -1051,7 +1052,8 @@ export default function Admin() {
         </div>
 
         <div className="mb-6 bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-lg font-bold text-slate-900 mb-3">Модерація лідів (афілейти)</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">Модерація покупок (афілейти)</h3>
+          <p className="text-sm text-slate-500 mb-4">Підтвердіть або відхиліть ліди та продажі — комісія зараховується на баланс лише після підтвердження.</p>
           <div className="flex flex-wrap items-end gap-3 mb-4">
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1">Афілейт</label>
@@ -1060,20 +1062,36 @@ export default function Admin() {
                 onChange={(e) => {
                   const id = e.target.value;
                   setLeadsUserId(id);
-                  fetchAffiliateLeads(id);
+                  fetchAffiliateLeads(id, leadsStatusFilter);
                 }}
                 className="min-w-[240px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
               >
-                <option value="">— оберіть юзера —</option>
+                <option value="">— оберіть афілейта —</option>
                 {users.filter((u) => u.role === 'affiliate').map((u) => (
-                  <option key={u.id} value={String(u.id)}>{u.email}</option>
+                  <option key={u.id} value={String(u.id)}>{getDisplayName(u)} ({u.email})</option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Статус</label>
+              <select
+                value={leadsStatusFilter}
+                onChange={(e) => {
+                  const status = e.target.value;
+                  setLeadsStatusFilter(status);
+                  if (leadsUserId) fetchAffiliateLeads(leadsUserId, status);
+                }}
+                className="min-w-[160px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
+              >
+                <option value="pending">Очікують</option>
+                <option value="approved">Підтверджені</option>
+                <option value="rejected">Відхилені</option>
               </select>
             </div>
             {leadsUserId && (
               <button
                 type="button"
-                onClick={() => fetchAffiliateLeads(leadsUserId)}
+                onClick={() => fetchAffiliateLeads(leadsUserId, leadsStatusFilter)}
                 disabled={leadsLoading}
                 className="px-4 py-2 bg-violet-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
               >
@@ -1082,33 +1100,49 @@ export default function Admin() {
             )}
           </div>
           {leadsLoading ? (
-            <p className="text-sm text-slate-500">Завантаження лідів…</p>
+            <p className="text-sm text-slate-500">Завантаження…</p>
           ) : leadsUserId && affiliateLeads.length === 0 ? (
-            <p className="text-sm text-slate-500">Немає лідів на підтвердження.</p>
+            <p className="text-sm text-slate-500">
+              {leadsStatusFilter === 'pending' ? 'Немає покупок на підтвердження.' : 'Записів немає.'}
+            </p>
           ) : leadsUserId ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600">
                     <th className="text-left px-3 py-2">Дата</th>
+                    <th className="text-left px-3 py-2">Тип</th>
                     <th className="text-left px-3 py-2">Лінк</th>
+                    <th className="text-left px-3 py-2">Order ID</th>
                     <th className="text-left px-3 py-2">Сума</th>
                     <th className="text-left px-3 py-2">Комісія</th>
                     <th className="text-left px-3 py-2">Дії</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {affiliateLeads.map((lead) => (
-                    <tr key={lead.id} className="border-t border-slate-100">
-                      <td className="px-3 py-2">{new Date(lead.created_at).toLocaleString('uk-UA')}</td>
-                      <td className="px-3 py-2">{lead.link_name || lead.link_code || lead.link_id}</td>
-                      <td className="px-3 py-2 font-semibold">{formatAdminMoney(lead.order_value)}</td>
-                      <td className="px-3 py-2 text-emerald-700">{formatAdminMoney(lead.commission_amount)}</td>
+                  {affiliateLeads.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString('uk-UA')}</td>
                       <td className="px-3 py-2">
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => handleApproveLead(lead.id)} disabled={updating} className="px-3 py-1 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-50">Підтвердити</button>
-                          <button type="button" onClick={() => handleRejectLead(lead.id)} disabled={updating} className="px-3 py-1 bg-red-600 text-white rounded text-xs font-semibold disabled:opacity-50">Відхилити</button>
-                        </div>
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${item.event_type === 'sale' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                          {item.event_type === 'sale' ? 'Покупка' : 'Лід'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 max-w-[200px] truncate" title={item.link_url || item.link_name || item.link_code}>
+                        {item.link_name || item.link_code || `#${item.link_id}`}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-slate-500">{item.order_id || '—'}</td>
+                      <td className="px-3 py-2 font-semibold">{formatAdminMoney(item.order_value)}</td>
+                      <td className="px-3 py-2 text-emerald-700">{formatAdminMoney(item.commission_amount)}</td>
+                      <td className="px-3 py-2">
+                        {leadsStatusFilter === 'pending' ? (
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => handleApproveLead(item.id)} disabled={updating} className="px-3 py-1 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-50">Підтвердити</button>
+                            <button type="button" onClick={() => handleRejectLead(item.id)} disabled={updating} className="px-3 py-1 bg-red-600 text-white rounded text-xs font-semibold disabled:opacity-50">Відхилити</button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

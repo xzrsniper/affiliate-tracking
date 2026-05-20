@@ -8,7 +8,8 @@ import {
   commissionFromOrder,
   creditAffiliateBalance,
   parseCommissionPercent,
-  isAffiliateUser
+  isAffiliateUser,
+  isAffiliatePayoutEvent
 } from '../utils/affiliate.js';
 
 const router = express.Router();
@@ -573,7 +574,7 @@ router.patch('/users/:id/balance', async (req, res, next) => {
 
 /**
  * GET /api/admin/users/:id/leads
- * List affiliate leads for moderation.
+ * List affiliate leads/sales for moderation (legacy path name).
  * Query: status=pending|approved|rejected (default pending)
  */
 router.get('/users/:id/leads', async (req, res, next) => {
@@ -596,20 +597,20 @@ router.get('/users/:id/leads', async (req, res, next) => {
 
     const links = await Link.findAll({
       where: { user_id: user.id },
-      attributes: ['id', 'name', 'unique_code']
+      attributes: ['id', 'name', 'unique_code', 'original_url']
     });
     const linkIds = links.map((l) => l.id);
     if (linkIds.length === 0) {
-      return res.json({ success: true, leads: [], commission_percent: user.affiliate_commission_percent });
+      return res.json({ success: true, leads: [], items: [], commission_percent: user.affiliate_commission_percent });
     }
 
-    const leads = await Conversion.findAll({
+    const rows = await Conversion.findAll({
       where: {
         link_id: { [Op.in]: linkIds },
-        event_type: 'lead',
+        event_type: { [Op.in]: ['lead', 'sale'] },
         lead_status: status
       },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 500
     });
@@ -617,28 +618,87 @@ router.get('/users/:id/leads', async (req, res, next) => {
     const linkById = new Map(links.map((l) => [l.id, l]));
     const percent = parseCommissionPercent(user.affiliate_commission_percent) || 0;
 
+    const mapRow = (row) => ({
+      id: row.id,
+      link_id: row.link_id,
+      link_name: linkById.get(row.link_id)?.name || null,
+      link_code: linkById.get(row.link_id)?.unique_code || null,
+      link_url: linkById.get(row.link_id)?.original_url || null,
+      event_type: row.event_type,
+      order_value: parseFloat(row.order_value || 0),
+      order_id: row.order_id,
+      lead_status: row.lead_status,
+      created_at: row.created_at,
+      commission_amount: commissionFromOrder(row.order_value, percent)
+    });
+
+    const items = rows.map(mapRow);
+
     res.json({
       success: true,
       commission_percent: percent,
-      leads: leads.map((lead) => ({
-        id: lead.id,
-        link_id: lead.link_id,
-        link_name: linkById.get(lead.link_id)?.name || null,
-        link_code: linkById.get(lead.link_id)?.unique_code || null,
-        order_value: parseFloat(lead.order_value || 0),
-        order_id: lead.order_id,
-        lead_status: lead.lead_status,
-        created_at: lead.created_at,
-        commission_amount: commissionFromOrder(lead.order_value, percent)
-      }))
+      leads: items,
+      items
     });
   } catch (error) {
     next(error);
   }
 });
 
+/** Shared approve/reject for affiliate lead or sale payouts. */
+async function moderateAffiliateConversion(conversionId, action) {
+  return sequelize.transaction(async (t) => {
+    const conversion = await Conversion.findByPk(conversionId, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!conversion || !isAffiliatePayoutEvent(conversion.event_type)) {
+      return { error: 'Conversion not found', status: 404 };
+    }
+    if (conversion.lead_status !== 'pending') {
+      return { error: 'Conversion is not pending approval', status: 400 };
+    }
+
+    const link = await Link.findByPk(conversion.link_id, { transaction: t });
+    if (!link) {
+      return { error: 'Link not found', status: 404 };
+    }
+
+    const affiliate = await User.findByPk(link.user_id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!affiliate || !isAffiliateUser(affiliate)) {
+      return { error: 'Link owner is not an affiliate', status: 400 };
+    }
+
+    if (action === 'reject') {
+      conversion.lead_status = 'rejected';
+      await conversion.save({ transaction: t });
+      return { success: true, conversion_id: conversion.id, action: 'rejected' };
+    }
+
+    const percent = parseCommissionPercent(affiliate.affiliate_commission_percent);
+    if (percent == null) {
+      return { error: 'Affiliate commission not configured', status: 400 };
+    }
+
+    const amount = commissionFromOrder(conversion.order_value, percent);
+    conversion.lead_status = 'approved';
+    await conversion.save({ transaction: t });
+
+    let newBalance = parseFloat(affiliate.affiliate_balance || 0);
+    if (amount > 0) {
+      newBalance = await creditAffiliateBalance(affiliate.id, amount, t);
+    }
+
+    return {
+      success: true,
+      conversion_id: conversion.id,
+      action: 'approved',
+      commission_amount: amount,
+      affiliate_balance: newBalance
+    };
+  });
+}
+
 /**
  * POST /api/admin/conversions/:id/approve-lead
+ * Approve affiliate lead or sale payout.
  */
 router.post('/conversions/:id/approve-lead', async (req, res, next) => {
   try {
@@ -647,47 +707,7 @@ router.post('/conversions/:id/approve-lead', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid conversion id' });
     }
 
-    const result = await sequelize.transaction(async (t) => {
-      const conversion = await Conversion.findByPk(conversionId, { transaction: t, lock: t.LOCK.UPDATE });
-      if (!conversion || conversion.event_type !== 'lead') {
-        return { error: 'Lead not found', status: 404 };
-      }
-      if (conversion.lead_status !== 'pending') {
-        return { error: 'Lead is not pending', status: 400 };
-      }
-
-      const link = await Link.findByPk(conversion.link_id, { transaction: t });
-      if (!link) {
-        return { error: 'Link not found', status: 404 };
-      }
-
-      const affiliate = await User.findByPk(link.user_id, { transaction: t, lock: t.LOCK.UPDATE });
-      if (!affiliate || !isAffiliateUser(affiliate)) {
-        return { error: 'Link owner is not an affiliate', status: 400 };
-      }
-
-      const percent = parseCommissionPercent(affiliate.affiliate_commission_percent);
-      if (percent == null) {
-        return { error: 'Affiliate commission not configured', status: 400 };
-      }
-
-      const amount = commissionFromOrder(conversion.order_value, percent);
-      conversion.lead_status = 'approved';
-      await conversion.save({ transaction: t });
-
-      let newBalance = parseFloat(affiliate.affiliate_balance || 0);
-      if (amount > 0) {
-        newBalance = await creditAffiliateBalance(affiliate.id, amount, t);
-      }
-
-      return {
-        success: true,
-        conversion_id: conversion.id,
-        commission_amount: amount,
-        affiliate_balance: newBalance
-      };
-    });
-
+    const result = await moderateAffiliateConversion(conversionId, 'approve');
     if (result.error) {
       return res.status(result.status).json({ error: result.error });
     }
@@ -699,21 +719,20 @@ router.post('/conversions/:id/approve-lead', async (req, res, next) => {
 
 /**
  * POST /api/admin/conversions/:id/reject-lead
+ * Reject affiliate lead or sale payout.
  */
 router.post('/conversions/:id/reject-lead', async (req, res, next) => {
   try {
-    const conversion = await Conversion.findByPk(req.params.id);
-    if (!conversion || conversion.event_type !== 'lead') {
-      return res.status(404).json({ error: 'Lead not found' });
-    }
-    if (conversion.lead_status !== 'pending') {
-      return res.status(400).json({ error: 'Lead is not pending' });
+    const conversionId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(conversionId)) {
+      return res.status(400).json({ error: 'Invalid conversion id' });
     }
 
-    conversion.lead_status = 'rejected';
-    await conversion.save();
-
-    res.json({ success: true, conversion_id: conversion.id });
+    const result = await moderateAffiliateConversion(conversionId, 'reject');
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json(result);
   } catch (error) {
     next(error);
   }

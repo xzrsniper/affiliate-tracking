@@ -435,7 +435,9 @@ router.get('/my-links', async (req, res, next) => {
           COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue,
           COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) as lead_revenue,
           COALESCE(SUM(CASE WHEN event_type = 'lead' AND lead_status = 'approved' THEN order_value ELSE 0 END), 0) as approved_lead_revenue,
-          SUM(CASE WHEN event_type = 'lead' AND lead_status = 'pending' THEN 1 ELSE 0 END) as pending_leads
+          COALESCE(SUM(CASE WHEN (event_type = 'sale' OR event_type IS NULL) AND lead_status = 'approved' THEN order_value ELSE 0 END), 0) as approved_sale_revenue,
+          SUM(CASE WHEN event_type = 'lead' AND lead_status = 'pending' THEN 1 ELSE 0 END) as pending_leads,
+          SUM(CASE WHEN (event_type = 'sale' OR event_type IS NULL) AND lead_status = 'pending' THEN 1 ELSE 0 END) as pending_sales
         FROM conversions
         WHERE link_id IN (?)${snapshotCondition}
         GROUP BY link_id
@@ -501,7 +503,9 @@ router.get('/my-links', async (req, res, next) => {
       const rawSalesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
       const rawLeadRevenue = parseFloat(conversionStats?.lead_revenue || 0);
       const rawApprovedLeadRevenue = parseFloat(conversionStats?.approved_lead_revenue || 0);
+      const rawApprovedSaleRevenue = parseFloat(conversionStats?.approved_sale_revenue || 0);
       const pendingLeads = parseInt(conversionStats?.pending_leads || 0);
+      const pendingSales = parseInt(conversionStats?.pending_sales || 0);
       const measuredSessions = parseInt(clickStats?.measured_sessions || 0);
       const avgSessionSeconds = parseFloat(clickStats?.avg_session_seconds || 0);
       const bounces = parseInt(clickStats?.bounces || 0);
@@ -518,15 +522,15 @@ router.get('/my-links', async (req, res, next) => {
 
       const trackingUrl = buildTrackingUrlForLink(link, req);
 
-      // Commission is credited from raw order_value in track.js — use raw revenue here too,
-      // not sales_revenue after revenue_adjustment (admin correction is for reporting only).
+      // Earnings = commission only on admin-approved leads & sales.
       const affiliateEarningsSales = isAffiliate && affiliatePercent != null
-        ? commissionFromOrder(rawSalesRevenue, affiliatePercent)
+        ? commissionFromOrder(rawApprovedSaleRevenue, affiliatePercent)
         : 0;
       const affiliateEarningsLeads = isAffiliate && affiliatePercent != null
         ? commissionFromOrder(rawApprovedLeadRevenue, affiliatePercent)
         : 0;
       const affiliateEarnings = parseFloat((affiliateEarningsSales + affiliateEarningsLeads).toFixed(2));
+      const pendingPayouts = pendingLeads + pendingSales;
 
       return {
         id: link.id,
@@ -550,6 +554,8 @@ router.get('/my-links', async (req, res, next) => {
           sales_revenue: salesRevenue,
           lead_revenue: leadRevenue,
           pending_leads: pendingLeads,
+          pending_sales: pendingSales,
+          pending_payouts: pendingPayouts,
           affiliate_earnings: affiliateEarnings,
           affiliate_earnings_sales: affiliateEarningsSales,
           affiliate_earnings_leads: affiliateEarningsLeads,

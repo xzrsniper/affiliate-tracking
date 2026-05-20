@@ -23,6 +23,11 @@ export function commissionFromOrder(orderValue, percent) {
   return Math.round((v * p) / 100 * 100) / 100;
 }
 
+/** Lead/sale conversions that can earn affiliate commission. */
+export function isAffiliatePayoutEvent(eventType) {
+  return eventType === 'lead' || eventType === 'sale' || eventType == null;
+}
+
 /**
  * Credit affiliate balance atomically.
  * @returns {Promise<number>} new balance
@@ -57,36 +62,25 @@ export async function getAffiliateOwnerForLink(link, transaction) {
   return { user, percent };
 }
 
-/** After conversion create/upgrade: pending lead or credit sale commission. */
+/**
+ * After conversion create/upgrade: mark pending for admin approval (leads & sales).
+ * Balance is credited only when admin approves.
+ */
 export async function applyAffiliateConversionEffects(conversion, link, eventType, transaction) {
   const affiliate = await getAffiliateOwnerForLink(link, transaction);
   if (!affiliate) return conversion;
 
-  const { user, percent } = affiliate;
-  const value = parseFloat(conversion.order_value || 0);
-  const type = eventType === 'lead' ? 'lead' : 'sale';
-
-  if (type === 'lead') {
-    if (!conversion.lead_status) {
-      conversion.lead_status = 'pending';
-      await conversion.save({ transaction });
-    }
+  if (!isAffiliatePayoutEvent(eventType)) {
     return conversion;
   }
 
-  // sale — skip if commission already credited via approved lead
-  if (conversion.lead_status === 'approved') {
-    conversion.lead_status = null;
+  // Already moderated — keep status (approved = already paid, rejected = denied)
+  if (conversion.lead_status === 'approved' || conversion.lead_status === 'rejected') {
     await conversion.save({ transaction });
     return conversion;
   }
 
-  conversion.lead_status = null;
+  conversion.lead_status = 'pending';
   await conversion.save({ transaction });
-
-  const amount = commissionFromOrder(value, percent);
-  if (amount > 0) {
-    await creditAffiliateBalance(user.id, amount, transaction);
-  }
   return conversion;
 }

@@ -45,7 +45,7 @@ const Conversion = sequelize.define('Conversion', {
   lead_status: {
     type: DataTypes.ENUM('pending', 'approved', 'rejected'),
     allowNull: true,
-    comment: 'Affiliate lead moderation: pending until admin approves/rejects'
+    comment: 'Affiliate payout moderation: pending until admin approves/rejects (leads & sales)'
   },
   created_at: {
     type: DataTypes.DATE,

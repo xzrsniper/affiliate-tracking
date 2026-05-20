@@ -578,8 +578,8 @@ export default function Dashboard() {
     (sum, link) => sum + (link.stats?.affiliate_earnings ?? 0),
     0
   );
-  const totalPendingLeads = sourceFilteredLinks.reduce(
-    (sum, link) => sum + (link.stats?.pending_leads ?? 0),
+  const totalPendingPayouts = sourceFilteredLinks.reduce(
+    (sum, link) => sum + (link.stats?.pending_payouts ?? link.stats?.pending_leads ?? 0),
     0
   );
   /** Афілейт: заробіток (%); звичайний user: оплати (sale) */
@@ -788,10 +788,10 @@ export default function Dashboard() {
           value={`${revenueCardValue.toLocaleString()} ₴`}
           description={
             isAffiliate
-              ? (totalPendingLeads > 0
-                ? `Очікує підтвердження лідів: ${totalPendingLeads}`
+              ? (totalPendingPayouts > 0
+                ? `Очікує підтвердження: ${totalPendingPayouts} (ліди та покупки)`
                 : affiliateCommissionPercent != null
-                  ? `Комісія ${affiliateCommissionPercent}% від продажів і підтверджених лідів`
+                  ? `Комісія ${affiliateCommissionPercent}% — зараховується після підтвердження адміном`
                   : undefined)
               : salesRevenue > 0 && totalLeadRevenue > 0
                 ? t('dashboard.revenueStatFootnoteBoth', {

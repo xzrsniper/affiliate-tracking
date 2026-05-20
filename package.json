@@ -35,6 +35,7 @@
     "db:lookup-user": "node scripts/lookup-user-email.js",
     "db:audit-conversions": "node scripts/audit-user-conversions.js",
     "db:add-affiliate": "node scripts/add-affiliate-system.js",
+    "db:backfill-affiliate-sales": "node scripts/backfill-affiliate-sale-moderation.js",
     "create-admin": "node scripts/create-admin.js",
     "check-admin": "node scripts/check-admin.js",
     "diagnose-admin": "node scripts/diagnose-admin.js"
