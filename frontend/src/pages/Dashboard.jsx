@@ -276,17 +276,17 @@ export default function Dashboard() {
     });
     setEditSplitData(null);
     setError('');
+    setEditSplitLoading(true);
 
-    if (link.split_enabled) {
-      setEditSplitLoading(true);
-      try {
-        const res = await api.get(`/api/links/${link.id}/split-stats`);
-        setEditSplitData(res.data);
-      } catch (err) {
+    try {
+      const res = await api.get(`/api/links/${link.id}/split-stats`);
+      setEditSplitData(res.data);
+    } catch (err) {
+      if (err.response?.status !== 400) {
         setError(err.response?.data?.error || 'Не вдалося завантажити A/B варіанти');
-      } finally {
-        setEditSplitLoading(false);
       }
+    } finally {
+      setEditSplitLoading(false);
     }
   };
 
@@ -1875,7 +1875,7 @@ export default function Dashboard() {
       {/* Edit Link Modal */}
       {editingLinkId && (() => {
         const editingLink = links.find((l) => l.id === editingLinkId);
-        const isSplitEdit = Boolean(editingLink?.split_enabled || editSplitData?.split_enabled);
+        const isSplitEdit = Boolean(editSplitData?.split_enabled);
         const isUk = i18n.language === 'uk';
         return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleCancelEdit}>
@@ -1930,13 +1930,15 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {isSplitEdit ? (
+              {editSplitLoading ? (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-8 text-center text-sm text-slate-500">
+                  Завантаження даних посилання…
+                </div>
+              ) : isSplitEdit ? (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                   <div className="bg-slate-50 dark:bg-slate-800/80 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Варіанти A/B та статистика</p>
-                    {editSplitLoading ? (
-                      <p className="text-xs text-slate-500 mt-1">Завантаження…</p>
-                    ) : editSplitData ? (
+                    {editSplitData ? (
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {editSplitData.split_phase === 'completed' ? (
                           <>Переможець: <strong className="text-violet-600">{editSplitData.winner?.label || '—'}</strong> — усі нові кліки йдуть на цей URL</>
@@ -1946,9 +1948,7 @@ export default function Dashboard() {
                       </p>
                     ) : null}
                   </div>
-                  {editSplitLoading ? (
-                    <p className="p-6 text-center text-sm text-slate-500">Завантаження варіантів…</p>
-                  ) : (editSplitData?.variants?.length > 0) ? (
+                  { (editSplitData?.variants?.length > 0) ? (
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
                       {editSplitData.variants.map((v) => {
                         const isWinner = editSplitData.split_winner_variant_id === v.id;
