@@ -518,8 +518,10 @@ router.get('/my-links', async (req, res, next) => {
 
       const trackingUrl = buildTrackingUrlForLink(link, req);
 
+      // Commission is credited from raw order_value in track.js — use raw revenue here too,
+      // not sales_revenue after revenue_adjustment (admin correction is for reporting only).
       const affiliateEarningsSales = isAffiliate && affiliatePercent != null
-        ? commissionFromOrder(salesRevenue, affiliatePercent)
+        ? commissionFromOrder(rawSalesRevenue, affiliatePercent)
         : 0;
       const affiliateEarningsLeads = isAffiliate && affiliatePercent != null
         ? commissionFromOrder(rawApprovedLeadRevenue, affiliatePercent)
