@@ -116,6 +116,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Legacy SEO routes: avoid soft-404 and blocked old path.
+app.get('/home-new', (req, res) => {
+  res.redirect(301, '/');
+});
+
+app.get('/yunit-ekonomika-rozrahunok-prybutku-marketing', (req, res) => {
+  res.status(410).type('text/plain; charset=utf-8').send('Gone');
+});
+
 // Dynamic sitemap.xml with static pages, CMS pages, and blog posts.
 app.get('/sitemap.xml', async (req, res, next) => {
   try {
