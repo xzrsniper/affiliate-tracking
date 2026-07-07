@@ -77,6 +77,7 @@ export default function Dashboard() {
   const [purchaseModalItems, setPurchaseModalItems] = useState([]);
   const [purchaseModalLoading, setPurchaseModalLoading] = useState(false);
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
+  const [showCompareModal, setShowCompareModal] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -566,7 +567,14 @@ export default function Dashboard() {
   const allVisibleSelected = filteredLinks.length > 0 && visibleSelectedIds.length === filteredLinks.length;
 
   const toggleLinkSelection = (id) => {
-    setSelectedLinkIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]);
+    setSelectedLinkIds((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id);
+      if (prev.length >= 6) {
+        setError(i18n.language === 'uk' ? 'Для порівняння можна вибрати максимум 6 посилань' : 'You can compare up to 6 links');
+        return prev;
+      }
+      return [...prev, id];
+    });
   };
 
   const toggleSelectAllVisible = () => {
@@ -576,13 +584,21 @@ export default function Dashboard() {
       return;
     }
 
-    setSelectedLinkIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    setSelectedLinkIds((prev) => {
+      const next = Array.from(new Set([...prev, ...visibleIds]));
+      if (next.length > 6) {
+        setError(i18n.language === 'uk' ? 'Для порівняння можна вибрати максимум 6 посилань' : 'You can compare up to 6 links');
+      }
+      return next.slice(0, 6);
+    });
   };
 
   const openDeleteConfirmation = (ids) => {
     if (!ids.length) return;
     setPendingDeleteIds(ids);
   };
+
+  const selectedLinksForCompare = links.filter((l) => selectedLinkIds.includes(l.id));
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -1403,6 +1419,16 @@ export default function Dashboard() {
                     )}
                     {selectedLinkIds.length > 0 && (
                       <button
+                        onClick={() => setShowCompareModal(true)}
+                        disabled={selectedLinkIds.length < 2}
+                        className="px-4 py-2 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors flex items-center gap-2"
+                      >
+                        <span>{i18n.language === 'uk' ? 'Порівняти' : 'Compare'}</span>
+                        <span className="text-indigo-500">({selectedLinkIds.length})</span>
+                      </button>
+                    )}
+                    {selectedLinkIds.length > 0 && (
+                      <button
                         onClick={() => openDeleteConfirmation(selectedLinkIds)}
                         className="px-4 py-2 rounded-lg border border-red-300 bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors flex items-center gap-2"
                       >
@@ -1716,6 +1742,64 @@ export default function Dashboard() {
                   </div>
                 </div>
           </>
+        </div>
+      )}
+
+      {showCompareModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCompareModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">{i18n.language === 'uk' ? 'Порівняння посилань' : 'Links comparison'}</h3>
+                <p className="text-xs text-slate-500 mt-1">{i18n.language === 'uk' ? 'До 6 посилань: кліки, конверсії, дохід та конверсія' : 'Up to 6 links: clicks, conversions, revenue, conversion rate'}</p>
+              </div>
+              <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              {selectedLinksForCompare.length < 2 ? (
+                <p className="text-sm text-slate-500">{i18n.language === 'uk' ? 'Виберіть мінімум 2 посилання для порівняння.' : 'Select at least 2 links to compare.'}</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600">
+                        <th className="text-left px-3 py-2">{i18n.language === 'uk' ? 'Посилання' : 'Link'}</th>
+                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Кліки' : 'Clicks'}</th>
+                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Унікальні' : 'Unique'}</th>
+                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Конверсії' : 'Conversions'}</th>
+                        <th className="text-right px-3 py-2">CR</th>
+                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Дохід (продажі)' : 'Revenue (sales)'}</th>
+                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Сер. чек' : 'Avg check'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedLinksForCompare.map((link) => {
+                        const clicks = Number(link.stats?.total_clicks || 0);
+                        const conversions = Number(link.stats?.conversions || 0);
+                        const cr = clicks > 0 ? (conversions / clicks) * 100 : 0;
+                        return (
+                          <tr key={link.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2">
+                              <p className="font-semibold text-slate-900">{link.name || link.unique_code}</p>
+                              <p className="text-xs text-slate-500 break-all">{link.tracking_url}</p>
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold">{clicks.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                            <td className="px-3 py-2 text-right">{Number(link.stats?.unique_clicks || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                            <td className="px-3 py-2 text-right">{conversions.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                            <td className="px-3 py-2 text-right">{cr.toFixed(2)}%</td>
+                            <td className="px-3 py-2 text-right font-semibold">{Number(link.stats?.sales_revenue || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</td>
+                            <td className="px-3 py-2 text-right">{Number(link.stats?.average_check || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
