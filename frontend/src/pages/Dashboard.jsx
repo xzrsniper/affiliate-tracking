@@ -50,6 +50,7 @@ const EMPTY_NEW_LINK = {
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const isUk = i18n.language === 'uk';
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
