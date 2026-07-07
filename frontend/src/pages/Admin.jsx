@@ -17,8 +17,10 @@ import {
   Plus,
   Trash2,
   Upload,
-  Loader2
+  Loader2,
+  Handshake
 } from 'lucide-react';
+import AffiliatesTab from '../components/admin/AffiliatesTab.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -805,6 +807,13 @@ export default function Admin() {
           >
             <FileText className="w-4 h-4 inline mr-1.5" /> {t('admin.siteContentTab')}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('affiliates')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'affiliates' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <Handshake className="w-4 h-4 inline mr-1.5" /> Афілейти
+          </button>
         </div>
 
         {activeTab === 'blog' && (
@@ -1051,7 +1060,7 @@ export default function Admin() {
           </select>
         </div>
 
-        <div className="mb-6 bg-white rounded-xl border border-slate-200 p-5">
+        <div className="hidden mb-6 bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="text-lg font-bold text-slate-900 mb-1">Модерація покупок (афілейти)</h3>
           <p className="text-sm text-slate-500 mb-4">Підтвердіть або відхиліть ліди та продажі — комісія зараховується на баланс лише після підтвердження.</p>
           <div className="flex flex-wrap items-end gap-3 mb-4">
@@ -1159,6 +1168,8 @@ export default function Admin() {
           </div>
         )}
 
+        {activeTab === 'affiliates' && <AffiliatesTab />}
+
         {loading ? (
           <div className="bg-white/90 backdrop-blur rounded-2xl border border-violet-100 p-10 text-center text-slate-500 text-sm">
             {t('admin.loadingUsers')}
@@ -1178,8 +1189,8 @@ export default function Admin() {
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.status')}</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.links')}</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.limit')}</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Афілейт %</th>
-                    <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Баланс</th>
+                    <th className="hidden text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Афілейт %</th>
+                    <th className="hidden text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">Баланс</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.joined')}</th>
                     <th className="text-left px-4 py-3 font-semibold uppercase text-xs tracking-wider">{t('admin.actions')}</th>
                   </tr>
@@ -1198,7 +1209,7 @@ export default function Admin() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="hidden px-4 py-4">
                         {user.role === 'super_admin' ? (
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-700 border border-violet-200">{t('layout.superAdmin')}</span>
                         ) : user.role === 'affiliate' ? (
@@ -1207,7 +1218,7 @@ export default function Admin() {
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">User</span>
                         )}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="hidden px-4 py-4">
                         {getUserStatus(user) === 'banned' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">{t('admin.banned')}</span>}
                         {getUserStatus(user) === 'unverified' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200">{t('admin.unverified')}</span>}
                         {getUserStatus(user) === 'active' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">{t('admin.active')}</span>}
@@ -1487,7 +1498,7 @@ export default function Admin() {
                 className="mb-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
 
-              {editingUser.role !== 'super_admin' && (
+              {false && editingUser.role !== 'super_admin' && (
                 <div className="mb-4 space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                   <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <input
@@ -1523,7 +1534,7 @@ export default function Admin() {
                 </div>
               )}
 
-              {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
+              {false && (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
                 <div className="mb-4">
                   <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Баланс</label>
                   <input
@@ -1550,12 +1561,6 @@ export default function Admin() {
                   disabled={updating}
                   onClick={async () => {
                     await handleUpdateLinkLimit(editingUser.id);
-                    if (editingUser.role !== 'super_admin') {
-                      await handleSaveAffiliateRole(editingUser.id);
-                      if (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') {
-                        await handleSaveAffiliateBalance(editingUser.id);
-                      }
-                    }
                     setEditingUser(null);
                   }}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"

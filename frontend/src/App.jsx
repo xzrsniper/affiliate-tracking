@@ -10,7 +10,6 @@ const Home = lazy(() => import('./pages/Home.jsx'));
 const Login = lazy(() => import('./pages/Login.jsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
 const Admin = lazy(() => import('./pages/Admin.jsx'));
-const Affiliates = lazy(() => import('./pages/Affiliates.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
 const Success = lazy(() => import('./pages/Success.jsx'));
 const Setup = lazy(() => import('./pages/Setup.jsx'));
@@ -145,14 +144,6 @@ function AppRoutes() {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <Admin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/affiliates"
-            element={
-              <ProtectedRoute requireAdmin={true}>
-                <Affiliates />
               </ProtectedRoute>
             }
           />
