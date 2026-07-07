@@ -5,7 +5,8 @@ import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, Cell,
 } from 'recharts';
 import {
   MousePointerClick,
@@ -1784,47 +1785,131 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-6 space-y-6">
               {selectedLinksForCompare.length < 2 ? (
                 <p className="text-sm text-slate-500">{i18n.language === 'uk' ? 'Виберіть мінімум 2 посилання для порівняння.' : 'Select at least 2 links to compare.'}</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-600">
-                        <th className="text-left px-3 py-2">{i18n.language === 'uk' ? 'Посилання' : 'Link'}</th>
-                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Кліки' : 'Clicks'}</th>
-                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Унікальні' : 'Unique'}</th>
-                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Конверсії' : 'Conversions'}</th>
-                        <th className="text-right px-3 py-2">CR</th>
-                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Дохід (продажі)' : 'Revenue (sales)'}</th>
-                        <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Сер. чек' : 'Avg check'}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedLinksForCompare.map((link) => {
-                        const clicks = Number(link.stats?.total_clicks || 0);
-                        const conversions = Number(link.stats?.conversions || 0);
-                        const cr = clicks > 0 ? (conversions / clicks) * 100 : 0;
-                        return (
-                          <tr key={link.id} className="border-t border-slate-100">
-                            <td className="px-3 py-2">
-                              <p className="font-semibold text-slate-900">{link.name || link.unique_code}</p>
-                              <p className="text-xs text-slate-500 break-all">{link.tracking_url}</p>
-                            </td>
-                            <td className="px-3 py-2 text-right font-semibold">{clicks.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
-                            <td className="px-3 py-2 text-right">{Number(link.stats?.unique_clicks || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
-                            <td className="px-3 py-2 text-right">{conversions.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
-                            <td className="px-3 py-2 text-right">{cr.toFixed(2)}%</td>
-                            <td className="px-3 py-2 text-right font-semibold">{Number(link.stats?.sales_revenue || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</td>
-                            <td className="px-3 py-2 text-right">{Number(link.stats?.average_check || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</td>
+              ) : (() => {
+                const COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2'];
+                const compareItems = selectedLinksForCompare.map((link, idx) => {
+                  const clicks = Number(link.stats?.total_clicks || 0);
+                  const conversions = Number(link.stats?.conversions || 0);
+                  const cr = clicks > 0 ? parseFloat(((conversions / clicks) * 100).toFixed(2)) : 0;
+                  const revenue = Number(link.stats?.sales_revenue || 0);
+                  const label = (link.name || link.unique_code || '').slice(0, 18);
+                  return { link, clicks, conversions, cr, revenue, label, color: COLORS[idx % COLORS.length] };
+                });
+                const maxClicks = Math.max(...compareItems.map(d => d.clicks), 1);
+                const maxRevenue = Math.max(...compareItems.map(d => d.revenue), 1);
+                const maxCr = Math.max(...compareItems.map(d => d.cr), 1);
+
+                const barClicksData = compareItems.map(d => ({ name: d.label, value: d.clicks, color: d.color }));
+                const barConvData = compareItems.map(d => ({ name: d.label, value: d.conversions, color: d.color }));
+                const barRevenueData = compareItems.map(d => ({ name: d.label, value: d.revenue, color: d.color }));
+
+                return (
+                  <>
+                    {/* Summary stat cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {compareItems.map((d) => (
+                        <div key={d.link.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="inline-block w-3 h-3 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                            <span className="text-xs font-semibold text-slate-700 truncate">{d.label}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>{isUk ? 'Кліки' : 'Clicks'}</span>
+                            <span className="font-bold text-slate-800">{d.clicks.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5 mb-2">
+                            <div className="h-1.5 rounded-full" style={{ width: `${(d.clicks / maxClicks) * 100}%`, background: d.color }} />
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500 mb-1">
+                            <span>CR</span>
+                            <span className="font-bold text-slate-800">{d.cr}%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5 mb-2">
+                            <div className="h-1.5 rounded-full" style={{ width: `${(d.cr / maxCr) * 100}%`, background: d.color }} />
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500">
+                            <span>{isUk ? 'Дохід' : 'Revenue'}</span>
+                            <span className="font-bold text-slate-800">{d.revenue.toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1">
+                            <div className="h-1.5 rounded-full" style={{ width: `${(d.revenue / maxRevenue) * 100}%`, background: d.color }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Bar charts */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {[
+                        { title: isUk ? 'Кліки' : 'Clicks', data: barClicksData },
+                        { title: isUk ? 'Конверсії' : 'Conversions', data: barConvData },
+                        { title: isUk ? 'Дохід' : 'Revenue', data: barRevenueData },
+                      ].map(({ title, data }) => (
+                        <div key={title} className="rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{title}</p>
+                          <ResponsiveContainer width="100%" height={140}>
+                            <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} />
+                              <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
+                              <Tooltip
+                                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                                formatter={(v) => v.toLocaleString(isUk ? 'uk-UA' : 'en-US')}
+                              />
+                              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                {data.map((entry, i) => (
+                                  <Cell key={i} fill={entry.color} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Detailed table */}
+                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600">
+                            <th className="text-left px-3 py-2">{i18n.language === 'uk' ? 'Посилання' : 'Link'}</th>
+                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Кліки' : 'Clicks'}</th>
+                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Унікальні' : 'Unique'}</th>
+                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Конверсії' : 'Conversions'}</th>
+                            <th className="text-right px-3 py-2">CR</th>
+                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Дохід (продажі)' : 'Revenue (sales)'}</th>
+                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Сер. чек' : 'Avg check'}</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                        </thead>
+                        <tbody>
+                          {compareItems.map(({ link, clicks, conversions, cr, color }) => (
+                            <tr key={link.id} className="border-t border-slate-100">
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                                  <div>
+                                    <p className="font-semibold text-slate-900">{link.name || link.unique_code}</p>
+                                    <p className="text-xs text-slate-500 break-all">{link.tracking_url}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-right font-semibold">{clicks.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                              <td className="px-3 py-2 text-right">{Number(link.stats?.unique_clicks || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                              <td className="px-3 py-2 text-right">{conversions.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                              <td className="px-3 py-2 text-right">{cr.toFixed(2)}%</td>
+                              <td className="px-3 py-2 text-right font-semibold">{Number(link.stats?.sales_revenue || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</td>
+                              <td className="px-3 py-2 text-right">{Number(link.stats?.average_check || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
