@@ -27,6 +27,19 @@ function csvEscape(value) {
 router.use(authenticate);
 router.use(requireSuperAdmin);
 
+function buildRangeFromQuery(rangeRaw) {
+  const v = String(rangeRaw || 'all').toLowerCase();
+  if (v === 'all') return { label: 'all', fromDate: null };
+  const days = parseInt(v, 10);
+  if (!Number.isFinite(days) || ![1, 3, 7, 14, 30].includes(days)) {
+    return { label: 'all', fromDate: null };
+  }
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+  from.setDate(from.getDate() - (days - 1));
+  return { label: String(days), fromDate: from };
+}
+
 /**
  * GET /api/admin/users
  * List all users
@@ -567,6 +580,239 @@ router.patch('/users/:id/balance', async (req, res, next) => {
       success: true,
       affiliate_balance: user.affiliate_balance
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/affiliates/overview
+ * Affiliate list + stats by period (1,3,7,14,30 days or all).
+ * Query: range=1|3|7|14|30|all
+ */
+router.get('/affiliates/overview', async (req, res, next) => {
+  try {
+    const { label: range, fromDate } = buildRangeFromQuery(req.query.range);
+
+    const affiliates = await User.findAll({
+      where: { role: 'affiliate' },
+      attributes: ['id', 'email', 'affiliate_commission_percent', 'affiliate_balance', 'created_at'],
+      order: [['created_at', 'DESC']],
+      raw: true
+    });
+
+    if (!affiliates.length) {
+      return res.json({
+        success: true,
+        range,
+        summary: {
+          affiliates: 0,
+          links: 0,
+          clicks: 0,
+          unique_clicks: 0,
+          conversions: 0,
+          pending_conversions: 0,
+          approved_revenue: 0,
+          affiliate_earnings: 0,
+          balance_total: 0
+        },
+        affiliates: []
+      });
+    }
+
+    const affiliateIds = affiliates.map((a) => Number(a.id));
+    const links = await Link.findAll({
+      where: { user_id: { [Op.in]: affiliateIds } },
+      attributes: ['id', 'user_id'],
+      raw: true
+    });
+    const linkIds = links.map((l) => Number(l.id));
+    const linkOwnerById = new Map(links.map((l) => [Number(l.id), Number(l.user_id)]));
+
+    const clickWhere = linkIds.length
+      ? {
+          link_id: { [Op.in]: linkIds },
+          ...(fromDate ? { created_at: { [Op.gte]: fromDate } } : {})
+        }
+      : null;
+    const convWhere = linkIds.length
+      ? {
+          link_id: { [Op.in]: linkIds },
+          event_type: { [Op.in]: ['lead', 'sale'] },
+          ...(fromDate ? { created_at: { [Op.gte]: fromDate } } : {})
+        }
+      : null;
+
+    const [clickRows, convRows] = await Promise.all([
+      clickWhere
+        ? Click.findAll({
+            where: clickWhere,
+            attributes: [
+              'link_id',
+              [fn('COUNT', col('id')), 'clicks'],
+              [fn('COUNT', fn('DISTINCT', col('visitor_fingerprint'))), 'unique_clicks']
+            ],
+            group: ['link_id'],
+            raw: true
+          })
+        : [],
+      convWhere
+        ? Conversion.findAll({
+            where: convWhere,
+            attributes: ['link_id', 'lead_status', 'order_value'],
+            raw: true
+          })
+        : []
+    ]);
+
+    const byAffiliate = new Map(
+      affiliates.map((a) => [
+        Number(a.id),
+        {
+          user_id: Number(a.id),
+          email: a.email,
+          commission_percent: parseCommissionPercent(a.affiliate_commission_percent) || 0,
+          affiliate_balance: Number(a.affiliate_balance || 0),
+          links: 0,
+          clicks: 0,
+          unique_clicks: 0,
+          conversions: 0,
+          pending_conversions: 0,
+          approved_revenue: 0,
+          affiliate_earnings: 0
+        }
+      ])
+    );
+
+    links.forEach((l) => {
+      const agg = byAffiliate.get(Number(l.user_id));
+      if (agg) agg.links += 1;
+    });
+
+    clickRows.forEach((r) => {
+      const ownerId = linkOwnerById.get(Number(r.link_id));
+      const agg = byAffiliate.get(ownerId);
+      if (!agg) return;
+      agg.clicks += parseInt(r.clicks || 0, 10);
+      agg.unique_clicks += parseInt(r.unique_clicks || 0, 10);
+    });
+
+    convRows.forEach((c) => {
+      const ownerId = linkOwnerById.get(Number(c.link_id));
+      const agg = byAffiliate.get(ownerId);
+      if (!agg) return;
+      agg.conversions += 1;
+      if (c.lead_status === 'pending') agg.pending_conversions += 1;
+      if (c.lead_status === 'approved') {
+        const orderValue = parseFloat(c.order_value || 0);
+        agg.approved_revenue += orderValue;
+        agg.affiliate_earnings += commissionFromOrder(orderValue, agg.commission_percent);
+      }
+    });
+
+    const items = Array.from(byAffiliate.values()).map((a) => ({
+      ...a,
+      approved_revenue: parseFloat(a.approved_revenue.toFixed(2)),
+      affiliate_earnings: parseFloat(a.affiliate_earnings.toFixed(2))
+    }));
+
+    const summary = items.reduce(
+      (acc, item) => {
+        acc.affiliates += 1;
+        acc.links += item.links;
+        acc.clicks += item.clicks;
+        acc.unique_clicks += item.unique_clicks;
+        acc.conversions += item.conversions;
+        acc.pending_conversions += item.pending_conversions;
+        acc.approved_revenue += item.approved_revenue;
+        acc.affiliate_earnings += item.affiliate_earnings;
+        acc.balance_total += Number(item.affiliate_balance || 0);
+        return acc;
+      },
+      {
+        affiliates: 0,
+        links: 0,
+        clicks: 0,
+        unique_clicks: 0,
+        conversions: 0,
+        pending_conversions: 0,
+        approved_revenue: 0,
+        affiliate_earnings: 0,
+        balance_total: 0
+      }
+    );
+
+    summary.approved_revenue = parseFloat(summary.approved_revenue.toFixed(2));
+    summary.affiliate_earnings = parseFloat(summary.affiliate_earnings.toFixed(2));
+    summary.balance_total = parseFloat(summary.balance_total.toFixed(2));
+
+    res.json({ success: true, range, summary, affiliates: items });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/affiliates/moderation
+ * Cross-affiliate moderation queue.
+ * Query: status=pending|approved|rejected
+ */
+router.get('/affiliates/moderation', async (req, res, next) => {
+  try {
+    const status = req.query.status || 'pending';
+    const allowed = ['pending', 'approved', 'rejected'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const affiliates = await User.findAll({
+      where: { role: 'affiliate' },
+      attributes: ['id', 'email', 'affiliate_commission_percent'],
+      raw: true
+    });
+    const affiliateById = new Map(affiliates.map((a) => [Number(a.id), a]));
+    const linkRows = await Link.findAll({
+      where: { user_id: { [Op.in]: affiliates.map((a) => a.id) } },
+      attributes: ['id', 'user_id', 'name', 'unique_code', 'original_url'],
+      raw: true
+    });
+    const linkById = new Map(linkRows.map((l) => [Number(l.id), l]));
+    if (!linkRows.length) return res.json({ success: true, items: [] });
+
+    const convRows = await Conversion.findAll({
+      where: {
+        link_id: { [Op.in]: linkRows.map((l) => l.id) },
+        event_type: { [Op.in]: ['lead', 'sale'] },
+        lead_status: status
+      },
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit: 1000,
+      raw: true
+    });
+
+    const items = convRows.map((row) => {
+      const link = linkById.get(Number(row.link_id));
+      const affiliate = affiliateById.get(Number(link?.user_id));
+      const percent = parseCommissionPercent(affiliate?.affiliate_commission_percent) || 0;
+      return {
+        id: row.id,
+        link_id: row.link_id,
+        link_name: link?.name || null,
+        link_code: link?.unique_code || null,
+        link_url: link?.original_url || null,
+        affiliate_id: link?.user_id || null,
+        affiliate_email: affiliate?.email || null,
+        event_type: row.event_type,
+        order_value: parseFloat(row.order_value || 0),
+        order_id: row.order_id,
+        lead_status: row.lead_status,
+        created_at: row.created_at,
+        commission_amount: commissionFromOrder(row.order_value, percent)
+      };
+    });
+
+    res.json({ success: true, items });
   } catch (error) {
     next(error);
   }

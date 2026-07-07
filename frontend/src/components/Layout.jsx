@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import {
   LayoutDashboard,
   Users,
+  Handshake,
   LogOut,
   Settings,
   Code,
@@ -37,6 +38,7 @@ export default function Layout({ children }) {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('layout.dashboard') },
     ...(canAccessAdmin ? [{ path: '/admin', icon: Users, label: t('layout.admin') }] : []),
+    ...(canAccessAdmin ? [{ path: '/affiliates', icon: Handshake, label: t('layout.affiliates') }] : []),
     { path: '/setup', icon: Code, label: t('layout.setup') },
     { path: '/utm-builder', icon: Tags, label: t('layout.utmBuilder') },
     { path: '/link-shortener', icon: Scissors, label: t('layout.linkShortener') },
