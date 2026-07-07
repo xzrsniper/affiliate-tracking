@@ -1417,16 +1417,15 @@ export default function Dashboard() {
                         )}
                       </button>
                     )}
-                    {selectedLinkIds.length > 0 && (
-                      <button
-                        onClick={() => setShowCompareModal(true)}
-                        disabled={selectedLinkIds.length < 2}
-                        className="px-4 py-2 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors flex items-center gap-2"
-                      >
-                        <span>{i18n.language === 'uk' ? 'Порівняти' : 'Compare'}</span>
-                        <span className="text-indigo-500">({selectedLinkIds.length})</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowCompareModal(true)}
+                      disabled={selectedLinkIds.length < 2}
+                      title={selectedLinkIds.length < 2 ? (i18n.language === 'uk' ? 'Виберіть мінімум 2 посилання' : 'Select at least 2 links') : ''}
+                      className="px-4 py-2 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                      <span>{i18n.language === 'uk' ? 'Порівняти' : 'Compare'}</span>
+                      <span className="text-indigo-500">({selectedLinkIds.length})</span>
+                    </button>
                     {selectedLinkIds.length > 0 && (
                       <button
                         onClick={() => openDeleteConfirmation(selectedLinkIds)}
