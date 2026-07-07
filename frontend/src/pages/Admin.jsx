@@ -1209,7 +1209,7 @@ export default function Admin() {
                           </div>
                         </div>
                       </td>
-                      <td className="hidden px-4 py-4">
+                      <td className="px-4 py-4">
                         {user.role === 'super_admin' ? (
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-700 border border-violet-200">{t('layout.superAdmin')}</span>
                         ) : user.role === 'affiliate' ? (
@@ -1218,13 +1218,13 @@ export default function Admin() {
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">User</span>
                         )}
                       </td>
-                      <td className="hidden px-4 py-4">
+                      <td className="px-4 py-4">
                         {getUserStatus(user) === 'banned' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">{t('admin.banned')}</span>}
                         {getUserStatus(user) === 'unverified' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200">{t('admin.unverified')}</span>}
                         {getUserStatus(user) === 'active' && <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">{t('admin.active')}</span>}
                       </td>
                       <td className="px-4 py-4 font-semibold text-slate-800">{user.link_count || 0}</td>
-                      <td className="px-4 py-4">
+                      <td className="hidden px-4 py-4">
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
@@ -1242,7 +1242,7 @@ export default function Admin() {
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="hidden px-4 py-4">
                         {user.role === 'super_admin' ? (
                           <span className="text-slate-400 text-xs">—</span>
                         ) : (
@@ -1356,6 +1356,8 @@ export default function Admin() {
         )}
           </>
         )}
+
+        {activeTab === 'affiliates' && <AffiliatesTab />}
 
         {viewingUser &&
           createPortal(
