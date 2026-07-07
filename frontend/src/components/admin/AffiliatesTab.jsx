@@ -19,9 +19,11 @@ export default function AffiliatesTab() {
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [modStatus, setModStatus] = useState('pending');
   const [moderationItems, setModerationItems] = useState([]);
+  const [historyItems, setHistoryItems] = useState([]);
   const [modLoading, setModLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [affiliateSearch, setAffiliateSearch] = useState('');
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
 
@@ -48,10 +50,10 @@ export default function AffiliatesTab() {
     }
   };
 
-  const fetchModeration = async (status = modStatus) => {
+  const fetchModeration = async () => {
     setModLoading(true);
     try {
-      const res = await api.get('/api/admin/affiliates/moderation', { params: { status } });
+      const res = await api.get('/api/admin/affiliates/moderation', { params: { status: 'pending' } });
       setModerationItems(res.data?.items || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load moderation queue');
@@ -61,13 +63,32 @@ export default function AffiliatesTab() {
     }
   };
 
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const [approved, rejected] = await Promise.all([
+        api.get('/api/admin/affiliates/moderation', { params: { status: 'approved' } }),
+        api.get('/api/admin/affiliates/moderation', { params: { status: 'rejected' } })
+      ]);
+      const merged = [...(approved.data?.items || []), ...(rejected.data?.items || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setHistoryItems(merged);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load moderation history');
+      setHistoryItems([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchOverview();
   }, [range]);
 
   useEffect(() => {
     fetchModeration();
-  }, [modStatus]);
+    fetchHistory();
+  }, []);
 
   const saveAffiliateSettings = async (affiliateId) => {
     const edit = edits[affiliateId];
@@ -96,7 +117,7 @@ export default function AffiliatesTab() {
     setUpdating(true);
     try {
       await api.post(`/api/admin/conversions/${id}/${action === 'approve' ? 'approve-lead' : 'reject-lead'}`);
-      await Promise.all([fetchModeration(modStatus), fetchOverview(range)]);
+      await Promise.all([fetchModeration(), fetchHistory(), fetchOverview(range)]);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update conversion status');
     } finally {
@@ -116,6 +137,16 @@ export default function AffiliatesTab() {
       { label: 'Баланс сумарно', value: money(s.balance_total) }
     ];
   }, [overview, i18n.language]);
+
+  const searchTerm = affiliateSearch.trim().toLowerCase();
+  const filteredPending = moderationItems.filter((item) => {
+    if (!searchTerm) return true;
+    return String(item.affiliate_email || '').toLowerCase().includes(searchTerm);
+  });
+  const filteredHistory = historyItems.filter((item) => {
+    if (!searchTerm) return true;
+    return String(item.affiliate_email || '').toLowerCase().includes(searchTerm);
+  });
 
   return (
     <div className="space-y-6">
@@ -201,12 +232,16 @@ export default function AffiliatesTab() {
 
       <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="font-bold text-slate-900">Модерація покупок (афілейти)</h2>
-          <select value={modStatus} onChange={(e) => setModStatus(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm">
-            <option value="pending">Очікують</option>
-            <option value="approved">Підтверджені</option>
-            <option value="rejected">Відхилені</option>
-          </select>
+          <div>
+            <h2 className="font-bold text-slate-900">Модерація покупок (усі афілейти)</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Черга на підтвердження + історія рішень</p>
+          </div>
+          <input
+            value={affiliateSearch}
+            onChange={(e) => setAffiliateSearch(e.target.value)}
+            placeholder="Пошук по email афілейта..."
+            className="w-64 max-w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+          />
         </div>
         {modLoading ? (
           <p className="p-5 text-sm text-slate-500">Завантаження…</p>
@@ -224,7 +259,7 @@ export default function AffiliatesTab() {
               </tr>
             </thead>
             <tbody>
-              {moderationItems.map((item) => (
+              {filteredPending.map((item) => (
                 <tr key={item.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
                   <td className="px-3 py-2">{item.affiliate_email}</td>
@@ -233,20 +268,61 @@ export default function AffiliatesTab() {
                   <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
                   <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
                   <td className="px-3 py-2 text-right">
-                    {modStatus === 'pending' ? (
-                      <div className="inline-flex gap-2">
-                        <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white"><Check className="w-4 h-4" /></button>
-                        <button onClick={() => handleModeration(item.id, 'reject')} disabled={updating} className="p-1.5 rounded bg-red-600 text-white"><X className="w-4 h-4" /></button>
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
+                    <div className="inline-flex gap-2">
+                      <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => handleModeration(item.id, 'reject')} disabled={updating} className="p-1.5 rounded bg-red-600 text-white"><X className="w-4 h-4" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {!moderationItems.length && (
+              {!filteredPending.length && (
                 <tr>
                   <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>Немає записів</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
+        <div className="px-5 py-4 border-b border-slate-200">
+          <h2 className="font-bold text-slate-900">Історія підтверджень / відхилень</h2>
+        </div>
+        {historyLoading ? (
+          <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600">
+                <th className="text-left px-3 py-2">Дата</th>
+                <th className="text-left px-3 py-2">Афілейт</th>
+                <th className="text-left px-3 py-2">Тип</th>
+                <th className="text-left px-3 py-2">Лінк</th>
+                <th className="text-right px-3 py-2">Сума</th>
+                <th className="text-right px-3 py-2">Комісія</th>
+                <th className="text-left px-3 py-2">Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredHistory.map((item) => (
+                <tr key={`${item.id}-${item.lead_status}`} className="border-t border-slate-100">
+                  <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                  <td className="px-3 py-2">{item.affiliate_email}</td>
+                  <td className="px-3 py-2">{item.event_type === 'sale' ? 'Покупка' : 'Лід'}</td>
+                  <td className="px-3 py-2">{item.link_name || item.link_code}</td>
+                  <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
+                  <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${item.lead_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {item.lead_status === 'approved' ? 'Підтверджено' : 'Відхилено'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {!filteredHistory.length && (
+                <tr>
+                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>Історія порожня</td>
                 </tr>
               )}
             </tbody>
