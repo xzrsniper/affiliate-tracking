@@ -86,25 +86,20 @@ jobs:
     name: Deploy to VPS
     needs: [build-frontend, lint-backend]
     runs-on: ubuntu-latest
+    # On push: deploy only when VPS_HOST secret is configured.
+    # On workflow_dispatch: always deploy (credentials come from inputs).
     if: |
-      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'workflow_dispatch' ||
+      (github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.VPS_HOST != '')
 
     steps:
-      - name: Resolve SSH credentials
-        id: creds
-        run: |
-          echo "host=${{ github.event.inputs.vps_host || secrets.VPS_HOST }}" >> $GITHUB_OUTPUT
-          echo "user=${{ github.event.inputs.vps_user || secrets.VPS_USER }}" >> $GITHUB_OUTPUT
-          echo "port=${{ github.event.inputs.vps_port || secrets.VPS_PORT || '22' }}" >> $GITHUB_OUTPUT
-
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ steps.creds.outputs.host }}
-          username: ${{ steps.creds.outputs.user }}
+          host:     ${{ github.event.inputs.vps_host     || secrets.VPS_HOST }}
+          username: ${{ github.event.inputs.vps_user     || secrets.VPS_USER || 'root' }}
           password: ${{ github.event.inputs.vps_password || secrets.VPS_PASSWORD }}
-          port: ${{ steps.creds.outputs.port }}
+          port:     ${{ github.event.inputs.vps_port     || secrets.VPS_PORT  || '22' }}
           script_stop: true
           script: |
             set -e
