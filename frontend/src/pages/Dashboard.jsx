@@ -169,7 +169,10 @@ export default function Dashboard() {
       }
       const params = snapshot ? { snapshot } : (range && range !== 'custom' ? { range } : {});
       const response = await api.get('/api/links/my-links', { params });
-      setLinks(response.data.links || []);
+      const nextLinks = response.data.links || [];
+      setLinks(nextLinks);
+      const trackerRevenueTotal = nextLinks.reduce((sum, link) => sum + Number(link?.stats?.total_revenue || 0), 0);
+      console.log('[Tracker] Total revenue shown on dashboard:', trackerRevenueTotal.toFixed(2));
       setAffiliateSummary(response.data.summary?.affiliate || null);
       setLastUpdated(new Date());
     } catch (err) {
