@@ -8,6 +8,8 @@ import {
   LogOut,
   Settings,
   Code,
+  Tags,
+  Scissors,
   Sun,
   Moon,
   Globe,
@@ -36,6 +38,8 @@ export default function Layout({ children }) {
     { path: '/dashboard', icon: LayoutDashboard, label: t('layout.dashboard') },
     ...(canAccessAdmin ? [{ path: '/admin', icon: Users, label: t('layout.admin') }] : []),
     { path: '/setup', icon: Code, label: t('layout.setup') },
+    { path: '/utm-builder', icon: Tags, label: t('layout.utmBuilder') },
+    { path: '/link-shortener', icon: Scissors, label: t('layout.linkShortener') },
     { path: '/settings', icon: Settings, label: t('layout.settings') }
   ];
 

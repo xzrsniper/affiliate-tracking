@@ -330,9 +330,35 @@
     "dashboard": "Головна",
     "admin": "Адмін",
     "setup": "Трекер",
+    "utmBuilder": "Utm-builder",
+    "linkShortener": "Скорочування посилань",
     "settings": "Налаштування",
     "superAdmin": "Super Admin",
     "user": "Користувач"
+  },
+  "utmBuilder": {
+    "title": "UTM Builder",
+    "subtitle": "Зберіть коректне посилання з UTM-мітками за 10 секунд.",
+    "baseUrl": "Базовий URL",
+    "result": "Готове посилання",
+    "emptyResult": "Заповніть URL та параметри UTM",
+    "copy": "Скопіювати",
+    "copied": "Скопійовано",
+    "tip": "Порада: додавайте source/medium/campaign мінімум для кожного запуску реклами."
+  },
+  "shortener": {
+    "title": "Скорочування посилань",
+    "subtitle": "Створіть коротке LehkoTrack посилання для клієнтів і реклами.",
+    "targetUrl": "Цільовий URL",
+    "linkName": "Назва посилання (опційно)",
+    "linkNamePlaceholder": "Наприклад: Telegram промо липень",
+    "generate": "Згенерувати коротке посилання",
+    "generating": "Генеруємо...",
+    "result": "Коротке посилання",
+    "emptyResult": "Поки що нічого не згенеровано",
+    "copy": "Скопіювати",
+    "copied": "Скопійовано",
+    "error": "Не вдалося створити коротке посилання"
   },
   "dashboard": {
     "hello": "Привіт",

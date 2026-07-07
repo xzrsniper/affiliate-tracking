@@ -13,6 +13,8 @@ const Admin = lazy(() => import('./pages/Admin.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
 const Success = lazy(() => import('./pages/Success.jsx'));
 const Setup = lazy(() => import('./pages/Setup.jsx'));
+const UtmBuilder = lazy(() => import('./pages/UtmBuilder.jsx'));
+const LinkShortener = lazy(() => import('./pages/LinkShortener.jsx'));
 const Guide = lazy(() => import('./pages/Guide.jsx'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail.jsx'));
 const ConfirmPasswordChange = lazy(() => import('./pages/ConfirmPasswordChange.jsx'));
@@ -158,6 +160,22 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <Setup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/utm-builder"
+            element={
+              <ProtectedRoute>
+                <UtmBuilder />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/link-shortener"
+            element={
+              <ProtectedRoute>
+                <LinkShortener />
               </ProtectedRoute>
             }
           />

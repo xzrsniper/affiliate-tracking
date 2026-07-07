@@ -330,9 +330,35 @@
     "dashboard": "Dashboard",
     "admin": "Admin",
     "setup": "Tracker",
+    "utmBuilder": "Utm-builder",
+    "linkShortener": "Link shortener",
     "settings": "Settings",
     "superAdmin": "Super Admin",
     "user": "User"
+  },
+  "utmBuilder": {
+    "title": "UTM Builder",
+    "subtitle": "Build a clean URL with UTM tags in seconds.",
+    "baseUrl": "Base URL",
+    "result": "Result URL",
+    "emptyResult": "Fill URL and UTM fields",
+    "copy": "Copy",
+    "copied": "Copied",
+    "tip": "Tip: always keep source/medium/campaign for each ad launch."
+  },
+  "shortener": {
+    "title": "Link Shortener",
+    "subtitle": "Generate a short LehkoTrack link for campaigns and clients.",
+    "targetUrl": "Target URL",
+    "linkName": "Link name (optional)",
+    "linkNamePlaceholder": "Example: Telegram promo July",
+    "generate": "Generate short link",
+    "generating": "Generating...",
+    "result": "Short URL",
+    "emptyResult": "Nothing generated yet",
+    "copy": "Copy",
+    "copied": "Copied",
+    "error": "Failed to generate short link"
   },
   "dashboard": {
     "hello": "Hello",
