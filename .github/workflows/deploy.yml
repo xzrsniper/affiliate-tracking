@@ -5,6 +5,24 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Manual trigger with optional credential override
+  workflow_dispatch:
+    inputs:
+      vps_host:
+        description: 'VPS IP / hostname'
+        required: false
+        default: '185.237.209.107'
+      vps_user:
+        description: 'SSH user'
+        required: false
+        default: 'root'
+      vps_password:
+        description: 'SSH password'
+        required: true
+      vps_port:
+        description: 'SSH port'
+        required: false
+        default: '22'
 
 jobs:
   # ── 1. Build frontend ────────────────────────────────────────────────────────
@@ -68,44 +86,164 @@ jobs:
     name: Deploy to VPS
     needs: [build-frontend, lint-backend]
     runs-on: ubuntu-latest
-    # Only deploy on push to main (not on PRs), and only when SSH secrets are set
     if: |
-      github.ref == 'refs/heads/main' &&
-      github.event_name == 'push'
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      github.event_name == 'workflow_dispatch'
 
     steps:
+      - name: Resolve SSH credentials
+        id: creds
+        run: |
+          echo "host=${{ github.event.inputs.vps_host || secrets.VPS_HOST }}" >> $GITHUB_OUTPUT
+          echo "user=${{ github.event.inputs.vps_user || secrets.VPS_USER }}" >> $GITHUB_OUTPUT
+          echo "port=${{ github.event.inputs.vps_port || secrets.VPS_PORT || '22' }}" >> $GITHUB_OUTPUT
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          host: ${{ steps.creds.outputs.host }}
+          username: ${{ steps.creds.outputs.user }}
+          password: ${{ github.event.inputs.vps_password || secrets.VPS_PASSWORD }}
+          port: ${{ steps.creds.outputs.port }}
           script_stop: true
           script: |
             set -e
             APP_DIR="/var/www/affiliate-tracking"
+            REPO_URL="https://github.com/xzrsniper/affiliate-tracking.git"
 
-            echo "=== Pulling latest code ==="
-            git -C "$APP_DIR" fetch origin main
-            git -C "$APP_DIR" reset --hard origin/main
+            # Install Node.js 20 if not present
+            if ! command -v node &>/dev/null || [[ $(node -e "process.version.split('.')[0].slice(1)" 2>/dev/null) -lt 20 ]]; then
+              echo "Installing Node.js 20..."
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+              apt-get install -y nodejs
+            fi
 
-            echo "=== Installing backend deps ==="
+            # Install PM2 if not present
+            if ! command -v pm2 &>/dev/null; then
+              npm install -g pm2
+            fi
+
+            # Install nginx if not present
+            if ! command -v nginx &>/dev/null; then
+              apt-get install -y nginx
+            fi
+
+            # Install MySQL if not present
+            if ! command -v mysql &>/dev/null; then
+              apt-get install -y mysql-server
+              systemctl enable mysql
+              systemctl start mysql
+            fi
+
+            # Clone or update repo
+            if [[ -d "$APP_DIR/.git" ]]; then
+              echo "Pulling latest code..."
+              git -C "$APP_DIR" fetch origin main
+              git -C "$APP_DIR" reset --hard origin/main
+            else
+              echo "Cloning repository..."
+              mkdir -p "$(dirname $APP_DIR)"
+              git clone --branch main "$REPO_URL" "$APP_DIR"
+            fi
+
+            # Create .env if missing
+            if [[ ! -f "$APP_DIR/.env" ]]; then
+              cat > "$APP_DIR/.env" <<'ENVEOF'
+            DB_HOST=localhost
+            DB_PORT=3306
+            DB_NAME=affiliate_tracking
+            DB_USER=affiliate_user
+            DB_PASSWORD=AffPass2024!
+            PORT=3000
+            NODE_ENV=production
+            JWT_SECRET=change-me-to-random-64-char-string
+            ADMIN_EMAIL=admin@lehkotrack.com
+            ENVEOF
+              echo "Created default .env — edit /var/www/affiliate-tracking/.env to adjust"
+            fi
+
+            # Setup MySQL database
+            source "$APP_DIR/.env" 2>/dev/null || true
+            mysql -u root <<SQL 2>/dev/null || true
+            CREATE DATABASE IF NOT EXISTS \`${DB_NAME:-affiliate_tracking}\`;
+            CREATE USER IF NOT EXISTS '${DB_USER:-affiliate_user}'@'localhost' IDENTIFIED BY '${DB_PASSWORD:-AffPass2024!}';
+            GRANT ALL PRIVILEGES ON \`${DB_NAME:-affiliate_tracking}\`.* TO '${DB_USER:-affiliate_user}'@'localhost';
+            FLUSH PRIVILEGES;
+            SQL
+
+            # Install deps & build
             cd "$APP_DIR"
             npm ci --omit=dev
 
-            echo "=== Building frontend ==="
             cd "$APP_DIR/frontend"
             npm ci
             npm run build
 
-            echo "=== Running DB migrations ==="
+            # DB migrations
             cd "$APP_DIR"
+            node scripts/init-db.js 2>/dev/null || true
             node scripts/ensure-conversions-schema.js 2>/dev/null || true
+            node scripts/add-affiliate-system.js 2>/dev/null || true
+            node scripts/add-link-split-test.js 2>/dev/null || true
 
-            echo "=== Reloading PM2 ==="
-            pm2 reload affiliate-tracking-api --update-env || pm2 start ecosystem.config.cjs --env production
+            # Configure nginx
+            cat > /etc/nginx/sites-available/affiliate-tracking <<NGINX
+            server {
+                listen 80 default_server;
+                server_name _;
+
+                root ${APP_DIR}/frontend/dist;
+                index index.html;
+
+                location / { try_files \$uri \$uri/ /index.html; }
+
+                location ~* ^/r/ {
+                    proxy_pass http://127.0.0.1:3000;
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                }
+                location ~* ^/track {
+                    proxy_pass http://127.0.0.1:3000;
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                }
+                location = /tracker.js { proxy_pass http://127.0.0.1:3000; }
+                location = /console-code { proxy_pass http://127.0.0.1:3000; }
+
+                location /api {
+                    proxy_pass http://127.0.0.1:3000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection 'upgrade';
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
+                    client_max_body_size 10M;
+                }
+
+                gzip on;
+                gzip_types text/plain text/css application/json application/javascript;
+            }
+            NGINX
+
+            ln -sf /etc/nginx/sites-available/affiliate-tracking /etc/nginx/sites-enabled/ 2>/dev/null || true
+            rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+            nginx -t && systemctl reload nginx || systemctl start nginx
+
+            # Start/reload via PM2
+            cd "$APP_DIR"
+            if pm2 describe affiliate-tracking-api &>/dev/null; then
+              pm2 reload affiliate-tracking-api --update-env
+            else
+              pm2 start ecosystem.config.cjs --env production
+            fi
             pm2 save
+            pm2 startup systemd -u root --hp /root 2>/dev/null | grep "^sudo" | bash 2>/dev/null || true
 
-            echo "=== Deploy complete ==="
+            echo ""
+            echo "=== DEPLOY COMPLETE ==="
             pm2 status
+            echo "App: http://$(curl -s ifconfig.me 2>/dev/null)"
