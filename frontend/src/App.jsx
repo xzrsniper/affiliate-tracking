@@ -15,6 +15,7 @@ const Success = lazy(() => import('./pages/Success.jsx'));
 const Setup = lazy(() => import('./pages/Setup.jsx'));
 const UtmBuilder = lazy(() => import('./pages/UtmBuilder.jsx'));
 const LinkShortener = lazy(() => import('./pages/LinkShortener.jsx'));
+const PublicReport = lazy(() => import('./pages/PublicReport.jsx'));
 const Guide = lazy(() => import('./pages/Guide.jsx'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail.jsx'));
 const ConfirmPasswordChange = lazy(() => import('./pages/ConfirmPasswordChange.jsx'));
@@ -110,6 +111,10 @@ function AppRoutes() {
           <Route
             path="/refund"
             element={<Refund />}
+          />
+          <Route
+            path="/report/:token"
+            element={<PublicReport />}
           />
           <Route
             path="/home-new"

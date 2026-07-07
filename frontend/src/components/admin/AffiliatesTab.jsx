@@ -24,6 +24,7 @@ export default function AffiliatesTab() {
   const [modLoading, setModLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [affiliateSearch, setAffiliateSearch] = useState('');
+  const [sharing, setSharing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
 
@@ -125,6 +126,23 @@ export default function AffiliatesTab() {
     }
   };
 
+  const handleShareOverview = async () => {
+    setSharing(true);
+    try {
+      const res = await api.post('/api/reports/share', {
+        type: 'affiliates_overview',
+        range
+      });
+      await navigator.clipboard.writeText(res.data.url);
+      setError('');
+      alert('Публічне посилання на звіт скопійовано');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create public report link');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const statsCards = useMemo(() => {
     const s = overview?.summary || {};
     return [
@@ -166,8 +184,11 @@ export default function AffiliatesTab() {
                 {opt.label}
               </button>
             ))}
-            <button onClick={() => { fetchOverview(range); fetchModeration(modStatus); }} className="p-2 rounded-lg border border-slate-200">
+            <button onClick={() => { fetchOverview(range); fetchModeration(); }} className="p-2 rounded-lg border border-slate-200">
               <RefreshCw className="w-4 h-4" />
+            </button>
+            <button onClick={handleShareOverview} disabled={sharing} className="px-3 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 text-sm font-semibold disabled:opacity-50">
+              {sharing ? 'Створення...' : 'Поділитись звітом'}
             </button>
           </div>
         </div>

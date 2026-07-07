@@ -79,6 +79,7 @@ export default function Dashboard() {
   const [purchaseModalLoading, setPurchaseModalLoading] = useState(false);
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -600,6 +601,24 @@ export default function Dashboard() {
   };
 
   const selectedLinksForCompare = links.filter((l) => selectedLinkIds.includes(l.id));
+
+  const handleShareCompare = async () => {
+    if (selectedLinkIds.length < 1) return;
+    setShareLoading(true);
+    try {
+      const res = await api.post('/api/reports/share', {
+        type: 'links_compare',
+        link_ids: selectedLinkIds
+      });
+      await navigator.clipboard.writeText(res.data.url);
+      setSuccessMessage(i18n.language === 'uk' ? 'Публічний лінк звіту скопійовано' : 'Public report link copied');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create public report link');
+    } finally {
+      setShareLoading(false);
+    }
+  };
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -1753,9 +1772,14 @@ export default function Dashboard() {
                 <h3 className="text-xl font-bold text-slate-900">{i18n.language === 'uk' ? 'Порівняння посилань' : 'Links comparison'}</h3>
                 <p className="text-xs text-slate-500 mt-1">{i18n.language === 'uk' ? 'До 6 посилань: кліки, конверсії, дохід та конверсія' : 'Up to 6 links: clicks, conversions, revenue, conversion rate'}</p>
               </div>
-              <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50">
+                  {shareLoading ? (i18n.language === 'uk' ? 'Створення...' : 'Creating...') : (i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report')}
+                </button>
+                <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <div className="p-6">
               {selectedLinksForCompare.length < 2 ? (

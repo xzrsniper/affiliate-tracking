@@ -21,6 +21,7 @@ import pageContentRoutes from './routes/pageContent.js';
 import pageStructureRoutes from './routes/pageStructure.js';
 import blogRoutes from './routes/blog.js';
 import googleSheetsRoutes from './routes/googleSheets.js';
+import reportRoutes from './routes/reports.js';
 import { BlogPost, PageContent } from './models/index.js';
 import { Op, fn, col } from 'sequelize';
 
@@ -225,6 +226,7 @@ app.use('/api/page-content', pageContentRoutes);
 app.use('/api/page-structure', pageStructureRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/google-sheets', googleSheetsRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Сторінка «Код для консолі» — працює на бекенді, не залежить від версії фронту на хостингу
 app.get('/console-code', (req, res) => {
