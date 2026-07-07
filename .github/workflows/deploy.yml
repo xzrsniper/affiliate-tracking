@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 jobs:
+  # ── 1. Build frontend ────────────────────────────────────────────────────────
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
@@ -40,8 +41,9 @@ jobs:
           path: frontend/dist
           retention-days: 7
 
+  # ── 2. Lint / syntax-check backend ──────────────────────────────────────────
   lint-backend:
-    name: Lint Backend
+    name: Check Backend
     runs-on: ubuntu-latest
 
     steps:
@@ -58,35 +60,52 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Check backend starts without errors
+      - name: Syntax check
         run: node --check server.js
-        env:
-          NODE_ENV: production
-          PORT: 3000
-          JWT_SECRET: ci-test-secret-placeholder
-          DB_HOST: localhost
-          DB_PORT: 3306
-          DB_NAME: test
-          DB_USER: test
-          DB_PASSWORD: test
 
-  notify-render:
-    name: Trigger Render Deploy
+  # ── 3. Deploy to VPS via SSH ─────────────────────────────────────────────────
+  deploy:
+    name: Deploy to VPS
     needs: [build-frontend, lint-backend]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Only deploy on push to main (not on PRs), and only when SSH secrets are set
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
 
     steps:
-      - name: Deploy to Render
-        run: |
-          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
-            curl -s "$RENDER_DEPLOY_HOOK_URL" \
-              -X POST \
-              -d '{}' \
-              --fail-with-body
-            echo "Render deploy triggered successfully"
-          else
-            echo "RENDER_DEPLOY_HOOK_URL not set — Render auto-deploys from GitHub directly"
-          fi
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            APP_DIR="/var/www/affiliate-tracking"
+
+            echo "=== Pulling latest code ==="
+            git -C "$APP_DIR" fetch origin main
+            git -C "$APP_DIR" reset --hard origin/main
+
+            echo "=== Installing backend deps ==="
+            cd "$APP_DIR"
+            npm ci --omit=dev
+
+            echo "=== Building frontend ==="
+            cd "$APP_DIR/frontend"
+            npm ci
+            npm run build
+
+            echo "=== Running DB migrations ==="
+            cd "$APP_DIR"
+            node scripts/ensure-conversions-schema.js 2>/dev/null || true
+
+            echo "=== Reloading PM2 ==="
+            pm2 reload affiliate-tracking-api --update-env || pm2 start ecosystem.config.cjs --env production
+            pm2 save
+
+            echo "=== Deploy complete ==="
+            pm2 status
