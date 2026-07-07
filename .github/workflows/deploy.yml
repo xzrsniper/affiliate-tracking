@@ -86,18 +86,20 @@ jobs:
     name: Deploy to VPS
     needs: [build-frontend, lint-backend]
     runs-on: ubuntu-latest
+    # Deploy only if VPS secrets are configured (whitelist-protected server
+    # requires the secrets to contain a pre-authorized IP or SSH key).
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.ref == 'refs/heads/main' && github.event_name == 'push')
+      (github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.VPS_HOST != '')
 
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host:     ${{ github.event.inputs.vps_host     || secrets.VPS_HOST     || '185.237.209.107' }}
-          username: ${{ github.event.inputs.vps_user     || secrets.VPS_USER     || 'root' }}
-          password: ${{ github.event.inputs.vps_password || secrets.VPS_PASSWORD || '902040mm' }}
-          port:     ${{ github.event.inputs.vps_port     || secrets.VPS_PORT     || '22' }}
+          host:     ${{ github.event.inputs.vps_host     || secrets.VPS_HOST }}
+          username: ${{ github.event.inputs.vps_user     || secrets.VPS_USER || 'root' }}
+          password: ${{ github.event.inputs.vps_password || secrets.VPS_PASSWORD }}
+          port:     ${{ github.event.inputs.vps_port     || secrets.VPS_PORT  || '22' }}
           script_stop: true
           script: |
             set -e
