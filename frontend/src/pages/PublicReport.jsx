@@ -93,6 +93,90 @@ export default function PublicReport() {
           </div>
         </div>
 
+        {report?.type === 'link_single' && (() => {
+          const link = report.link || {};
+          const s = report.stats || {};
+          const cr = Number(s.conversion_rate || 0);
+          const totalRev = Number(s.total_revenue || 0);
+          const salesRev = Number(s.sales_revenue || 0);
+
+          const timelineData = [
+            { name: 'Clicks', value: Number(s.clicks || 0) },
+            { name: 'Unique', value: Number(s.unique_clicks || 0) },
+            { name: 'Conv.', value: Number(s.conversions || 0) },
+            { name: 'Leads', value: Number(s.lead_count || 0) },
+          ];
+
+          return (
+            <>
+              {/* Summary stat cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Clicks" value={Number(s.clicks || 0).toLocaleString()} sub={`${Number(s.unique_clicks || 0).toLocaleString()} unique`} />
+                <StatCard label="Conversions" value={Number(s.conversions || 0).toLocaleString()} sub={`${Number(s.lead_count || 0)} leads`} />
+                <StatCard label="CR" value={`${cr}%`} />
+                <StatCard label="Revenue" value={totalRev.toLocaleString('uk-UA')} sub={`Sales: ${salesRev.toLocaleString('uk-UA')}`} />
+              </div>
+
+              {/* Link info + bar chart */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Link info</p>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">Name</p>
+                    <p className="font-semibold text-slate-900">{link.name || link.unique_code}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 mb-0.5">Destination URL</p>
+                    <a href={link.original_url} target="_blank" rel="noopener noreferrer" className="text-sm text-violet-600 hover:underline break-all">{link.original_url}</a>
+                  </div>
+                  {link.created_at && (
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Created</p>
+                      <p className="text-sm text-slate-700">{new Date(link.created_at).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-5">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Performance overview</p>
+                  <MiniBarChart
+                    data={timelineData}
+                    dataKey="value"
+                    formatter={(v) => v.toLocaleString()}
+                  />
+                </div>
+              </div>
+
+              {/* Detailed stats table */}
+              <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-600">
+                      <th className="text-left px-4 py-3">Metric</th>
+                      <th className="text-right px-4 py-3">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: 'Total clicks', value: Number(s.clicks || 0).toLocaleString() },
+                      { label: 'Unique clicks', value: Number(s.unique_clicks || 0).toLocaleString() },
+                      { label: 'Conversions', value: Number(s.conversions || 0).toLocaleString() },
+                      { label: 'Leads', value: Number(s.lead_count || 0).toLocaleString() },
+                      { label: 'Conversion rate', value: `${cr}%` },
+                      { label: 'Total revenue', value: totalRev.toLocaleString('uk-UA') },
+                      { label: 'Sales revenue', value: salesRev.toLocaleString('uk-UA') },
+                    ].map(({ label, value }) => (
+                      <tr key={label} className="border-t border-slate-100">
+                        <td className="px-4 py-3 text-slate-600">{label}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+
         {report?.type === 'links_compare' && (() => {
           const totalClicks = items.reduce((s, i) => s + Number(i.clicks || 0), 0);
           const totalConv = items.reduce((s, i) => s + Number(i.conversions || 0), 0);
