@@ -27,6 +27,62 @@ function verifyToken(token) {
   }
 }
 
+async function getSingleLinkData(userId, linkId) {
+  const link = await Link.findOne({
+    where: { user_id: userId, id: linkId },
+    attributes: ['id', 'name', 'unique_code', 'original_url', 'created_at'],
+    raw: true
+  });
+  if (!link) return null;
+
+  const [clickRows, convRows] = await Promise.all([
+    Click.findAll({
+      where: { link_id: link.id },
+      attributes: [
+        [fn('COUNT', col('id')), 'clicks'],
+        [fn('COUNT', fn('DISTINCT', col('visitor_fingerprint'))), 'unique_clicks']
+      ],
+      raw: true
+    }),
+    Conversion.findAll({
+      where: { link_id: link.id },
+      attributes: ['event_type', 'order_value', 'created_at'],
+      raw: true
+    })
+  ]);
+
+  const c = clickRows[0] || {};
+  const clicks = Number(c.clicks || 0);
+  const uniqueClicks = Number(c.unique_clicks || 0);
+  let conversions = 0, totalRevenue = 0, salesRevenue = 0, leadCount = 0;
+  convRows.forEach((r) => {
+    const val = Number(r.order_value || 0);
+    conversions += 1;
+    totalRevenue += val;
+    if (r.event_type === 'sale' || r.event_type == null) { salesRevenue += val; }
+    if (r.event_type === 'lead') leadCount += 1;
+  });
+
+  return {
+    link: {
+      id: link.id,
+      name: link.name || link.unique_code,
+      unique_code: link.unique_code,
+      original_url: link.original_url,
+      created_at: link.created_at
+    },
+    stats: {
+      clicks,
+      unique_clicks: uniqueClicks,
+      conversions,
+      lead_count: leadCount,
+      conversion_rate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
+      total_revenue: Number(totalRevenue.toFixed(2)),
+      sales_revenue: Number(salesRevenue.toFixed(2))
+    }
+  };
+}
+
 async function getLinksCompareData(userId, linkIds) {
   const links = await Link.findAll({
     where: { user_id: userId, id: { [Op.in]: linkIds } },
@@ -154,7 +210,11 @@ router.post('/share', authenticate, async (req, res, next) => {
   try {
     const { type } = req.body || {};
     let payload;
-    if (type === 'links_compare') {
+    if (type === 'link_single') {
+      const linkId = parseInt(req.body?.link_id, 10);
+      if (!Number.isInteger(linkId) || linkId <= 0) return res.status(400).json({ error: 'link_id required' });
+      payload = { v: 1, type, user_id: req.user.id, link_id: linkId, white_label: null };
+    } else if (type === 'links_compare') {
       const linkIds = Array.isArray(req.body?.link_ids)
         ? req.body.link_ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0).slice(0, 6)
         : [];
@@ -183,6 +243,12 @@ router.get('/public/:token', async (req, res, next) => {
     if (!payload) return res.status(404).json({ error: 'Report not found' });
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
 
+    if (payload.type === 'link_single') {
+      const data = await getSingleLinkData(payload.user_id, payload.link_id);
+      if (!data) return res.status(404).json({ error: 'Link not found' });
+      const title = data.link.name ? `${data.link.name} — Link Report` : 'Link Report';
+      return res.json({ success: true, type: payload.type, title, white_label: payload.white_label, ...data });
+    }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
       return res.json({ success: true, type: payload.type, title: 'Links comparison report', white_label: payload.white_label, ...data });
@@ -205,6 +271,17 @@ router.get('/public/:token/export', async (req, res, next) => {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
 
+    if (payload.type === 'link_single') {
+      const data = await getSingleLinkData(payload.user_id, payload.link_id);
+      if (!data) return res.status(404).send('Link not found');
+      const s = data.stats;
+      const rows = [
+        ['Link', 'URL', 'Clicks', 'Unique Clicks', 'Conversions', 'Leads', 'CR %', 'Total Revenue', 'Sales Revenue'],
+        [data.link.name, data.link.original_url, s.clicks, s.unique_clicks, s.conversions, s.lead_count, s.conversion_rate, s.total_revenue, s.sales_revenue]
+      ];
+      res.setHeader('Content-Disposition', `attachment; filename="link-report-${data.link.unique_code}.csv"`);
+      return res.send(rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
+    }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
       const rows = [['Link', 'URL', 'Clicks', 'Unique', 'Conversions', 'CR %', 'Total Revenue', 'Sales Revenue']];
