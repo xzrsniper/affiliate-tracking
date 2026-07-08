@@ -54,13 +54,17 @@ async function getSingleLinkData(userId, linkId) {
   const c = clickRows[0] || {};
   const clicks = Number(c.clicks || 0);
   const uniqueClicks = Number(c.unique_clicks || 0);
-  let conversions = 0, totalRevenue = 0, salesRevenue = 0, leadCount = 0;
+  let conversions = 0, salesCount = 0, salesRevenue = 0, leadCount = 0, leadRevenue = 0;
   convRows.forEach((r) => {
     const val = Number(r.order_value || 0);
     conversions += 1;
-    totalRevenue += val;
-    if (r.event_type === 'sale' || r.event_type == null) { salesRevenue += val; }
-    if (r.event_type === 'lead') leadCount += 1;
+    if (r.event_type === 'sale' || r.event_type == null) {
+      salesCount += 1;
+      salesRevenue += val;
+    } else if (r.event_type === 'lead') {
+      leadCount += 1;
+      leadRevenue += val;
+    }
   });
 
   return {
@@ -75,10 +79,11 @@ async function getSingleLinkData(userId, linkId) {
       clicks,
       unique_clicks: uniqueClicks,
       conversions,
+      sales_count: salesCount,
+      sales_revenue: Number(salesRevenue.toFixed(2)),
       lead_count: leadCount,
+      lead_revenue: Number(leadRevenue.toFixed(2)),
       conversion_rate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
-      total_revenue: Number(totalRevenue.toFixed(2)),
-      sales_revenue: Number(salesRevenue.toFixed(2))
     }
   };
 }
@@ -114,11 +119,16 @@ async function getLinksCompareData(userId, linkIds) {
   const convBy = new Map();
   convRows.forEach((r) => {
     const id = Number(r.link_id);
-    const curr = convBy.get(id) || { conversions: 0, total_revenue: 0, sales_revenue: 0 };
+    const curr = convBy.get(id) || { conversions: 0, sales_count: 0, sales_revenue: 0, lead_count: 0, lead_revenue: 0 };
     const val = Number(r.order_value || 0);
     curr.conversions += 1;
-    curr.total_revenue += val;
-    if (r.event_type === 'sale' || r.event_type == null) curr.sales_revenue += val;
+    if (r.event_type === 'sale' || r.event_type == null) {
+      curr.sales_count += 1;
+      curr.sales_revenue += val;
+    } else if (r.event_type === 'lead') {
+      curr.lead_count += 1;
+      curr.lead_revenue += val;
+    }
     convBy.set(id, curr);
   });
 
@@ -134,9 +144,11 @@ async function getLinksCompareData(userId, linkIds) {
       clicks,
       unique_clicks: Number(c.unique_clicks || 0),
       conversions,
+      sales_count: Number(v.sales_count || 0),
+      sales_revenue: Number((v.sales_revenue || 0).toFixed(2)),
+      lead_count: Number(v.lead_count || 0),
+      lead_revenue: Number((v.lead_revenue || 0).toFixed(2)),
       conversion_rate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
-      total_revenue: Number(v.total_revenue || 0),
-      sales_revenue: Number(v.sales_revenue || 0)
     };
   });
 
@@ -284,8 +296,8 @@ router.get('/public/:token/export', async (req, res, next) => {
     }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
-      const rows = [['Link', 'URL', 'Clicks', 'Unique', 'Conversions', 'CR %', 'Total Revenue', 'Sales Revenue']];
-      data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.total_revenue, i.sales_revenue]));
+      const rows = [['Link', 'URL', 'Clicks', 'Unique', 'Conversions', 'CR %', 'Sales Count', 'Sales Revenue', 'Lead Count', 'Lead Revenue']];
+      data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.sales_count, i.sales_revenue, i.lead_count, i.lead_revenue]));
       res.setHeader('Content-Disposition', 'attachment; filename="links-report.csv"');
       return res.send(rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
