@@ -36,7 +36,9 @@ import {
   HelpCircle,
   Eraser,
   Shuffle,
-  PlusCircle
+  PlusCircle,
+  Share2,
+  Link as LinkIcon
 } from 'lucide-react';
 
 const EMPTY_NEW_LINK = {
@@ -81,6 +83,8 @@ export default function Dashboard() {
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [sharedReportUrl, setSharedReportUrl] = useState(null);
+  const [copiedReportUrl, setCopiedReportUrl] = useState(false);
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -614,9 +618,12 @@ export default function Dashboard() {
         type: 'links_compare',
         link_ids: selectedLinkIds
       });
-      await navigator.clipboard.writeText(res.data.url);
-      setSuccessMessage(i18n.language === 'uk' ? 'Публічний лінк звіту скопійовано' : 'Public report link copied');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      const url = res.data.url;
+      setSharedReportUrl(url);
+      setCopiedReportUrl(false);
+      await navigator.clipboard.writeText(url);
+      setCopiedReportUrl(true);
+      setTimeout(() => setCopiedReportUrl(false), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create public report link');
     } finally {
@@ -1777,14 +1784,39 @@ export default function Dashboard() {
                 <p className="text-xs text-slate-500 mt-1">{i18n.language === 'uk' ? 'До 6 посилань: кліки, конверсії, дохід та конверсія' : 'Up to 6 links: clicks, conversions, revenue, conversion rate'}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50">
-                  {shareLoading ? (i18n.language === 'uk' ? 'Створення...' : 'Creating...') : (i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report')}
+                <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
+                  {shareLoading ? (
+                    <>{i18n.language === 'uk' ? 'Створення...' : 'Creating...'}</>
+                  ) : (
+                    <><Share2 className="w-4 h-4" />{i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report'}</>
+                  )}
                 </button>
-                <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
+                <button onClick={() => { setShowCompareModal(false); setSharedReportUrl(null); }} className="p-2 rounded-lg hover:bg-slate-100">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
+
+            {sharedReportUrl && (
+              <div className="mx-6 mt-4 mb-0 p-3 bg-violet-50 border border-violet-200 rounded-xl flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                <a
+                  href={sharedReportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-xs text-violet-700 font-mono truncate hover:underline"
+                >
+                  {sharedReportUrl}
+                </a>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(sharedReportUrl); setCopiedReportUrl(true); setTimeout(() => setCopiedReportUrl(false), 2000); }}
+                  className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${copiedReportUrl ? 'bg-green-100 text-green-700' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+                >
+                  {copiedReportUrl ? <><Check className="w-3.5 h-3.5" />{i18n.language === 'uk' ? 'Скопійовано' : 'Copied'}</> : <><Copy className="w-3.5 h-3.5" />{i18n.language === 'uk' ? 'Копіювати' : 'Copy'}</>}
+                </button>
+              </div>
+            )}
+
             <div className="p-6 space-y-6">
               {selectedLinksForCompare.length < 2 ? (
                 <p className="text-sm text-slate-500">{i18n.language === 'uk' ? 'Виберіть мінімум 2 посилання для порівняння.' : 'Select at least 2 links to compare.'}</p>
