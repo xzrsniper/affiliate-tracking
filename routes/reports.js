@@ -46,7 +46,8 @@ async function getSingleLinkData(userId, linkId) {
     }),
     Conversion.findAll({
       where: { link_id: link.id },
-      attributes: ['event_type', 'order_value', 'created_at'],
+      attributes: ['id', 'event_type', 'order_value', 'order_id', 'created_at'],
+      order: [['created_at', 'DESC']],
       raw: true
     })
   ]);
@@ -55,7 +56,7 @@ async function getSingleLinkData(userId, linkId) {
   const clicks = Number(c.clicks || 0);
   const uniqueClicks = Number(c.unique_clicks || 0);
   let conversions = 0, salesCount = 0, salesRevenue = 0, leadCount = 0, leadRevenue = 0;
-  convRows.forEach((r) => {
+  const conversionsList = convRows.map((r) => {
     const val = Number(r.order_value || 0);
     conversions += 1;
     if (r.event_type === 'sale' || r.event_type == null) {
@@ -65,6 +66,7 @@ async function getSingleLinkData(userId, linkId) {
       leadCount += 1;
       leadRevenue += val;
     }
+    return { id: r.id, event_type: r.event_type || 'sale', amount: val, order_id: r.order_id || null, created_at: r.created_at };
   });
 
   return {
@@ -84,7 +86,8 @@ async function getSingleLinkData(userId, linkId) {
       lead_count: leadCount,
       lead_revenue: Number(leadRevenue.toFixed(2)),
       conversion_rate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
-    }
+    },
+    conversions: conversionsList
   };
 }
 
@@ -110,13 +113,15 @@ async function getLinksCompareData(userId, linkIds) {
     }),
     Conversion.findAll({
       where: { link_id: { [Op.in]: ids } },
-      attributes: ['link_id', 'event_type', 'order_value'],
+      attributes: ['id', 'link_id', 'event_type', 'order_value', 'order_id', 'created_at'],
+      order: [['created_at', 'DESC']],
       raw: true
     })
   ]);
 
   const clickBy = new Map(clickRows.map((r) => [Number(r.link_id), r]));
   const convBy = new Map();
+  const convListBy = new Map();
   convRows.forEach((r) => {
     const id = Number(r.link_id);
     const curr = convBy.get(id) || { conversions: 0, sales_count: 0, sales_revenue: 0, lead_count: 0, lead_revenue: 0 };
@@ -130,6 +135,9 @@ async function getLinksCompareData(userId, linkIds) {
       curr.lead_revenue += val;
     }
     convBy.set(id, curr);
+    const list = convListBy.get(id) || [];
+    list.push({ id: r.id, event_type: r.event_type || 'sale', amount: val, order_id: r.order_id || null, created_at: r.created_at });
+    convListBy.set(id, list);
   });
 
   const items = links.map((l) => {
@@ -149,6 +157,7 @@ async function getLinksCompareData(userId, linkIds) {
       lead_count: Number(v.lead_count || 0),
       lead_revenue: Number((v.lead_revenue || 0).toFixed(2)),
       conversion_rate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
+      conversions_list: convListBy.get(Number(l.id)) || [],
     };
   });
 
@@ -222,16 +231,17 @@ router.post('/share', authenticate, async (req, res, next) => {
   try {
     const { type } = req.body || {};
     let payload;
+    const currency = ['₴', '$', '€', '£'].includes(req.body?.currency) ? req.body.currency : '₴';
     if (type === 'link_single') {
       const linkId = parseInt(req.body?.link_id, 10);
       if (!Number.isInteger(linkId) || linkId <= 0) return res.status(400).json({ error: 'link_id required' });
-      payload = { v: 1, type, user_id: req.user.id, link_id: linkId, white_label: null };
+      payload = { v: 1, type, user_id: req.user.id, link_id: linkId, currency, white_label: null };
     } else if (type === 'links_compare') {
       const linkIds = Array.isArray(req.body?.link_ids)
         ? req.body.link_ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0).slice(0, 6)
         : [];
       if (linkIds.length < 1) return res.status(400).json({ error: 'link_ids required' });
-      payload = { v: 1, type, user_id: req.user.id, link_ids: linkIds, white_label: null };
+      payload = { v: 1, type, user_id: req.user.id, link_ids: linkIds, currency, white_label: null };
     } else if (type === 'affiliates_overview') {
       if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Admin only report' });
       const range = ['1', '3', '7', '14', '30', 'all'].includes(String(req.body?.range)) ? String(req.body.range) : 'all';
@@ -255,15 +265,16 @@ router.get('/public/:token', async (req, res, next) => {
     if (!payload) return res.status(404).json({ error: 'Report not found' });
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
 
+    const currency = payload.currency || '₴';
     if (payload.type === 'link_single') {
       const data = await getSingleLinkData(payload.user_id, payload.link_id);
       if (!data) return res.status(404).json({ error: 'Link not found' });
       const title = data.link.name ? `${data.link.name} — Link Report` : 'Link Report';
-      return res.json({ success: true, type: payload.type, title, white_label: payload.white_label, ...data });
+      return res.json({ success: true, type: payload.type, title, currency, white_label: payload.white_label, ...data });
     }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
-      return res.json({ success: true, type: payload.type, title: 'Links comparison report', white_label: payload.white_label, ...data });
+      return res.json({ success: true, type: payload.type, title: 'Links comparison report', currency, white_label: payload.white_label, ...data });
     }
     if (payload.type === 'affiliates_overview') {
       const data = await getAffiliatesOverview(payload.range || 'all');

@@ -618,7 +618,8 @@ export default function Dashboard() {
     try {
       const res = await api.post('/api/reports/share', {
         type: 'links_compare',
-        link_ids: selectedLinkIds
+        link_ids: selectedLinkIds,
+        currency: isUk ? '₴' : '$'
       });
       const url = res.data.url;
       setSharedReportUrl(url);
@@ -638,7 +639,8 @@ export default function Dashboard() {
     try {
       const res = await api.post('/api/reports/share', {
         type: 'link_single',
-        link_id: link.id
+        link_id: link.id,
+        currency: i18n.language === 'uk' ? '₴' : '$'
       });
       const url = res.data.url;
       await navigator.clipboard.writeText(url).catch(() => {});
@@ -1694,7 +1696,10 @@ export default function Dashboard() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-violet-600 text-[13px] break-all">{link.tracking_url}</div>
+                              <div
+                                className="text-violet-500 text-[11px] truncate max-w-[260px]"
+                                title={link.tracking_url}
+                              >{link.tracking_url}</div>
                             </td>
                             <td className="px-4 py-4">
                               <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${getSourceBadge(link.source_type)}`}>
