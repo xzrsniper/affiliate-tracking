@@ -84,12 +84,31 @@ function normalizeDomain(domain) {
     .replace(/^www\./, '');
 }
 
+/**
+ * Strip stale tracking params (ref, click_id) from a URL.
+ * Used when saving a link's original_url and when computing tracking URLs,
+ * so that a URL copied from a previous redirect destination (which already
+ * contains ?ref=CODE&click_id=ID) doesn't break pixel-side click recording.
+ */
+function stripTrackingParams(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    url.searchParams.delete('ref');
+    url.searchParams.delete('click_id');
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 /** Same rules as GET /my-links — must stay consistent after PUT /:id */
 function buildTrackingUrlForLink(link, req) {
   const format = link.link_format || 'tracking';
   if (format === 'original') {
     try {
       const url = new URL(link.original_url);
+      // Remove any stale tracking params before adding the current ref
+      url.searchParams.delete('click_id');
       url.searchParams.set('ref', link.unique_code);
       return url.toString();
     } catch {
@@ -255,6 +274,10 @@ router.post('/create', async (req, res, next) => {
     } catch (e) {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
+
+    // Strip any stale tracking params (ref, click_id) that may have been copied
+    // from a previous redirect destination URL.
+    resolvedOriginalUrl = stripTrackingParams(resolvedOriginalUrl);
 
     const validFormats = ['tracking', 'original', 'lehko'];
     let resolvedFormat = validFormats.includes(link_format) ? link_format : 'tracking';
@@ -945,7 +968,7 @@ router.put('/:id', authenticate, async (req, res, next) => {
       } catch (e) {
         return res.status(400).json({ error: 'Invalid URL format' });
       }
-      link.original_url = original_url;
+      link.original_url = stripTrackingParams(original_url);
     }
     
     if (name !== undefined) {
