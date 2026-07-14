@@ -743,6 +743,20 @@ export default function Dashboard() {
           <div>
             <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
             <p className="text-sm text-slate-600">{currentDate}</p>
+            {isAffiliate && (
+              <div className="mt-3 inline-flex items-center gap-3 rounded-xl bg-violet-50 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700 px-4 py-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-800">
+                  <DollarSign className="w-4 h-4 text-violet-600 dark:text-violet-300" />
+                </div>
+                <div>
+                  <p className="text-xs text-violet-500 dark:text-violet-400 font-medium uppercase tracking-wide">Баланс</p>
+                  <p className="text-lg font-bold text-violet-700 dark:text-violet-200 leading-tight">{affiliateBalance.toLocaleString()} ₴</p>
+                  {affiliateCommissionPercent != null && (
+                    <p className="text-xs text-violet-400 dark:text-violet-500">Комісія: {affiliateCommissionPercent}%</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -911,16 +925,6 @@ export default function Dashboard() {
           bgColor="bg-green-100"
           iconColor="text-green-600"
         />
-        {isAffiliate && (
-          <StatCard
-            icon={DollarSign}
-            label="Баланс"
-            value={`${affiliateBalance.toLocaleString()} ₴`}
-            description={affiliateCommissionPercent != null ? `Комісія: ${affiliateCommissionPercent}%` : undefined}
-            bgColor="bg-violet-100"
-            iconColor="text-violet-600"
-          />
-        )}
         <StatCard
           icon={DollarSign}
           label={isAffiliate ? 'Мій заробіток' : t('dashboard.revenuePayments')}
