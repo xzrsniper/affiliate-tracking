@@ -1500,7 +1500,7 @@ export default function Admin() {
                 className="mb-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
 
-              {false && editingUser.role !== 'super_admin' && (
+              {editingUser.role !== 'super_admin' && (
                 <div className="mb-4 space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                   <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <input
@@ -1509,7 +1509,7 @@ export default function Admin() {
                       onChange={(e) => setAffiliateEdits((prev) => ({
                         ...prev,
                         [editingUser.id]: {
-                          ...(prev[editingUser.id] || { percent: '10' }),
+                          ...(prev[editingUser.id] || { percent: String(editingUser.affiliate_commission_percent ?? 10) }),
                           isAffiliate: e.target.checked
                         }
                       }))}
@@ -1523,7 +1523,7 @@ export default function Admin() {
                         min="0"
                         max="100"
                         step="0.1"
-                        value={affiliateEdits[editingUser.id]?.percent ?? ''}
+                        value={affiliateEdits[editingUser.id]?.percent ?? String(editingUser.affiliate_commission_percent ?? 10)}
                         onChange={(e) => setAffiliateEdits((prev) => ({
                           ...prev,
                           [editingUser.id]: { ...(prev[editingUser.id] || { isAffiliate: true }), percent: e.target.value }
@@ -1536,7 +1536,7 @@ export default function Admin() {
                 </div>
               )}
 
-              {false && (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
+              {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
                 <div className="mb-4">
                   <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Баланс</label>
                   <input
@@ -1563,6 +1563,13 @@ export default function Admin() {
                   disabled={updating}
                   onClick={async () => {
                     await handleUpdateLinkLimit(editingUser.id);
+                    if (affiliateEdits[editingUser.id]) {
+                      await handleSaveAffiliateRole(editingUser.id);
+                    }
+                    if (balanceEdits[editingUser.id] !== undefined &&
+                        (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate')) {
+                      await handleSaveAffiliateBalance(editingUser.id);
+                    }
                     setEditingUser(null);
                   }}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
