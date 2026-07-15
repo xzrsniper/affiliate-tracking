@@ -209,6 +209,15 @@ export default function AffiliatesTab() {
   const [rejectTarget, setRejectTarget] = useState(null); // item pending rejection
   const [siteCommAffiliate, setSiteCommAffiliate] = useState(null); // affiliate for site commission modal
 
+  // Assign affiliate by email
+  const [assignEmail, setAssignEmail] = useState('');
+  const [assignCommission, setAssignCommission] = useState('10');
+  const [assignResult, setAssignResult] = useState(null); // { id, email, role } or null
+  const [assignSearching, setAssignSearching] = useState(false);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignMsg, setAssignMsg] = useState(''); // success/error message
+  const [assignError, setAssignError] = useState('');
+
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
 
   const fetchOverview = async (nextRange = range) => {
@@ -327,6 +336,47 @@ export default function AffiliatesTab() {
     }
   };
 
+  const handleEmailSearch = async () => {
+    const email = assignEmail.trim();
+    if (!email) return;
+    setAssignSearching(true);
+    setAssignResult(null);
+    setAssignError('');
+    setAssignMsg('');
+    try {
+      const res = await api.get('/api/admin/users/by-email', { params: { email } });
+      setAssignResult(res.data.user);
+    } catch (err) {
+      setAssignError(err.response?.status === 404 ? 'Користувача з таким email не знайдено' : (err.response?.data?.error || 'Помилка пошуку'));
+    } finally {
+      setAssignSearching(false);
+    }
+  };
+
+  const handleAssignAffiliate = async () => {
+    if (!assignResult) return;
+    const pct = parseFloat(assignCommission);
+    if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+      setAssignError('Невірний відсоток комісії (0–100)');
+      return;
+    }
+    setAssignSaving(true);
+    setAssignError('');
+    setAssignMsg('');
+    try {
+      await api.patch(`/api/admin/users/${assignResult.id}/affiliate`, { role: 'affiliate', commission_percent: pct });
+      setAssignMsg(`✓ ${assignResult.email} тепер афілейт (${pct}%)`);
+      setAssignResult(null);
+      setAssignEmail('');
+      setAssignCommission('10');
+      await fetchOverview(range);
+    } catch (err) {
+      setAssignError(err.response?.data?.error || 'Помилка збереження');
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
   const statsCards = useMemo(() => {
     const s = overview?.summary || {};
     return [
@@ -379,6 +429,75 @@ export default function AffiliatesTab() {
       </div>
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-red-700 text-sm">{error}</div>}
+
+      {/* Assign affiliate by email */}
+      <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 space-y-3">
+        <div>
+          <h2 className="font-bold text-slate-800">Призначити афілейта</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Знайти користувача за поштою та дати йому роль афілейта</p>
+        </div>
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-48">
+            <label className="text-xs text-slate-500 mb-1 block">Email</label>
+            <input
+              type="email"
+              value={assignEmail}
+              onChange={(e) => { setAssignEmail(e.target.value); setAssignResult(null); setAssignError(''); setAssignMsg(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleEmailSearch()}
+              placeholder="user@example.com"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            />
+          </div>
+          <button
+            onClick={handleEmailSearch}
+            disabled={assignSearching || !assignEmail.trim()}
+            className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold disabled:opacity-50 whitespace-nowrap"
+          >
+            {assignSearching ? 'Пошук…' : 'Знайти'}
+          </button>
+        </div>
+
+        {assignError && <p className="text-sm text-red-600">{assignError}</p>}
+        {assignMsg && <p className="text-sm text-green-700 font-medium">{assignMsg}</p>}
+
+        {assignResult && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-wrap items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-slate-800">{assignResult.email}</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Поточна роль: <span className={`font-semibold ${assignResult.role === 'affiliate' ? 'text-violet-600' : 'text-slate-700'}`}>{assignResult.role}</span>
+                {assignResult.affiliate_commission_percent != null && ` · ${assignResult.affiliate_commission_percent}%`}
+              </p>
+            </div>
+            {assignResult.role !== 'affiliate' && (
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={assignCommission}
+                    onChange={(e) => setAssignCommission(e.target.value)}
+                    className="w-20 text-right px-2 py-1.5 pr-7 border border-slate-200 rounded-lg text-sm"
+                  />
+                  <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                </div>
+                <button
+                  onClick={handleAssignAffiliate}
+                  disabled={assignSaving}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {assignSaving ? 'Збереження…' : 'Призначити афілейта'}
+                </button>
+              </div>
+            )}
+            {assignResult.role === 'affiliate' && (
+              <span className="text-sm text-violet-600 font-semibold">Вже афілейт</span>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {statsCards.map((c) => (

@@ -1,6 +1,6 @@
 import express from 'express';
 import { User, Link, Click, Conversion, Website } from '../models/index.js';
-import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
+import { authenticate, requireSuperAdmin, requireModeratorOrAbove } from '../middleware/auth.js';
 import { Op, fn, col, QueryTypes } from 'sequelize';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 import sequelize from '../config/database.js';
@@ -23,9 +23,11 @@ function csvEscape(value) {
   return str;
 }
 
-// All admin routes require authentication and super admin role
+// All admin routes require authentication.
+// Super-admin-only endpoints add requireSuperAdmin inline.
+// Moderator-accessible endpoints are guarded by requireModeratorOrAbove.
 router.use(authenticate);
-router.use(requireSuperAdmin);
+router.use(requireModeratorOrAbove);
 
 function buildRangeFromQuery(rangeRaw) {
   const v = String(rangeRaw || 'all').toLowerCase();
@@ -48,7 +50,7 @@ function buildRangeFromQuery(rangeRaw) {
  * - page: (optional) Page number for pagination
  * - limit: (optional) Items per page
  */
-router.get('/users', async (req, res, next) => {
+router.get('/users', requireSuperAdmin, async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -109,7 +111,7 @@ router.get('/users', async (req, res, next) => {
  * Update a specific user's link_limit
  * Body: { link_limit: number }
  */
-router.patch('/users/:id/limit', async (req, res, next) => {
+router.patch('/users/:id/limit', requireSuperAdmin, async (req, res, next) => {
   try {
     const { link_limit } = req.body;
 
@@ -155,7 +157,7 @@ router.patch('/users/:id/limit', async (req, res, next) => {
  * Toggle is_banned status for a user
  * Body: (optional) { ban: boolean } - if not provided, toggles current status
  */
-router.post('/users/:id/ban', async (req, res, next) => {
+router.post('/users/:id/ban', requireSuperAdmin, async (req, res, next) => {
   try {
     const { ban } = req.body;
     const userId = parseInt(req.params.id);
@@ -194,7 +196,7 @@ router.post('/users/:id/ban', async (req, res, next) => {
  * GET /api/admin/users/:id
  * Get single user with detailed stats
  */
-router.get('/users/:id', async (req, res, next) => {
+router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: { exclude: ['password_hash'] },
@@ -280,7 +282,7 @@ router.get('/users/:id', async (req, res, next) => {
  * GET /api/admin/users/:id/impersonate
  * Impersonate user (view their dashboard data)
  */
-router.get('/users/:id/impersonate', async (req, res, next) => {
+router.get('/users/:id/impersonate', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: { exclude: ['password_hash'] }
@@ -399,7 +401,7 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
  * PATCH /api/admin/links/:linkId/revenue-adjustment
  * Body: { revenue_adjustment: number } — додається до «сирої» суми з конверсій (від’ємне значення зменшує показаний дохід).
  */
-router.patch('/links/:linkId/revenue-adjustment', async (req, res, next) => {
+router.patch('/links/:linkId/revenue-adjustment', requireSuperAdmin, async (req, res, next) => {
   try {
     const linkId = parseInt(req.params.linkId, 10);
     if (!Number.isInteger(linkId) || linkId < 1) {
@@ -443,7 +445,7 @@ router.patch('/links/:linkId/revenue-adjustment', async (req, res, next) => {
  * GET /api/admin/conversions/export
  * Export conversions with timestamp and amount to CSV
  */
-router.get('/conversions/export', async (req, res, next) => {
+router.get('/conversions/export', requireSuperAdmin, async (req, res, next) => {
   try {
     const conversions = await Conversion.findAll({
       include: [
@@ -505,9 +507,34 @@ router.get('/conversions/export', async (req, res, next) => {
 });
 
 /**
+ * GET /api/admin/users/by-email?email=...
+ * Find a single user by exact email. Accessible to moderators.
+ * Returns minimal info (id, email, role) — no sensitive fields.
+ */
+router.get('/users/by-email', async (req, res, next) => {
+  try {
+    const email = String(req.query.email || '').trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: 'email query param required' });
+
+    const user = await User.findOne({
+      where: sequelize.where(fn('LOWER', col('email')), email),
+      attributes: ['id', 'email', 'role', 'affiliate_commission_percent', 'affiliate_balance']
+    });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, affiliate_commission_percent: user.affiliate_commission_percent } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * PATCH /api/admin/users/:id/affiliate
- * Set affiliate role and commission % (or revert to user).
- * Body: { role: 'affiliate' | 'user', commission_percent?: number }
+ * Set affiliate/user/moderator role.
+ * Body: { role: 'affiliate' | 'user' | 'moderator', commission_percent?: number }
+ * - 'moderator' role: super_admin only
+ * - 'affiliate'/'user': moderator or above
  */
 router.patch('/users/:id/affiliate', async (req, res, next) => {
   try {
@@ -520,8 +547,14 @@ router.patch('/users/:id/affiliate', async (req, res, next) => {
     }
 
     const { role, commission_percent } = req.body;
-    if (role !== 'affiliate' && role !== 'user') {
-      return res.status(400).json({ error: 'role must be affiliate or user' });
+    const allowedRoles = ['affiliate', 'user', 'moderator'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ error: 'role must be affiliate, user, or moderator' });
+    }
+
+    // Only super_admin can assign the moderator role
+    if (role === 'moderator' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Only super admin can assign the moderator role' });
     }
 
     if (role === 'affiliate') {
@@ -531,6 +564,9 @@ router.patch('/users/:id/affiliate', async (req, res, next) => {
       }
       user.role = 'affiliate';
       user.affiliate_commission_percent = percent;
+    } else if (role === 'moderator') {
+      user.role = 'moderator';
+      user.affiliate_commission_percent = null;
     } else {
       user.role = 'user';
       user.affiliate_commission_percent = null;
@@ -1122,11 +1158,8 @@ router.post('/conversions/:id/reject-lead', async (req, res, next) => {
  * Optional body: { month: "2026-08" } to send for a specific month
  * (defaults to previous calendar month).
  */
-router.post('/reports/monthly-affiliate', async (req, res, next) => {
+router.post('/reports/monthly-affiliate', requireSuperAdmin, async (req, res, next) => {
   try {
-    if (req.user.role !== 'super_admin') {
-      return res.status(403).json({ error: 'Super admin only' });
-    }
 
     // Parse optional override date
     let overrideDate;
