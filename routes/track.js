@@ -985,7 +985,7 @@ router.post('/conversion', async (req, res, next) => {
       console.log('[Conversion Warning] Duplicate conversion prevented by transaction lock', {
         existing_id: error.existingConversion.id,
         order_id: originalOrderId || normalizedOrderId,
-        link_id: link.id
+        link_id: link?.id
       });
       
       return res.json({ 
@@ -993,7 +993,7 @@ router.post('/conversion', async (req, res, next) => {
         message: 'Conversion already tracked (duplicate prevented)',
         conversion_id: error.existingConversion.id,
         order_value: error.existingConversion.order_value,
-        link_id: link.id,
+        link_id: link?.id,
         unique_code: unique_code,
         is_duplicate: true
       });
