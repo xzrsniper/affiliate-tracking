@@ -217,7 +217,9 @@ async function getAffiliatesOverview(range = 'all') {
     if (!agg) return;
     agg.conversions += 1;
     if (r.lead_status === 'pending') agg.pending_conversions += 1;
-    if (r.lead_status === 'approved') {
+    // Count revenue for approved leads and direct sales (event_type=sale without rejection)
+    const isApproved = r.lead_status === 'approved' || (r.event_type === 'sale' && r.lead_status !== 'rejected');
+    if (isApproved) {
       const val = Number(r.order_value || 0);
       agg.approved_revenue += val;
       agg.affiliate_earnings += commissionFromOrder(val, agg.commission_percent);

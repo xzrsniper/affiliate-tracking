@@ -47,6 +47,11 @@ const Conversion = sequelize.define('Conversion', {
     allowNull: true,
     comment: 'Affiliate payout moderation: pending until admin approves/rejects (leads & sales)'
   },
+  rejection_reason: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: 'Admin-provided reason when a conversion is rejected'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

@@ -594,12 +594,30 @@ router.get('/affiliates/overview', async (req, res, next) => {
   try {
     const { label: range, fromDate } = buildRangeFromQuery(req.query.range);
 
-    const affiliates = await User.findAll({
+    // Fetch affiliate-role users
+    const affiliateUsers = await User.findAll({
       where: { role: 'affiliate' },
       attributes: ['id', 'email', 'affiliate_commission_percent', 'affiliate_balance', 'created_at'],
       order: [['created_at', 'DESC']],
       raw: true
     });
+    const affiliateUserIds = new Set(affiliateUsers.map((a) => Number(a.id)));
+
+    // Also find users without affiliate role who own links with conversions — catches role mismatches
+    const mismatchUserRows = await sequelize.query(
+      `SELECT DISTINCT u.id, u.email, u.affiliate_commission_percent, u.affiliate_balance, u.created_at
+       FROM users u
+       JOIN links l ON l.user_id = u.id
+       JOIN conversions cv ON cv.link_id = l.id AND cv.event_type IN ('lead','sale')
+       WHERE u.role NOT IN ('affiliate')`,
+      { type: QueryTypes.SELECT }
+    );
+    const mismatchUsers = mismatchUserRows.map((u) => ({ ...u, role_mismatch: true }));
+
+    const affiliates = [
+      ...affiliateUsers,
+      ...mismatchUsers.filter((u) => !affiliateUserIds.has(Number(u.id))).map((u) => ({ ...u, role_mismatch: true }))
+    ];
 
     if (!affiliates.length) {
       return res.json({
@@ -659,7 +677,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
       convWhere
         ? Conversion.findAll({
             where: convWhere,
-            attributes: ['link_id', 'lead_status', 'order_value'],
+            attributes: ['link_id', 'event_type', 'lead_status', 'order_value'],
             raw: true
           })
         : []
@@ -673,6 +691,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
           email: a.email,
           commission_percent: parseCommissionPercent(a.affiliate_commission_percent) || 0,
           affiliate_balance: Number(a.affiliate_balance || 0),
+          role_mismatch: a.role_mismatch || false,
           links: 0,
           clicks: 0,
           unique_clicks: 0,
@@ -703,7 +722,11 @@ router.get('/affiliates/overview', async (req, res, next) => {
       if (!agg) return;
       agg.conversions += 1;
       if (c.lead_status === 'pending') agg.pending_conversions += 1;
-      if (c.lead_status === 'approved') {
+      // Count revenue for: approved leads, confirmed sales (lead_status=approved), and direct sales (event_type=sale with no rejection)
+      const isApproved =
+        c.lead_status === 'approved' ||
+        (c.event_type === 'sale' && c.lead_status !== 'rejected');
+      if (isApproved) {
         const orderValue = parseFloat(c.order_value || 0);
         agg.approved_revenue += orderValue;
         agg.affiliate_earnings += commissionFromOrder(orderValue, agg.commission_percent);
@@ -785,7 +808,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         event_type: { [Op.in]: ['lead', 'sale'] },
         lead_status: status
       },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 1000,
       raw: true
@@ -807,6 +830,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status,
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent)
       };
@@ -856,7 +880,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
         event_type: { [Op.in]: ['lead', 'sale'] },
         lead_status: status
       },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 500
     });
@@ -874,6 +898,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
       order_value: parseFloat(row.order_value || 0),
       order_id: row.order_id,
       lead_status: row.lead_status,
+      rejection_reason: row.rejection_reason || null,
       created_at: row.created_at,
       commission_amount: commissionFromOrder(row.order_value, percent)
     });
@@ -892,7 +917,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
 });
 
 /** Shared approve/reject for affiliate lead or sale payouts. */
-async function moderateAffiliateConversion(conversionId, action) {
+async function moderateAffiliateConversion(conversionId, action, rejectionReason = null) {
   return sequelize.transaction(async (t) => {
     const conversion = await Conversion.findByPk(conversionId, { transaction: t, lock: t.LOCK.UPDATE });
     if (!conversion || !isAffiliatePayoutEvent(conversion.event_type)) {
@@ -914,6 +939,7 @@ async function moderateAffiliateConversion(conversionId, action) {
 
     if (action === 'reject') {
       conversion.lead_status = 'rejected';
+      conversion.rejection_reason = rejectionReason ? String(rejectionReason).slice(0, 500) : null;
       await conversion.save({ transaction: t });
       return { success: true, conversion_id: conversion.id, action: 'rejected' };
     }
@@ -974,7 +1000,8 @@ router.post('/conversions/:id/reject-lead', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid conversion id' });
     }
 
-    const result = await moderateAffiliateConversion(conversionId, 'reject');
+    const rejectionReason = req.body?.rejection_reason || null;
+    const result = await moderateAffiliateConversion(conversionId, 'reject', rejectionReason);
     if (result.error) {
       return res.status(result.status).json({ error: result.error });
     }

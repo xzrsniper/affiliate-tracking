@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
 const FROM_EMAIL = process.env.EMAIL_FROM_ADDRESS || process.env.SENDPULSE_SMTP_USER || 'noreply@example.com';
-const FROM_NAME = process.env.EMAIL_FROM_NAME || 'Lehko';
+const FROM_NAME = process.env.EMAIL_FROM_NAME || 'lehko.space';
 
 function getTransporter() {
   const host = process.env.SENDPULSE_SMTP_HOST || process.env.SMTP_HOST;
@@ -55,8 +55,22 @@ function brandedHtml({ title, body, lang = 'uk' }) {
             <td align="center" style="padding:32px 32px 0 32px;">
               <table role="presentation" cellpadding="0" cellspacing="0">
                 <tr>
-                  <td style="background:linear-gradient(135deg,#7c3aed,#6366f1);border-radius:12px;padding:10px 14px;">
-                    <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Lehko</span>
+                  <td align="center" style="background:linear-gradient(135deg,#7c3aed,#6366f1);border-radius:14px;padding:10px 18px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;padding-right:8px;">
+                          <svg width="28" height="28" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="48" height="48" rx="10" fill="rgba(255,255,255,0.2)"/>
+                            <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+                                  font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+                                  font-size="30" font-weight="800" fill="white">L</text>
+                          </svg>
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <span style="font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">lehko.space</span>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -120,11 +134,11 @@ export async function sendVerificationEmail(to, token, lang = 'uk') {
 
   const texts = {
     uk: {
-      subject: 'Підтвердіть вашу email адресу — Lehko',
+      subject: 'Підтвердіть вашу email адресу — lehko.space',
       title: 'Підтвердіть email адресу',
       body: `
         <p style="margin:0 0 16px 0;">Вітаємо! 👋</p>
-        <p style="margin:0 0 16px 0;">Дякуємо за реєстрацію в <strong>Lehko</strong>. Для завершення реєстрації підтвердіть вашу email адресу, натиснувши кнопку нижче:</p>
+        <p style="margin:0 0 16px 0;">Дякуємо за реєстрацію на <strong>lehko.space</strong>. Для завершення реєстрації підтвердіть вашу email адресу, натиснувши кнопку нижче:</p>
         ${ctaButton(verifyUrl, 'Підтвердити email ✉️')}
         <p style="margin:0 0 8px 0;font-size:13px;color:#94a3b8;">Або скопіюйте посилання:</p>
         <p style="margin:0 0 16px 0;font-size:13px;word-break:break-all;"><a href="${verifyUrl}" style="color:#7c3aed;">${verifyUrl}</a></p>
@@ -133,11 +147,11 @@ export async function sendVerificationEmail(to, token, lang = 'uk') {
       text: `Підтвердіть email: ${verifyUrl}\n\nПосилання дійсне 24 години.`
     },
     en: {
-      subject: 'Confirm your email address — Lehko',
+      subject: 'Confirm your email address — lehko.space',
       title: 'Confirm your email',
       body: `
         <p style="margin:0 0 16px 0;">Hello! 👋</p>
-        <p style="margin:0 0 16px 0;">Thanks for signing up for <strong>Lehko</strong>. To finish registration, please confirm your email address by clicking the button below:</p>
+        <p style="margin:0 0 16px 0;">Thanks for signing up for <strong>lehko.space</strong>. To finish registration, please confirm your email address by clicking the button below:</p>
         ${ctaButton(verifyUrl, 'Confirm email ✉️')}
         <p style="margin:0 0 8px 0;font-size:13px;color:#94a3b8;">Or copy this link:</p>
         <p style="margin:0 0 16px 0;font-size:13px;word-break:break-all;"><a href="${verifyUrl}" style="color:#7c3aed;">${verifyUrl}</a></p>
@@ -179,10 +193,10 @@ export async function sendPasswordChangeConfirmationEmail(to, token, lang = 'uk'
 
   const texts = {
     uk: {
-      subject: 'Підтвердіть зміну пароля — Lehko',
+      subject: 'Підтвердіть зміну пароля — lehko.space',
       title: 'Підтвердження зміни пароля',
       body: `
-        <p style="margin:0 0 16px 0;">Ви запросили зміну пароля для вашого акаунта в <strong>Lehko</strong>.</p>
+        <p style="margin:0 0 16px 0;">Ви запросили зміну пароля для вашого акаунта на <strong>lehko.space</strong>.</p>
         <p style="margin:0 0 16px 0;">Натисніть кнопку нижче, щоб підтвердити новий пароль:</p>
         ${ctaButton(confirmUrl, 'Підтвердити зміну пароля 🔒')}
         <p style="margin:0 0 8px 0;font-size:13px;color:#94a3b8;">Або скопіюйте посилання:</p>
@@ -193,10 +207,10 @@ export async function sendPasswordChangeConfirmationEmail(to, token, lang = 'uk'
       text: `Підтвердіть зміну пароля: ${confirmUrl}\n\nПосилання дійсне 1 годину.`
     },
     en: {
-      subject: 'Confirm password change — Lehko',
+      subject: 'Confirm password change — lehko.space',
       title: 'Confirm password change',
       body: `
-        <p style="margin:0 0 16px 0;">You requested a password change for your <strong>Lehko</strong> account.</p>
+        <p style="margin:0 0 16px 0;">You requested a password change for your <strong>lehko.space</strong> account.</p>
         <p style="margin:0 0 16px 0;">Click the button below to confirm your new password:</p>
         ${ctaButton(confirmUrl, 'Confirm password change 🔒')}
         <p style="margin:0 0 8px 0;font-size:13px;color:#94a3b8;">Or copy this link:</p>
@@ -240,10 +254,10 @@ export async function sendPasswordResetEmail(to, token, lang = 'uk') {
 
   const texts = {
     uk: {
-      subject: 'Відновлення пароля — Lehko',
+      subject: 'Відновлення пароля — lehko.space',
       title: 'Відновлення пароля',
       body: `
-        <p style="margin:0 0 16px 0;">Ви (або хтось інший) запросили відновлення пароля для акаунта <strong>Lehko</strong>.</p>
+        <p style="margin:0 0 16px 0;">Ви (або хтось інший) запросили відновлення пароля для акаунта <strong>lehko.space</strong>.</p>
         <p style="margin:0 0 16px 0;">Натисніть кнопку нижче, щоб встановити новий пароль:</p>
         ${ctaButton(resetUrl, 'Встановити новий пароль 🔑')}
         <p style="margin:0 0 8px 0;font-size:13px;color:#94a3b8;">Або скопіюйте посилання:</p>
@@ -254,10 +268,10 @@ export async function sendPasswordResetEmail(to, token, lang = 'uk') {
       text: `Відновлення пароля: ${resetUrl}\n\nПосилання дійсне 1 годину.`
     },
     en: {
-      subject: 'Password reset — Lehko',
+      subject: 'Password reset — lehko.space',
       title: 'Password reset',
       body: `
-        <p style="margin:0 0 16px 0;">You (or someone else) requested a password reset for your <strong>Lehko</strong> account.</p>
+        <p style="margin:0 0 16px 0;">You (or someone else) requested a password reset for your <strong>lehko.space</strong> account.</p>
         <p style="margin:0 0 16px 0;">Click the button below to set a new password:</p>
         ${ctaButton(resetUrl, 'Set new password 🔑')}
         <p style="margin:0 0 8px 0;font-size:13px;color:#94a3b8;">Or copy this link:</p>
@@ -551,7 +565,7 @@ export async function sendMonthlyAffiliateReport(opts) {
     await transporter.sendMail({
       from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
       to,
-      subject: `Ваш звіт за ${monthLabel} 📊 — Lehko`,
+      subject: `Ваш звіт за ${monthLabel} 📊 — lehko.space`,
       text,
       html
     });
