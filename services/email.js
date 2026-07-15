@@ -287,6 +287,282 @@ export async function sendPasswordResetEmail(to, token, lang = 'uk') {
 }
 
 /**
+ * Send the monthly affiliate performance report email.
+ *
+ * @param {object} opts
+ * @param {string}  opts.to
+ * @param {string}  opts.monthLabel       e.g. "Серпень 2026"
+ * @param {number}  opts.totalClicks
+ * @param {number}  opts.uniqueClicks
+ * @param {number}  opts.totalLeads
+ * @param {number}  opts.totalSales
+ * @param {number}  opts.salesRevenue
+ * @param {number}  opts.totalEarnings    commission earned this month
+ * @param {number}  opts.balance          current account balance
+ * @param {number}  opts.commissionPct
+ * @param {object|null} opts.topLink      { link_name, total_clicks, unique_code }
+ * @param {string|null} opts.sheetUrl     Google Sheets URL or null
+ */
+export async function sendMonthlyAffiliateReport(opts) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.error('Cannot send monthly report: SMTP not configured');
+    return { ok: false, error: 'Email not configured' };
+  }
+
+  const {
+    to, monthLabel,
+    totalClicks, uniqueClicks,
+    totalLeads, totalSales, salesRevenue,
+    totalEarnings, balance, commissionPct,
+    topLink, sheetUrl
+  } = opts;
+
+  const baseUrl = (process.env.FRONTEND_URL || process.env.APP_URL || 'https://lehko.space').replace(/\/$/, '');
+
+  // ── Logo SVG (inline, no external image dependency) ────────────────────────
+  const logoSvg = `
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="12" fill="url(#lg)"/>
+      <defs>
+        <linearGradient id="lg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#7c3aed"/>
+          <stop offset="1" stop-color="#6366f1"/>
+        </linearGradient>
+      </defs>
+      <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
+            font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+            font-size="26" font-weight="800" fill="white">L</text>
+    </svg>`;
+
+  // ── Stat card helper ────────────────────────────────────────────────────────
+  const statCard = (iconChar, label, value, accent) => `
+    <td width="50%" style="padding:6px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+             style="background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <tr>
+          <td style="padding:16px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:${accent};
+                        display:inline-flex;align-items:center;justify-content:center;
+                        font-size:18px;margin-bottom:10px;">${iconChar}</div>
+            <div style="font-size:12px;color:#94a3b8;font-weight:600;text-transform:uppercase;
+                        letter-spacing:0.05em;margin-bottom:4px;">${label}</div>
+            <div style="font-size:22px;font-weight:800;color:#1e293b;">${value}</div>
+          </td>
+        </tr>
+      </table>
+    </td>`;
+
+  // ── Google Sheets button ────────────────────────────────────────────────────
+  const sheetsBtn = sheetUrl ? `
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 16px auto;">
+      <tr>
+        <td align="center" style="background:#ffffff;border:2px solid #16a34a;border-radius:12px;">
+          <a href="${sheetUrl}" target="_blank"
+             style="display:inline-flex;align-items:center;gap:10px;padding:13px 28px;
+                    font-size:14px;font-weight:600;color:#16a34a;text-decoration:none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+              <rect x="3" y="3" width="18" height="18" rx="3" fill="#16a34a"/>
+              <line x1="3" y1="9" x2="21" y2="9" stroke="white" stroke-width="1.5"/>
+              <line x1="3" y1="15" x2="21" y2="15" stroke="white" stroke-width="1.5"/>
+              <line x1="9" y1="3" x2="9" y2="21" stroke="white" stroke-width="1.5"/>
+              <line x1="15" y1="3" x2="15" y2="21" stroke="white" stroke-width="1.5"/>
+            </svg>
+            Детальний звіт у Google Таблицях →
+          </a>
+        </td>
+      </tr>
+    </table>` : '';
+
+  // ── Top link card ────────────────────────────────────────────────────────────
+  const topLinkBlock = topLink ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="margin:0 0 24px 0;">
+      <tr>
+        <td style="font-size:13px;font-weight:700;color:#475569;text-transform:uppercase;
+                   letter-spacing:0.06em;padding-bottom:10px;">🔗 Топ посилання місяця</td>
+      </tr>
+      <tr>
+        <td>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="background:linear-gradient(135deg,#fef9c3,#fef08a);
+                        border-radius:14px;border:1.5px solid #fbbf24;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td>
+                      <div style="font-size:20px;margin-bottom:4px;">🥇</div>
+                      <div style="font-size:15px;font-weight:700;color:#78350f;
+                                  word-break:break-all;">${topLink.link_name}</div>
+                      <div style="font-size:12px;color:#92400e;margin-top:2px;">
+                        ${topLink.unique_code}
+                      </div>
+                    </td>
+                    <td align="right" style="white-space:nowrap;vertical-align:top;">
+                      <div style="display:inline-block;background:#7c3aed;color:#fff;
+                                  border-radius:999px;padding:4px 14px;font-size:13px;
+                                  font-weight:700;">${topLink.total_clicks} кліків</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>` : '';
+
+  // ── Full HTML ────────────────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Звіт за ${monthLabel}</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;
+             font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="background:#f1f5f9;padding:40px 16px;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+             style="max-width:520px;background:#ffffff;border-radius:20px;
+                    overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.10);">
+
+        <!-- Accent bar -->
+        <tr><td style="height:6px;background:linear-gradient(90deg,#7c3aed,#6366f1);"></td></tr>
+
+        <!-- Logo -->
+        <tr>
+          <td align="center" style="padding:32px 32px 8px 32px;">
+            ${logoSvg}
+          </td>
+        </tr>
+
+        <!-- Title -->
+        <tr>
+          <td align="center" style="padding:12px 32px 4px 32px;">
+            <h1 style="margin:0;font-size:24px;font-weight:800;color:#1e293b;">
+              Звіт за ${monthLabel} 📊
+            </h1>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:6px 32px 28px 32px;">
+            <p style="margin:0;font-size:14px;color:#64748b;">
+              Ваша статистика за минулий місяць 👋
+            </p>
+          </td>
+        </tr>
+
+        <!-- Stat cards 2x2 -->
+        <tr>
+          <td style="padding:0 26px 8px 26px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                ${statCard('🖱', 'Кліки', `${totalClicks.toLocaleString('uk-UA')} <span style="font-size:13px;font-weight:500;color:#94a3b8;">всього</span><br><span style="font-size:14px;font-weight:700;">${uniqueClicks.toLocaleString('uk-UA')}</span> <span style="font-size:13px;color:#94a3b8;">унікальних</span>`, '#ede9fe')}
+                ${statCard('🎯', 'Ліди', `${totalLeads.toLocaleString('uk-UA')}`, '#fff7ed')}
+              </tr>
+              <tr>
+                ${statCard('✅', 'Продажі', `${totalSales.toLocaleString('uk-UA')} <span style="font-size:13px;color:#94a3b8;">× ${salesRevenue.toLocaleString('uk-UA')} ₴</span>`, '#f0fdf4')}
+                ${statCard('📈', 'Заробіток', `${totalEarnings.toLocaleString('uk-UA')} ₴`, '#ecfdf5')}
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Balance banner -->
+        <tr>
+          <td style="padding:8px 26px 24px 26px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:linear-gradient(135deg,#7c3aed,#6366f1);border-radius:14px;">
+              <tr>
+                <td style="padding:18px 20px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <div style="font-size:12px;color:rgba(255,255,255,0.75);
+                                    text-transform:uppercase;letter-spacing:0.06em;
+                                    margin-bottom:4px;">💳 Поточний баланс</div>
+                        <div style="font-size:26px;font-weight:800;color:#ffffff;">
+                          ${balance.toLocaleString('uk-UA')} ₴
+                        </div>
+                      </td>
+                      <td align="right" style="vertical-align:middle;">
+                        <div style="background:rgba(255,255,255,0.2);color:#fff;
+                                    border-radius:999px;padding:6px 16px;font-size:13px;
+                                    font-weight:700;">Комісія ${commissionPct}%</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Top link -->
+        <tr>
+          <td style="padding:0 26px 8px 26px;">
+            ${topLinkBlock}
+          </td>
+        </tr>
+
+        <!-- Buttons -->
+        <tr>
+          <td style="padding:0 26px 12px 26px;">
+            ${sheetsBtn}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 26px 32px 26px;">
+            ${ctaButton(`${baseUrl}/dashboard`, 'Перейти до дашборду →')}
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:0 32px 28px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-top:1px solid #e2e8f0;padding-top:20px;font-size:12px;
+                            color:#94a3b8;line-height:1.5;text-align:center;">
+                  Ви отримали цей лист, тому що маєте акаунт афілейта на
+                  <a href="https://lehko.space" style="color:#7c3aed;text-decoration:none;">lehko.space</a>.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  const text = `Звіт за ${monthLabel}\n\nКліки: ${totalClicks} (${uniqueClicks} унікальних)\nЛіди: ${totalLeads}\nПродажі: ${totalSales} (${salesRevenue} ₴)\nЗаробіток: ${totalEarnings} ₴\nБаланс: ${balance} ₴\n${sheetUrl ? `\nДетальний звіт: ${sheetUrl}\n` : ''}\nДашборд: ${baseUrl}/dashboard`;
+
+  try {
+    await transporter.sendMail({
+      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+      to,
+      subject: `Ваш звіт за ${monthLabel} 📊 — Lehko`,
+      text,
+      html
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('Monthly report send error:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * Add subscriber to SendPulse address book via API.
  * Uses SendPulse REST API v2: https://sendpulse.com/integrations/api
  * Requires SENDPULSE_API_USER_ID and SENDPULSE_API_SECRET env vars.
