@@ -32,7 +32,7 @@ export default function Layout({ children }) {
     navigate('/login');
   };
 
-  const canAccessAdmin = user?.role === 'super_admin';
+  const canAccessAdmin = user?.role === 'super_admin' || user?.role === 'moderator';
 
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('layout.dashboard') },

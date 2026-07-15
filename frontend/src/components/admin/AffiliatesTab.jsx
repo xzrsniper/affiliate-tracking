@@ -1,7 +1,186 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, RefreshCw, X } from 'lucide-react';
+import { Check, RefreshCw, X, AlertCircle, Globe, Percent } from 'lucide-react';
 import api from '../../config/api.js';
+
+const PRESET_REASONS = [
+  { value: 'no_payment',     label: 'Немає оплати' },
+  { value: 'duplicate',      label: 'Дубль замовлення' },
+  { value: 'not_picked_up',  label: 'Не забрали з пошти' },
+  { value: 'cancelled',      label: 'Замовлення скасовано' },
+  { value: 'custom',         label: 'Інша причина…' },
+];
+
+function RejectModal({ item, onConfirm, onCancel }) {
+  const [selected, setSelected] = useState('no_payment');
+  const [custom, setCustom] = useState('');
+  const reason = selected === 'custom' ? custom.trim() : PRESET_REASONS.find(r => r.value === selected)?.label || '';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <h2 className="font-bold text-slate-800">Причина відхилення</h2>
+        </div>
+        {item && (
+          <p className="text-sm text-slate-500">
+            Замовлення #{item.order_id || item.id} · {Number(item.order_value || 0).toLocaleString('uk-UA')} ₴
+          </p>
+        )}
+        <div className="space-y-2">
+          {PRESET_REASONS.map((r) => (
+            <label key={r.value} className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="radio"
+                name="reject_reason"
+                value={r.value}
+                checked={selected === r.value}
+                onChange={() => setSelected(r.value)}
+                className="accent-red-600"
+              />
+              <span className="text-sm text-slate-700">{r.label}</span>
+            </label>
+          ))}
+        </div>
+        {selected === 'custom' && (
+          <input
+            autoFocus
+            type="text"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            placeholder="Введіть причину…"
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+          />
+        )}
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={() => onConfirm(reason || null)}
+            className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+          >
+            Відхилити
+          </button>
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+          >
+            Скасувати
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SiteCommissionsModal({ affiliate, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [edits, setEdits] = useState({});
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!affiliate) return;
+    setLoading(true);
+    api.get(`/api/admin/users/${affiliate.user_id}/website-commissions`)
+      .then((res) => {
+        setData(res.data);
+        const init = {};
+        (res.data?.websites || []).forEach((w) => {
+          init[w.id] = w.commission_percent !== null ? String(w.commission_percent) : '';
+        });
+        setEdits(init);
+      })
+      .finally(() => setLoading(false));
+  }, [affiliate]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updates = (data?.websites || []).map((w) => ({
+        website_id: w.id,
+        commission_percent: edits[w.id] === '' ? null : parseFloat(edits[w.id])
+      }));
+      await api.patch(`/api/admin/users/${affiliate.user_id}/website-commissions`, { updates });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-violet-500" />
+            <h2 className="font-bold text-slate-800">Комісія по сайтах</h2>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-500">
+          <span className="font-medium text-slate-700">{affiliate.email}</span>
+          {' · '}Глобальна комісія: <span className="font-semibold text-violet-700">{data?.global_commission ?? '?'}%</span>
+        </p>
+
+        {loading ? (
+          <p className="text-sm text-slate-400 py-4 text-center">Завантаження…</p>
+        ) : (data?.websites || []).length === 0 ? (
+          <p className="text-sm text-slate-400 py-4 text-center">Немає підключених сайтів</p>
+        ) : (
+          <div className="space-y-3">
+            {(data?.websites || []).map((w) => (
+              <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{w.name || w.domain}</p>
+                  <p className="text-xs text-slate-400 truncate">{w.domain}</p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={edits[w.id] ?? ''}
+                      onChange={(e) => setEdits((prev) => ({ ...prev, [w.id]: e.target.value }))}
+                      placeholder={String(data?.global_commission ?? '')}
+                      className="w-20 text-right px-2 py-1.5 pr-7 border border-slate-200 rounded-lg text-sm bg-white"
+                    />
+                    <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                  </div>
+                  {edits[w.id] === '' && (
+                    <span className="text-xs text-slate-400 whitespace-nowrap">= global</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="flex-1 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50"
+          >
+            {saved ? '✓ Збережено' : saving ? 'Збереження…' : 'Зберегти'}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+          >
+            Закрити
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const RANGE_OPTIONS = [
   { value: '1', label: '1d' },
@@ -27,6 +206,17 @@ export default function AffiliatesTab() {
   const [sharing, setSharing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
+  const [rejectTarget, setRejectTarget] = useState(null); // item pending rejection
+  const [siteCommAffiliate, setSiteCommAffiliate] = useState(null); // affiliate for site commission modal
+
+  // Assign affiliate by email
+  const [assignEmail, setAssignEmail] = useState('');
+  const [assignCommission, setAssignCommission] = useState('10');
+  const [assignResult, setAssignResult] = useState(null); // { id, email, role } or null
+  const [assignSearching, setAssignSearching] = useState(false);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignMsg, setAssignMsg] = useState(''); // success/error message
+  const [assignError, setAssignError] = useState('');
 
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
 
@@ -114,10 +304,13 @@ export default function AffiliatesTab() {
     }
   };
 
-  const handleModeration = async (id, action) => {
+  const handleModeration = async (id, action, rejectionReason = null) => {
     setUpdating(true);
     try {
-      await api.post(`/api/admin/conversions/${id}/${action === 'approve' ? 'approve-lead' : 'reject-lead'}`);
+      const endpoint = action === 'approve' ? 'approve-lead' : 'reject-lead';
+      await api.post(`/api/admin/conversions/${id}/${endpoint}`,
+        action === 'reject' ? { rejection_reason: rejectionReason } : undefined
+      );
       await Promise.all([fetchModeration(), fetchHistory(), fetchOverview(range)]);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update conversion status');
@@ -140,6 +333,47 @@ export default function AffiliatesTab() {
       setError(err.response?.data?.error || 'Failed to create public report link');
     } finally {
       setSharing(false);
+    }
+  };
+
+  const handleEmailSearch = async () => {
+    const email = assignEmail.trim();
+    if (!email) return;
+    setAssignSearching(true);
+    setAssignResult(null);
+    setAssignError('');
+    setAssignMsg('');
+    try {
+      const res = await api.get('/api/admin/users/by-email', { params: { email } });
+      setAssignResult(res.data.user);
+    } catch (err) {
+      setAssignError(err.response?.status === 404 ? 'Користувача з таким email не знайдено' : (err.response?.data?.error || 'Помилка пошуку'));
+    } finally {
+      setAssignSearching(false);
+    }
+  };
+
+  const handleAssignAffiliate = async () => {
+    if (!assignResult) return;
+    const pct = parseFloat(assignCommission);
+    if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+      setAssignError('Невірний відсоток комісії (0–100)');
+      return;
+    }
+    setAssignSaving(true);
+    setAssignError('');
+    setAssignMsg('');
+    try {
+      await api.patch(`/api/admin/users/${assignResult.id}/affiliate`, { role: 'affiliate', commission_percent: pct });
+      setAssignMsg(`✓ ${assignResult.email} тепер афілейт (${pct}%)`);
+      setAssignResult(null);
+      setAssignEmail('');
+      setAssignCommission('10');
+      await fetchOverview(range);
+    } catch (err) {
+      setAssignError(err.response?.data?.error || 'Помилка збереження');
+    } finally {
+      setAssignSaving(false);
     }
   };
 
@@ -196,6 +430,75 @@ export default function AffiliatesTab() {
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-red-700 text-sm">{error}</div>}
 
+      {/* Assign affiliate by email */}
+      <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 space-y-3">
+        <div>
+          <h2 className="font-bold text-slate-800">Призначити афілейта</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Знайти користувача за поштою та дати йому роль афілейта</p>
+        </div>
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-48">
+            <label className="text-xs text-slate-500 mb-1 block">Email</label>
+            <input
+              type="email"
+              value={assignEmail}
+              onChange={(e) => { setAssignEmail(e.target.value); setAssignResult(null); setAssignError(''); setAssignMsg(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleEmailSearch()}
+              placeholder="user@example.com"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            />
+          </div>
+          <button
+            onClick={handleEmailSearch}
+            disabled={assignSearching || !assignEmail.trim()}
+            className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold disabled:opacity-50 whitespace-nowrap"
+          >
+            {assignSearching ? 'Пошук…' : 'Знайти'}
+          </button>
+        </div>
+
+        {assignError && <p className="text-sm text-red-600">{assignError}</p>}
+        {assignMsg && <p className="text-sm text-green-700 font-medium">{assignMsg}</p>}
+
+        {assignResult && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-wrap items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-slate-800">{assignResult.email}</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Поточна роль: <span className={`font-semibold ${assignResult.role === 'affiliate' ? 'text-violet-600' : 'text-slate-700'}`}>{assignResult.role}</span>
+                {assignResult.affiliate_commission_percent != null && ` · ${assignResult.affiliate_commission_percent}%`}
+              </p>
+            </div>
+            {assignResult.role !== 'affiliate' && (
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={assignCommission}
+                    onChange={(e) => setAssignCommission(e.target.value)}
+                    className="w-20 text-right px-2 py-1.5 pr-7 border border-slate-200 rounded-lg text-sm"
+                  />
+                  <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                </div>
+                <button
+                  onClick={handleAssignAffiliate}
+                  disabled={assignSaving}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {assignSaving ? 'Збереження…' : 'Призначити афілейта'}
+                </button>
+              </div>
+            )}
+            {assignResult.role === 'affiliate' && (
+              <span className="text-sm text-violet-600 font-semibold">Вже афілейт</span>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {statsCards.map((c) => (
           <div key={c.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -228,8 +531,17 @@ export default function AffiliatesTab() {
             </thead>
             <tbody>
               {(overview?.affiliates || []).map((a) => (
-                <tr key={a.user_id} className="border-t border-slate-100">
-                  <td className="px-3 py-2">{a.email}</td>
+                <tr key={a.user_id} className={`border-t border-slate-100 ${a.role_mismatch ? 'bg-amber-50' : ''}`}>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span>{a.email}</span>
+                      {a.role_mismatch && (
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                          ⚠️ Роль не &ldquo;affiliate&rdquo; — є конверсії але роль не призначена
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">{a.links}</td>
                   <td className="px-3 py-2 text-right">{a.clicks}</td>
                   <td className="px-3 py-2 text-right">{a.conversions}</td>
@@ -242,7 +554,36 @@ export default function AffiliatesTab() {
                     <input type="number" step="0.01" min="0" value={edits[a.user_id]?.balance ?? ''} onChange={(e) => setEdits((prev) => ({ ...prev, [a.user_id]: { ...(prev[a.user_id] || {}), balance: e.target.value } }))} className="w-24 text-right px-2 py-1 border border-slate-200 rounded-md" />
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                    <div className="inline-flex gap-1.5 flex-col items-end">
+                      {a.role_mismatch && (
+                        <button
+                          onClick={async () => {
+                            setUpdating(true);
+                            try {
+                              await api.patch(`/api/admin/users/${a.user_id}/affiliate`, { role: 'affiliate', commission_percent: parseFloat(edits[a.user_id]?.percent || 10) });
+                              await fetchOverview(range);
+                            } catch (err) {
+                              setError(err.response?.data?.error || 'Failed to fix role');
+                            } finally { setUpdating(false); }
+                          }}
+                          disabled={updating}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-amber-500 text-white disabled:opacity-50 whitespace-nowrap"
+                        >
+                          Призначити роль
+                        </button>
+                      )}
+                      <div className="flex gap-1.5">
+                        <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                        <button
+                          onClick={() => setSiteCommAffiliate(a)}
+                          className="px-2.5 py-1.5 text-xs rounded-lg border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 flex items-center gap-1"
+                          title="Комісія по сайтах"
+                        >
+                          <Globe className="w-3 h-3" />
+                          Сайти %
+                        </button>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -289,10 +630,10 @@ export default function AffiliatesTab() {
                   <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
                   <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
                   <td className="px-3 py-2 text-right">
-                    <div className="inline-flex gap-2">
-                      <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white"><Check className="w-4 h-4" /></button>
-                      <button onClick={() => handleModeration(item.id, 'reject')} disabled={updating} className="p-1.5 rounded bg-red-600 text-white"><X className="w-4 h-4" /></button>
-                    </div>
+                      <div className="inline-flex gap-2">
+                        <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white" title="Підтвердити"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => setRejectTarget(item)} disabled={updating} className="p-1.5 rounded bg-red-600 text-white" title="Відхилити"><X className="w-4 h-4" /></button>
+                      </div>
                   </td>
                 </tr>
               ))}
@@ -338,6 +679,9 @@ export default function AffiliatesTab() {
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${item.lead_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {item.lead_status === 'approved' ? 'Підтверджено' : 'Відхилено'}
                     </span>
+                    {item.lead_status === 'rejected' && item.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-0.5 max-w-[180px]">{item.rejection_reason}</p>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -350,6 +694,24 @@ export default function AffiliatesTab() {
           </table>
         )}
       </div>
+
+      {rejectTarget && (
+        <RejectModal
+          item={rejectTarget}
+          onConfirm={async (reason) => {
+            setRejectTarget(null);
+            await handleModeration(rejectTarget.id, 'reject', reason);
+          }}
+          onCancel={() => setRejectTarget(null)}
+        />
+      )}
+
+      {siteCommAffiliate && (
+        <SiteCommissionsModal
+          affiliate={siteCommAffiliate}
+          onClose={() => setSiteCommAffiliate(null)}
+        />
+      )}
     </div>
   );
 }

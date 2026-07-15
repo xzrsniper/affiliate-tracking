@@ -84,12 +84,31 @@ function normalizeDomain(domain) {
     .replace(/^www\./, '');
 }
 
+/**
+ * Strip stale tracking params (ref, click_id) from a URL.
+ * Used when saving a link's original_url and when computing tracking URLs,
+ * so that a URL copied from a previous redirect destination (which already
+ * contains ?ref=CODE&click_id=ID) doesn't break pixel-side click recording.
+ */
+function stripTrackingParams(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    url.searchParams.delete('ref');
+    url.searchParams.delete('click_id');
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 /** Same rules as GET /my-links — must stay consistent after PUT /:id */
 function buildTrackingUrlForLink(link, req) {
   const format = link.link_format || 'tracking';
   if (format === 'original') {
     try {
       const url = new URL(link.original_url);
+      // Remove any stale tracking params before adding the current ref
+      url.searchParams.delete('click_id');
       url.searchParams.set('ref', link.unique_code);
       return url.toString();
     } catch {
@@ -255,6 +274,10 @@ router.post('/create', async (req, res, next) => {
     } catch (e) {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
+
+    // Strip any stale tracking params (ref, click_id) that may have been copied
+    // from a previous redirect destination URL.
+    resolvedOriginalUrl = stripTrackingParams(resolvedOriginalUrl);
 
     const validFormats = ['tracking', 'original', 'lehko'];
     let resolvedFormat = validFormats.includes(link_format) ? link_format : 'tracking';
@@ -807,6 +830,37 @@ router.get('/:id/purchases', authenticate, async (req, res, next) => {
 });
 
 /**
+ * POST /api/links/:linkId/conversions/:convId/confirm
+ * Promote a lead conversion to a sale. Blocked for affiliates.
+ */
+router.post('/:linkId/conversions/:convId/confirm', authenticate, async (req, res, next) => {
+  try {
+    if (req.user.role === 'affiliate') {
+      return res.status(403).json({ error: 'Affiliates cannot confirm leads' });
+    }
+
+    const link = await Link.findOne({
+      where: { id: req.params.linkId, user_id: req.user.id },
+      attributes: ['id']
+    });
+    if (!link) return res.status(404).json({ error: 'Link not found' });
+
+    const conversion = await Conversion.findOne({
+      where: { id: req.params.convId, link_id: link.id, event_type: 'lead' }
+    });
+    if (!conversion) return res.status(404).json({ error: 'Lead conversion not found' });
+
+    conversion.event_type = 'sale';
+    if ('lead_status' in conversion.dataValues) conversion.lead_status = 'approved';
+    await conversion.save();
+
+    res.json({ success: true, id: conversion.id, event_type: conversion.event_type });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/links/:id
  * Get single link by ID (belonging to current user)
  */
@@ -914,7 +968,7 @@ router.put('/:id', authenticate, async (req, res, next) => {
       } catch (e) {
         return res.status(400).json({ error: 'Invalid URL format' });
       }
-      link.original_url = original_url;
+      link.original_url = stripTrackingParams(original_url);
     }
     
     if (name !== undefined) {
@@ -941,6 +995,58 @@ router.put('/:id', authenticate, async (req, res, next) => {
         created_at: link.created_at
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/links/my-orders
+ * Returns all conversions (orders) across all links owned by the current user,
+ * with lead_status and rejection_reason — used for the affiliate "My Orders" view.
+ */
+router.get('/my-orders', authenticate, async (req, res, next) => {
+  try {
+    const links = await Link.findAll({
+      where: { user_id: req.user.id },
+      attributes: ['id', 'name', 'unique_code'],
+      raw: true
+    });
+
+    if (!links.length) {
+      return res.json({ success: true, orders: [] });
+    }
+
+    const linkIds = links.map((l) => l.id);
+    const linkById = new Map(links.map((l) => [l.id, l]));
+
+    const conversions = await Conversion.findAll({
+      where: {
+        link_id: { [Op.in]: linkIds },
+        event_type: { [Op.in]: ['lead', 'sale'] }
+      },
+      attributes: ['id', 'link_id', 'order_id', 'order_value', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit: 1000,
+      raw: true
+    });
+
+    const orders = conversions.map((c) => {
+      const link = linkById.get(c.link_id);
+      return {
+        id: c.id,
+        order_id: c.order_id || null,
+        amount: parseFloat(c.order_value || 0),
+        event_type: c.event_type,
+        lead_status: c.lead_status || null,
+        rejection_reason: c.rejection_reason || null,
+        link_name: link?.name || link?.unique_code || null,
+        link_code: link?.unique_code || null,
+        created_at: c.created_at
+      };
+    });
+
+    res.json({ success: true, orders });
   } catch (error) {
     next(error);
   }

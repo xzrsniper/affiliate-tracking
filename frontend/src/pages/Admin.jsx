@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext.jsx';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
 import { CONTENT_FIELDS_BY_PAGE } from '../config/siteContentFields.js';
@@ -28,6 +29,8 @@ const contentFieldId = (section, key) => `${section}.${key}`;
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
+  const { user: currentUser } = useAuth();
+  const isModerator = currentUser?.role === 'moderator';
   const { startEdit } = useSiteTextEdit();
   const [siteTextModalOpen, setSiteTextModalOpen] = useState(false);
   const [siteTextTargetPage, setSiteTextTargetPage] = useState('home');
@@ -201,7 +204,7 @@ export default function Admin() {
     }
     return map[contentFieldId(section, key)] || '';
   };
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState(isModerator ? 'affiliates' : 'users');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -565,9 +568,12 @@ export default function Admin() {
     }
     setUpdating(true);
     try {
+      let role = 'user';
+      if (edit.isAffiliate) role = 'affiliate';
+      else if (edit.isModerator) role = 'moderator';
       await api.patch(`/api/admin/users/${userId}/affiliate`, {
-        role: edit.isAffiliate ? 'affiliate' : 'user',
-        commission_percent: edit.isAffiliate ? percent : undefined
+        role,
+        commission_percent: role === 'affiliate' ? percent : undefined
       });
       await fetchUsers();
     } catch (err) {
@@ -786,27 +792,31 @@ export default function Admin() {
         )}
 
         <div className="flex gap-2 mb-5 border-b border-slate-200 dark:border-slate-700">
-          <button
-            type="button"
-            onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'users' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <Users className="w-4 h-4 inline mr-1.5" /> {t('admin.users')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('blog')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'blog' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <FileText className="w-4 h-4 inline mr-1.5" /> {t('adminBlog.tab')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('content')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'content' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <FileText className="w-4 h-4 inline mr-1.5" /> {t('admin.siteContentTab')}
-          </button>
+          {!isModerator && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('users')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'users' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                <Users className="w-4 h-4 inline mr-1.5" /> {t('admin.users')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('blog')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'blog' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                <FileText className="w-4 h-4 inline mr-1.5" /> {t('adminBlog.tab')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('content')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'content' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                <FileText className="w-4 h-4 inline mr-1.5" /> {t('admin.siteContentTab')}
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab('affiliates')}
@@ -1046,6 +1056,7 @@ export default function Admin() {
             <option value="super_admin">{t('layout.superAdmin')}</option>
             <option value="user">User</option>
             <option value="affiliate">Афілейт</option>
+            <option value="moderator">Модератор</option>
           </select>
 
           <select
@@ -1214,6 +1225,8 @@ export default function Admin() {
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-700 border border-violet-200">{t('layout.superAdmin')}</span>
                         ) : user.role === 'affiliate' ? (
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Афілейт</span>
+                        ) : user.role === 'moderator' ? (
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 border border-blue-200">Модератор</span>
                         ) : (
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">User</span>
                         )}
@@ -1500,7 +1513,7 @@ export default function Admin() {
                 className="mb-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
 
-              {false && editingUser.role !== 'super_admin' && (
+              {editingUser.role !== 'super_admin' && (
                 <div className="mb-4 space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                   <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <input
@@ -1509,8 +1522,9 @@ export default function Admin() {
                       onChange={(e) => setAffiliateEdits((prev) => ({
                         ...prev,
                         [editingUser.id]: {
-                          ...(prev[editingUser.id] || { percent: '10' }),
-                          isAffiliate: e.target.checked
+                          ...(prev[editingUser.id] || { percent: String(editingUser.affiliate_commission_percent ?? 10) }),
+                          isAffiliate: e.target.checked,
+                          isModerator: false
                         }
                       }))}
                     />
@@ -1523,7 +1537,7 @@ export default function Admin() {
                         min="0"
                         max="100"
                         step="0.1"
-                        value={affiliateEdits[editingUser.id]?.percent ?? ''}
+                        value={affiliateEdits[editingUser.id]?.percent ?? String(editingUser.affiliate_commission_percent ?? 10)}
                         onChange={(e) => setAffiliateEdits((prev) => ({
                           ...prev,
                           [editingUser.id]: { ...(prev[editingUser.id] || { isAffiliate: true }), percent: e.target.value }
@@ -1533,10 +1547,26 @@ export default function Admin() {
                       <span className="text-sm text-slate-500">%</span>
                     </div>
                   )}
+
+                  <label className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
+                    <input
+                      type="checkbox"
+                      checked={affiliateEdits[editingUser.id]?.isModerator ?? editingUser.role === 'moderator'}
+                      onChange={(e) => setAffiliateEdits((prev) => ({
+                        ...prev,
+                        [editingUser.id]: {
+                          ...(prev[editingUser.id] || {}),
+                          isModerator: e.target.checked,
+                          isAffiliate: false
+                        }
+                      }))}
+                    />
+                    Модератор (доступ до сторінки Афілейти)
+                  </label>
                 </div>
               )}
 
-              {false && (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
+              {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
                 <div className="mb-4">
                   <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Баланс</label>
                   <input
@@ -1563,6 +1593,13 @@ export default function Admin() {
                   disabled={updating}
                   onClick={async () => {
                     await handleUpdateLinkLimit(editingUser.id);
+                    if (affiliateEdits[editingUser.id]) {
+                      await handleSaveAffiliateRole(editingUser.id);
+                    }
+                    if (balanceEdits[editingUser.id] !== undefined &&
+                        (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate')) {
+                      await handleSaveAffiliateBalance(editingUser.id);
+                    }
                     setEditingUser(null);
                   }}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"

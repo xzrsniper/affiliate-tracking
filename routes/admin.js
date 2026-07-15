@@ -1,6 +1,6 @@
 import express from 'express';
-import { User, Link, Click, Conversion } from '../models/index.js';
-import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
+import { User, Link, Click, Conversion, Website } from '../models/index.js';
+import { authenticate, requireSuperAdmin, requireModeratorOrAbove } from '../middleware/auth.js';
 import { Op, fn, col, QueryTypes } from 'sequelize';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 import sequelize from '../config/database.js';
@@ -23,9 +23,11 @@ function csvEscape(value) {
   return str;
 }
 
-// All admin routes require authentication and super admin role
+// All admin routes require authentication.
+// Super-admin-only endpoints add requireSuperAdmin inline.
+// Moderator-accessible endpoints are guarded by requireModeratorOrAbove.
 router.use(authenticate);
-router.use(requireSuperAdmin);
+router.use(requireModeratorOrAbove);
 
 function buildRangeFromQuery(rangeRaw) {
   const v = String(rangeRaw || 'all').toLowerCase();
@@ -48,7 +50,7 @@ function buildRangeFromQuery(rangeRaw) {
  * - page: (optional) Page number for pagination
  * - limit: (optional) Items per page
  */
-router.get('/users', async (req, res, next) => {
+router.get('/users', requireSuperAdmin, async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -109,7 +111,7 @@ router.get('/users', async (req, res, next) => {
  * Update a specific user's link_limit
  * Body: { link_limit: number }
  */
-router.patch('/users/:id/limit', async (req, res, next) => {
+router.patch('/users/:id/limit', requireSuperAdmin, async (req, res, next) => {
   try {
     const { link_limit } = req.body;
 
@@ -155,7 +157,7 @@ router.patch('/users/:id/limit', async (req, res, next) => {
  * Toggle is_banned status for a user
  * Body: (optional) { ban: boolean } - if not provided, toggles current status
  */
-router.post('/users/:id/ban', async (req, res, next) => {
+router.post('/users/:id/ban', requireSuperAdmin, async (req, res, next) => {
   try {
     const { ban } = req.body;
     const userId = parseInt(req.params.id);
@@ -194,7 +196,7 @@ router.post('/users/:id/ban', async (req, res, next) => {
  * GET /api/admin/users/:id
  * Get single user with detailed stats
  */
-router.get('/users/:id', async (req, res, next) => {
+router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: { exclude: ['password_hash'] },
@@ -280,7 +282,7 @@ router.get('/users/:id', async (req, res, next) => {
  * GET /api/admin/users/:id/impersonate
  * Impersonate user (view their dashboard data)
  */
-router.get('/users/:id/impersonate', async (req, res, next) => {
+router.get('/users/:id/impersonate', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: { exclude: ['password_hash'] }
@@ -399,7 +401,7 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
  * PATCH /api/admin/links/:linkId/revenue-adjustment
  * Body: { revenue_adjustment: number } — додається до «сирої» суми з конверсій (від’ємне значення зменшує показаний дохід).
  */
-router.patch('/links/:linkId/revenue-adjustment', async (req, res, next) => {
+router.patch('/links/:linkId/revenue-adjustment', requireSuperAdmin, async (req, res, next) => {
   try {
     const linkId = parseInt(req.params.linkId, 10);
     if (!Number.isInteger(linkId) || linkId < 1) {
@@ -443,7 +445,7 @@ router.patch('/links/:linkId/revenue-adjustment', async (req, res, next) => {
  * GET /api/admin/conversions/export
  * Export conversions with timestamp and amount to CSV
  */
-router.get('/conversions/export', async (req, res, next) => {
+router.get('/conversions/export', requireSuperAdmin, async (req, res, next) => {
   try {
     const conversions = await Conversion.findAll({
       include: [
@@ -505,9 +507,34 @@ router.get('/conversions/export', async (req, res, next) => {
 });
 
 /**
+ * GET /api/admin/users/by-email?email=...
+ * Find a single user by exact email. Accessible to moderators.
+ * Returns minimal info (id, email, role) — no sensitive fields.
+ */
+router.get('/users/by-email', async (req, res, next) => {
+  try {
+    const email = String(req.query.email || '').trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: 'email query param required' });
+
+    const user = await User.findOne({
+      where: sequelize.where(fn('LOWER', col('email')), email),
+      attributes: ['id', 'email', 'role', 'affiliate_commission_percent', 'affiliate_balance']
+    });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, affiliate_commission_percent: user.affiliate_commission_percent } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * PATCH /api/admin/users/:id/affiliate
- * Set affiliate role and commission % (or revert to user).
- * Body: { role: 'affiliate' | 'user', commission_percent?: number }
+ * Set affiliate/user/moderator role.
+ * Body: { role: 'affiliate' | 'user' | 'moderator', commission_percent?: number }
+ * - 'moderator' role: super_admin only
+ * - 'affiliate'/'user': moderator or above
  */
 router.patch('/users/:id/affiliate', async (req, res, next) => {
   try {
@@ -520,8 +547,14 @@ router.patch('/users/:id/affiliate', async (req, res, next) => {
     }
 
     const { role, commission_percent } = req.body;
-    if (role !== 'affiliate' && role !== 'user') {
-      return res.status(400).json({ error: 'role must be affiliate or user' });
+    const allowedRoles = ['affiliate', 'user', 'moderator'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ error: 'role must be affiliate, user, or moderator' });
+    }
+
+    // Only super_admin can assign the moderator role
+    if (role === 'moderator' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Only super admin can assign the moderator role' });
     }
 
     if (role === 'affiliate') {
@@ -531,6 +564,9 @@ router.patch('/users/:id/affiliate', async (req, res, next) => {
       }
       user.role = 'affiliate';
       user.affiliate_commission_percent = percent;
+    } else if (role === 'moderator') {
+      user.role = 'moderator';
+      user.affiliate_commission_percent = null;
     } else {
       user.role = 'user';
       user.affiliate_commission_percent = null;
@@ -586,6 +622,78 @@ router.patch('/users/:id/balance', async (req, res, next) => {
 });
 
 /**
+ * GET /api/admin/users/:id/website-commissions
+ * Returns all websites owned by an affiliate with their per-site commission_percent.
+ */
+router.get('/users/:id/website-commissions', async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id, { attributes: ['id', 'email', 'role', 'affiliate_commission_percent'] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const websites = await Website.findAll({
+      where: { user_id: user.id },
+      attributes: ['id', 'name', 'domain', 'is_connected', 'commission_percent'],
+      order: [['id', 'ASC']],
+      raw: true
+    });
+
+    res.json({
+      success: true,
+      global_commission: parseCommissionPercent(user.affiliate_commission_percent),
+      websites: websites.map((w) => ({
+        id: w.id,
+        name: w.name,
+        domain: w.domain,
+        is_connected: w.is_connected,
+        commission_percent: w.commission_percent !== null ? parseFloat(w.commission_percent) : null
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/website-commissions
+ * Bulk-update per-site commission overrides for an affiliate.
+ * Body: { updates: [{ website_id, commission_percent }] }
+ * Set commission_percent to null to remove the override (falls back to global).
+ */
+router.patch('/users/:id/website-commissions', async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id, { attributes: ['id', 'role'] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const updates = req.body?.updates;
+    if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates array required' });
+
+    for (const item of updates) {
+      const { website_id, commission_percent } = item;
+      const site = await Website.findOne({ where: { id: website_id, user_id: user.id } });
+      if (!site) continue;
+
+      if (commission_percent === null || commission_percent === '') {
+        site.commission_percent = null;
+      } else {
+        const pct = parseFloat(commission_percent);
+        if (!Number.isFinite(pct) || pct < 0 || pct > 100) continue;
+        site.commission_percent = Math.round(pct * 100) / 100;
+      }
+      await site.save();
+    }
+
+    const websites = await Website.findAll({
+      where: { user_id: user.id },
+      attributes: ['id', 'name', 'domain', 'commission_percent'],
+      raw: true
+    });
+    res.json({ success: true, websites });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/admin/affiliates/overview
  * Affiliate list + stats by period (1,3,7,14,30 days or all).
  * Query: range=1|3|7|14|30|all
@@ -594,12 +702,30 @@ router.get('/affiliates/overview', async (req, res, next) => {
   try {
     const { label: range, fromDate } = buildRangeFromQuery(req.query.range);
 
-    const affiliates = await User.findAll({
+    // Fetch affiliate-role users
+    const affiliateUsers = await User.findAll({
       where: { role: 'affiliate' },
       attributes: ['id', 'email', 'affiliate_commission_percent', 'affiliate_balance', 'created_at'],
       order: [['created_at', 'DESC']],
       raw: true
     });
+    const affiliateUserIds = new Set(affiliateUsers.map((a) => Number(a.id)));
+
+    // Also find users without affiliate role who own links with conversions — catches role mismatches
+    const mismatchUserRows = await sequelize.query(
+      `SELECT DISTINCT u.id, u.email, u.affiliate_commission_percent, u.affiliate_balance, u.created_at
+       FROM users u
+       JOIN links l ON l.user_id = u.id
+       JOIN conversions cv ON cv.link_id = l.id AND cv.event_type IN ('lead','sale')
+       WHERE u.role NOT IN ('affiliate')`,
+      { type: QueryTypes.SELECT }
+    );
+    const mismatchUsers = mismatchUserRows.map((u) => ({ ...u, role_mismatch: true }));
+
+    const affiliates = [
+      ...affiliateUsers,
+      ...mismatchUsers.filter((u) => !affiliateUserIds.has(Number(u.id))).map((u) => ({ ...u, role_mismatch: true }))
+    ];
 
     if (!affiliates.length) {
       return res.json({
@@ -659,7 +785,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
       convWhere
         ? Conversion.findAll({
             where: convWhere,
-            attributes: ['link_id', 'lead_status', 'order_value'],
+            attributes: ['link_id', 'event_type', 'lead_status', 'order_value'],
             raw: true
           })
         : []
@@ -673,6 +799,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
           email: a.email,
           commission_percent: parseCommissionPercent(a.affiliate_commission_percent) || 0,
           affiliate_balance: Number(a.affiliate_balance || 0),
+          role_mismatch: a.role_mismatch || false,
           links: 0,
           clicks: 0,
           unique_clicks: 0,
@@ -703,7 +830,11 @@ router.get('/affiliates/overview', async (req, res, next) => {
       if (!agg) return;
       agg.conversions += 1;
       if (c.lead_status === 'pending') agg.pending_conversions += 1;
-      if (c.lead_status === 'approved') {
+      // Count revenue for: approved leads, confirmed sales (lead_status=approved), and direct sales (event_type=sale with no rejection)
+      const isApproved =
+        c.lead_status === 'approved' ||
+        (c.event_type === 'sale' && c.lead_status !== 'rejected');
+      if (isApproved) {
         const orderValue = parseFloat(c.order_value || 0);
         agg.approved_revenue += orderValue;
         agg.affiliate_earnings += commissionFromOrder(orderValue, agg.commission_percent);
@@ -785,7 +916,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         event_type: { [Op.in]: ['lead', 'sale'] },
         lead_status: status
       },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 1000,
       raw: true
@@ -807,6 +938,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status,
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent)
       };
@@ -856,7 +988,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
         event_type: { [Op.in]: ['lead', 'sale'] },
         lead_status: status
       },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 500
     });
@@ -874,6 +1006,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
       order_value: parseFloat(row.order_value || 0),
       order_id: row.order_id,
       lead_status: row.lead_status,
+      rejection_reason: row.rejection_reason || null,
       created_at: row.created_at,
       commission_amount: commissionFromOrder(row.order_value, percent)
     });
@@ -892,7 +1025,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
 });
 
 /** Shared approve/reject for affiliate lead or sale payouts. */
-async function moderateAffiliateConversion(conversionId, action) {
+async function moderateAffiliateConversion(conversionId, action, rejectionReason = null) {
   return sequelize.transaction(async (t) => {
     const conversion = await Conversion.findByPk(conversionId, { transaction: t, lock: t.LOCK.UPDATE });
     if (!conversion || !isAffiliatePayoutEvent(conversion.event_type)) {
@@ -914,11 +1047,45 @@ async function moderateAffiliateConversion(conversionId, action) {
 
     if (action === 'reject') {
       conversion.lead_status = 'rejected';
+      conversion.rejection_reason = rejectionReason ? String(rejectionReason).slice(0, 500) : null;
       await conversion.save({ transaction: t });
       return { success: true, conversion_id: conversion.id, action: 'rejected' };
     }
 
-    const percent = parseCommissionPercent(affiliate.affiliate_commission_percent);
+    // Resolve commission: prefer per-site override on the link's destination website
+    let percent = parseCommissionPercent(affiliate.affiliate_commission_percent);
+
+    if (link.original_url) {
+      try {
+        const linkHost = new URL(
+          link.original_url.startsWith('http') ? link.original_url : `https://${link.original_url}`
+        ).hostname.replace(/^www\./, '');
+
+        const siteOverride = await Website.findOne({
+          where: { user_id: affiliate.id },
+          attributes: ['commission_percent'],
+          raw: true
+        }).then(() =>
+          // raw query to handle messy domain formats stored in DB
+          sequelize.query(
+            `SELECT commission_percent FROM websites
+             WHERE user_id = :affiliateId
+               AND commission_percent IS NOT NULL
+               AND REPLACE(REPLACE(REPLACE(REPLACE(domain, 'https://', ''), 'http://', ''), 'www.', ''), '/', '') = :host
+             LIMIT 1`,
+            { replacements: { affiliateId: affiliate.id, host: linkHost }, type: QueryTypes.SELECT }
+          )
+        );
+
+        if (siteOverride?.length && siteOverride[0].commission_percent != null) {
+          const sitePercent = parseCommissionPercent(siteOverride[0].commission_percent);
+          if (sitePercent != null) percent = sitePercent;
+        }
+      } catch {
+        // ignore URL parse errors, fall back to global commission
+      }
+    }
+
     if (percent == null) {
       return { error: 'Affiliate commission not configured', status: 400 };
     }
@@ -974,13 +1141,40 @@ router.post('/conversions/:id/reject-lead', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid conversion id' });
     }
 
-    const result = await moderateAffiliateConversion(conversionId, 'reject');
+    const rejectionReason = req.body?.rejection_reason || null;
+    const result = await moderateAffiliateConversion(conversionId, 'reject', rejectionReason);
     if (result.error) {
       return res.status(result.status).json({ error: result.error });
     }
     res.json(result);
   } catch (error) {
     next(error);
+  }
+});
+
+/**
+ * POST /api/admin/reports/monthly-affiliate
+ * Manually trigger the monthly affiliate report send (super_admin only).
+ * Optional body: { month: "2026-08" } to send for a specific month
+ * (defaults to previous calendar month).
+ */
+router.post('/reports/monthly-affiliate', requireSuperAdmin, async (req, res, next) => {
+  try {
+
+    // Parse optional override date
+    let overrideDate;
+    if (req.body?.month) {
+      // "2026-08" → use 2026-09-03 so previousMonthRange gives Aug
+      const [y, m] = req.body.month.split('-').map(Number);
+      overrideDate = new Date(Date.UTC(y, m, 3)); // day=3, month index = m (1-based → 0-based +1 shift)
+    }
+
+    const { sendMonthlyReportsToAll } = await import('../services/affiliateMonthlyReport.js');
+    const results = await sendMonthlyReportsToAll(overrideDate);
+
+    res.json({ success: true, results });
+  } catch (err) {
+    next(err);
   }
 });
 

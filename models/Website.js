@@ -57,6 +57,11 @@ const Website = sequelize.define('Website', {
     allowNull: true,
     comment: 'CSS selector for add-to-cart button (Visual Event Mapper)'
   },
+  commission_percent: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: true,
+    comment: 'Per-site affiliate commission override; NULL = use global user commission'
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,
