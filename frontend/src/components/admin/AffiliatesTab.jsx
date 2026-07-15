@@ -228,8 +228,17 @@ export default function AffiliatesTab() {
             </thead>
             <tbody>
               {(overview?.affiliates || []).map((a) => (
-                <tr key={a.user_id} className="border-t border-slate-100">
-                  <td className="px-3 py-2">{a.email}</td>
+                <tr key={a.user_id} className={`border-t border-slate-100 ${a.role_mismatch ? 'bg-amber-50' : ''}`}>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span>{a.email}</span>
+                      {a.role_mismatch && (
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-medium">
+                          ⚠️ Роль не &ldquo;affiliate&rdquo; — є конверсії але роль не призначена
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-right">{a.links}</td>
                   <td className="px-3 py-2 text-right">{a.clicks}</td>
                   <td className="px-3 py-2 text-right">{a.conversions}</td>
@@ -242,7 +251,26 @@ export default function AffiliatesTab() {
                     <input type="number" step="0.01" min="0" value={edits[a.user_id]?.balance ?? ''} onChange={(e) => setEdits((prev) => ({ ...prev, [a.user_id]: { ...(prev[a.user_id] || {}), balance: e.target.value } }))} className="w-24 text-right px-2 py-1 border border-slate-200 rounded-md" />
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                    <div className="inline-flex gap-1.5 flex-col items-end">
+                      {a.role_mismatch && (
+                        <button
+                          onClick={async () => {
+                            setUpdating(true);
+                            try {
+                              await api.patch(`/api/admin/users/${a.user_id}/affiliate`, { role: 'affiliate', commission_percent: parseFloat(edits[a.user_id]?.percent || 10) });
+                              await fetchOverview(range);
+                            } catch (err) {
+                              setError(err.response?.data?.error || 'Failed to fix role');
+                            } finally { setUpdating(false); }
+                          }}
+                          disabled={updating}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-amber-500 text-white disabled:opacity-50 whitespace-nowrap"
+                        >
+                          Призначити роль
+                        </button>
+                      )}
+                      <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                    </div>
                   </td>
                 </tr>
               ))}

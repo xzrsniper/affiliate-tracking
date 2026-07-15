@@ -594,12 +594,30 @@ router.get('/affiliates/overview', async (req, res, next) => {
   try {
     const { label: range, fromDate } = buildRangeFromQuery(req.query.range);
 
-    const affiliates = await User.findAll({
+    // Fetch affiliate-role users
+    const affiliateUsers = await User.findAll({
       where: { role: 'affiliate' },
       attributes: ['id', 'email', 'affiliate_commission_percent', 'affiliate_balance', 'created_at'],
       order: [['created_at', 'DESC']],
       raw: true
     });
+    const affiliateUserIds = new Set(affiliateUsers.map((a) => Number(a.id)));
+
+    // Also find users without affiliate role who own links with conversions — catches role mismatches
+    const mismatchUserRows = await sequelize.query(
+      `SELECT DISTINCT u.id, u.email, u.affiliate_commission_percent, u.affiliate_balance, u.created_at
+       FROM users u
+       JOIN links l ON l.user_id = u.id
+       JOIN conversions cv ON cv.link_id = l.id AND cv.event_type IN ('lead','sale')
+       WHERE u.role NOT IN ('affiliate')`,
+      { type: QueryTypes.SELECT }
+    );
+    const mismatchUsers = mismatchUserRows.map((u) => ({ ...u, role_mismatch: true }));
+
+    const affiliates = [
+      ...affiliateUsers,
+      ...mismatchUsers.filter((u) => !affiliateUserIds.has(Number(u.id))).map((u) => ({ ...u, role_mismatch: true }))
+    ];
 
     if (!affiliates.length) {
       return res.json({
@@ -659,7 +677,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
       convWhere
         ? Conversion.findAll({
             where: convWhere,
-            attributes: ['link_id', 'lead_status', 'order_value'],
+            attributes: ['link_id', 'event_type', 'lead_status', 'order_value'],
             raw: true
           })
         : []
@@ -673,6 +691,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
           email: a.email,
           commission_percent: parseCommissionPercent(a.affiliate_commission_percent) || 0,
           affiliate_balance: Number(a.affiliate_balance || 0),
+          role_mismatch: a.role_mismatch || false,
           links: 0,
           clicks: 0,
           unique_clicks: 0,
@@ -703,7 +722,11 @@ router.get('/affiliates/overview', async (req, res, next) => {
       if (!agg) return;
       agg.conversions += 1;
       if (c.lead_status === 'pending') agg.pending_conversions += 1;
-      if (c.lead_status === 'approved') {
+      // Count revenue for: approved leads, confirmed sales (lead_status=approved), and direct sales (event_type=sale with no rejection)
+      const isApproved =
+        c.lead_status === 'approved' ||
+        (c.event_type === 'sale' && c.lead_status !== 'rejected');
+      if (isApproved) {
         const orderValue = parseFloat(c.order_value || 0);
         agg.approved_revenue += orderValue;
         agg.affiliate_earnings += commissionFromOrder(orderValue, agg.commission_percent);
