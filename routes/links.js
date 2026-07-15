@@ -1001,6 +1001,58 @@ router.put('/:id', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/links/my-orders
+ * Returns all conversions (orders) across all links owned by the current user,
+ * with lead_status and rejection_reason — used for the affiliate "My Orders" view.
+ */
+router.get('/my-orders', authenticate, async (req, res, next) => {
+  try {
+    const links = await Link.findAll({
+      where: { user_id: req.user.id },
+      attributes: ['id', 'name', 'unique_code'],
+      raw: true
+    });
+
+    if (!links.length) {
+      return res.json({ success: true, orders: [] });
+    }
+
+    const linkIds = links.map((l) => l.id);
+    const linkById = new Map(links.map((l) => [l.id, l]));
+
+    const conversions = await Conversion.findAll({
+      where: {
+        link_id: { [Op.in]: linkIds },
+        event_type: { [Op.in]: ['lead', 'sale'] }
+      },
+      attributes: ['id', 'link_id', 'order_id', 'order_value', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit: 1000,
+      raw: true
+    });
+
+    const orders = conversions.map((c) => {
+      const link = linkById.get(c.link_id);
+      return {
+        id: c.id,
+        order_id: c.order_id || null,
+        amount: parseFloat(c.order_value || 0),
+        event_type: c.event_type,
+        lead_status: c.lead_status || null,
+        rejection_reason: c.rejection_reason || null,
+        link_name: link?.name || link?.unique_code || null,
+        link_code: link?.unique_code || null,
+        created_at: c.created_at
+      };
+    });
+
+    res.json({ success: true, orders });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * DELETE /api/links/:id
  * Delete a link
  */

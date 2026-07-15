@@ -103,6 +103,9 @@ export default function Dashboard() {
   const [activeSnapshot, setActiveSnapshot] = useState(''); // applied value 'YYYY-MM-DDTHH'
   const [timeRange, setTimeRange] = useState('today');
   const [affiliateSummary, setAffiliateSummary] = useState(null);
+  const [myOrders, setMyOrders] = useState(null);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [myOrdersFilter, setMyOrdersFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
 
   // Auto-fetch links and chart on mount
   useEffect(() => {
@@ -145,6 +148,18 @@ export default function Dashboard() {
   useEffect(() => {
     setSelectedLinkIds((prev) => prev.filter((id) => links.some((link) => link.id === id)));
   }, [links]);
+
+  const fetchMyOrders = async () => {
+    setMyOrdersLoading(true);
+    try {
+      const res = await api.get('/api/links/my-orders');
+      setMyOrders(res.data.orders || []);
+    } catch {
+      setMyOrders([]);
+    } finally {
+      setMyOrdersLoading(false);
+    }
+  };
 
   const fetchChartData = async (lang, snapshot = '', selectedSource = '', range = timeRange) => {
     try {
@@ -712,6 +727,13 @@ export default function Dashboard() {
   const totalLeadRevenue = sourceFilteredLinks.reduce((sum, link) => sum + (link.stats?.lead_revenue ?? 0), 0);
   const isAffiliate = user?.role === 'affiliate';
   const affiliateCommissionPercent = affiliateSummary?.commission_percent ?? user?.affiliate_commission_percent;
+
+  // Fetch orders once for affiliates (lazy — only when they haven't been loaded yet)
+  useEffect(() => {
+    if (isAffiliate && myOrders === null) {
+      fetchMyOrders();
+    }
+  }, [isAffiliate]);
   const affiliateBalance = parseFloat(affiliateSummary?.balance ?? user?.affiliate_balance ?? 0);
   const totalAffiliateEarnings = sourceFilteredLinks.reduce(
     (sum, link) => sum + (link.stats?.affiliate_earnings ?? 0),
@@ -2505,6 +2527,107 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── My Orders (affiliate only) ──────────────────────────────────── */}
+      {isAffiliate && (
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden mt-5">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-bold text-slate-900 text-lg">Мої замовлення</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Всі конверсії по ваших посиланнях з поточним статусом</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { v: 'all',      label: 'Всі' },
+                { v: 'pending',  label: 'Очікують' },
+                { v: 'approved', label: 'Підтверджені' },
+                { v: 'rejected', label: 'Відхилені' },
+              ].map(({ v, label }) => (
+                <button
+                  key={v}
+                  onClick={() => setMyOrdersFilter(v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    myOrdersFilter === v
+                      ? 'bg-violet-600 text-white border-violet-600'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-violet-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <button onClick={fetchMyOrders} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" title="Оновити">
+                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              </button>
+            </div>
+          </div>
+
+          {myOrdersLoading ? (
+            <p className="px-5 py-8 text-sm text-slate-400 text-center">Завантаження…</p>
+          ) : (() => {
+            const filtered = (myOrders || []).filter(o =>
+              myOrdersFilter === 'all' ? true : o.lead_status === myOrdersFilter
+            );
+            if (!filtered.length) {
+              return <p className="px-5 py-8 text-sm text-slate-400 text-center">Немає замовлень</p>;
+            }
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                      <th className="text-left px-4 py-3">Дата</th>
+                      <th className="text-left px-4 py-3">Посилання</th>
+                      <th className="text-left px-4 py-3">Тип</th>
+                      <th className="text-right px-4 py-3">Сума</th>
+                      <th className="text-left px-4 py-3">ID замовлення</th>
+                      <th className="text-left px-4 py-3">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filtered.map((o) => {
+                      const statusCfg = {
+                        approved: { label: 'Підтверджено', cls: 'bg-emerald-100 text-emerald-700' },
+                        pending:  { label: 'Очікує',       cls: 'bg-amber-100 text-amber-700' },
+                        rejected: { label: 'Відхилено',    cls: 'bg-red-100 text-red-700' },
+                      }[o.lead_status] || { label: '—', cls: 'bg-slate-100 text-slate-500' };
+
+                      return (
+                        <tr key={o.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
+                            {new Date(o.created_at).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 font-medium max-w-[160px] truncate" title={o.link_name}>
+                            {o.link_name || o.link_code || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {o.event_type === 'sale' ? 'Покупка' : 'Лід'}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                            {o.amount > 0 ? `${o.amount.toLocaleString('uk-UA')} ₴` : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-400">
+                            {o.order_id || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-0.5">
+                              <span className={`inline-flex w-fit px-2 py-0.5 rounded-full text-xs font-semibold ${statusCfg.cls}`}>
+                                {statusCfg.label}
+                              </span>
+                              {o.lead_status === 'rejected' && o.rejection_reason && (
+                                <span className="text-xs text-red-500 max-w-[200px]">{o.rejection_reason}</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
         </div>
       )}
     </Layout>
