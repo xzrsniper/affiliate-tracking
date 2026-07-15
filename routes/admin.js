@@ -1,5 +1,5 @@
 import express from 'express';
-import { User, Link, Click, Conversion } from '../models/index.js';
+import { User, Link, Click, Conversion, Website } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
 import { Op, fn, col, QueryTypes } from 'sequelize';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
@@ -586,6 +586,78 @@ router.patch('/users/:id/balance', async (req, res, next) => {
 });
 
 /**
+ * GET /api/admin/users/:id/website-commissions
+ * Returns all websites owned by an affiliate with their per-site commission_percent.
+ */
+router.get('/users/:id/website-commissions', async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id, { attributes: ['id', 'email', 'role', 'affiliate_commission_percent'] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const websites = await Website.findAll({
+      where: { user_id: user.id },
+      attributes: ['id', 'name', 'domain', 'is_connected', 'commission_percent'],
+      order: [['id', 'ASC']],
+      raw: true
+    });
+
+    res.json({
+      success: true,
+      global_commission: parseCommissionPercent(user.affiliate_commission_percent),
+      websites: websites.map((w) => ({
+        id: w.id,
+        name: w.name,
+        domain: w.domain,
+        is_connected: w.is_connected,
+        commission_percent: w.commission_percent !== null ? parseFloat(w.commission_percent) : null
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/website-commissions
+ * Bulk-update per-site commission overrides for an affiliate.
+ * Body: { updates: [{ website_id, commission_percent }] }
+ * Set commission_percent to null to remove the override (falls back to global).
+ */
+router.patch('/users/:id/website-commissions', async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id, { attributes: ['id', 'role'] });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const updates = req.body?.updates;
+    if (!Array.isArray(updates)) return res.status(400).json({ error: 'updates array required' });
+
+    for (const item of updates) {
+      const { website_id, commission_percent } = item;
+      const site = await Website.findOne({ where: { id: website_id, user_id: user.id } });
+      if (!site) continue;
+
+      if (commission_percent === null || commission_percent === '') {
+        site.commission_percent = null;
+      } else {
+        const pct = parseFloat(commission_percent);
+        if (!Number.isFinite(pct) || pct < 0 || pct > 100) continue;
+        site.commission_percent = Math.round(pct * 100) / 100;
+      }
+      await site.save();
+    }
+
+    const websites = await Website.findAll({
+      where: { user_id: user.id },
+      attributes: ['id', 'name', 'domain', 'commission_percent'],
+      raw: true
+    });
+    res.json({ success: true, websites });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/admin/affiliates/overview
  * Affiliate list + stats by period (1,3,7,14,30 days or all).
  * Query: range=1|3|7|14|30|all
@@ -944,7 +1016,40 @@ async function moderateAffiliateConversion(conversionId, action, rejectionReason
       return { success: true, conversion_id: conversion.id, action: 'rejected' };
     }
 
-    const percent = parseCommissionPercent(affiliate.affiliate_commission_percent);
+    // Resolve commission: prefer per-site override on the link's destination website
+    let percent = parseCommissionPercent(affiliate.affiliate_commission_percent);
+
+    if (link.original_url) {
+      try {
+        const linkHost = new URL(
+          link.original_url.startsWith('http') ? link.original_url : `https://${link.original_url}`
+        ).hostname.replace(/^www\./, '');
+
+        const siteOverride = await Website.findOne({
+          where: { user_id: affiliate.id },
+          attributes: ['commission_percent'],
+          raw: true
+        }).then(() =>
+          // raw query to handle messy domain formats stored in DB
+          sequelize.query(
+            `SELECT commission_percent FROM websites
+             WHERE user_id = :affiliateId
+               AND commission_percent IS NOT NULL
+               AND REPLACE(REPLACE(REPLACE(REPLACE(domain, 'https://', ''), 'http://', ''), 'www.', ''), '/', '') = :host
+             LIMIT 1`,
+            { replacements: { affiliateId: affiliate.id, host: linkHost }, type: QueryTypes.SELECT }
+          )
+        );
+
+        if (siteOverride?.length && siteOverride[0].commission_percent != null) {
+          const sitePercent = parseCommissionPercent(siteOverride[0].commission_percent);
+          if (sitePercent != null) percent = sitePercent;
+        }
+      } catch {
+        // ignore URL parse errors, fall back to global commission
+      }
+    }
+
     if (percent == null) {
       return { error: 'Affiliate commission not configured', status: 400 };
     }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, RefreshCw, X, AlertCircle } from 'lucide-react';
+import { Check, RefreshCw, X, AlertCircle, Globe, Percent } from 'lucide-react';
 import api from '../../config/api.js';
 
 const PRESET_REASONS = [
@@ -72,6 +72,116 @@ function RejectModal({ item, onConfirm, onCancel }) {
   );
 }
 
+function SiteCommissionsModal({ affiliate, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [edits, setEdits] = useState({});
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!affiliate) return;
+    setLoading(true);
+    api.get(`/api/admin/users/${affiliate.user_id}/website-commissions`)
+      .then((res) => {
+        setData(res.data);
+        const init = {};
+        (res.data?.websites || []).forEach((w) => {
+          init[w.id] = w.commission_percent !== null ? String(w.commission_percent) : '';
+        });
+        setEdits(init);
+      })
+      .finally(() => setLoading(false));
+  }, [affiliate]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updates = (data?.websites || []).map((w) => ({
+        website_id: w.id,
+        commission_percent: edits[w.id] === '' ? null : parseFloat(edits[w.id])
+      }));
+      await api.patch(`/api/admin/users/${affiliate.user_id}/website-commissions`, { updates });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-violet-500" />
+            <h2 className="font-bold text-slate-800">Комісія по сайтах</h2>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-500">
+          <span className="font-medium text-slate-700">{affiliate.email}</span>
+          {' · '}Глобальна комісія: <span className="font-semibold text-violet-700">{data?.global_commission ?? '?'}%</span>
+        </p>
+
+        {loading ? (
+          <p className="text-sm text-slate-400 py-4 text-center">Завантаження…</p>
+        ) : (data?.websites || []).length === 0 ? (
+          <p className="text-sm text-slate-400 py-4 text-center">Немає підключених сайтів</p>
+        ) : (
+          <div className="space-y-3">
+            {(data?.websites || []).map((w) => (
+              <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{w.name || w.domain}</p>
+                  <p className="text-xs text-slate-400 truncate">{w.domain}</p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={edits[w.id] ?? ''}
+                      onChange={(e) => setEdits((prev) => ({ ...prev, [w.id]: e.target.value }))}
+                      placeholder={String(data?.global_commission ?? '')}
+                      className="w-20 text-right px-2 py-1.5 pr-7 border border-slate-200 rounded-lg text-sm bg-white"
+                    />
+                    <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                  </div>
+                  {edits[w.id] === '' && (
+                    <span className="text-xs text-slate-400 whitespace-nowrap">= global</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="flex-1 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50"
+          >
+            {saved ? '✓ Збережено' : saving ? 'Збереження…' : 'Зберегти'}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+          >
+            Закрити
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const RANGE_OPTIONS = [
   { value: '1', label: '1d' },
   { value: '3', label: '3d' },
@@ -97,6 +207,7 @@ export default function AffiliatesTab() {
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
   const [rejectTarget, setRejectTarget] = useState(null); // item pending rejection
+  const [siteCommAffiliate, setSiteCommAffiliate] = useState(null); // affiliate for site commission modal
 
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
 
@@ -342,7 +453,17 @@ export default function AffiliatesTab() {
                           Призначити роль
                         </button>
                       )}
-                      <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                        <button
+                          onClick={() => setSiteCommAffiliate(a)}
+                          className="px-2.5 py-1.5 text-xs rounded-lg border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 flex items-center gap-1"
+                          title="Комісія по сайтах"
+                        >
+                          <Globe className="w-3 h-3" />
+                          Сайти %
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -463,6 +584,13 @@ export default function AffiliatesTab() {
             await handleModeration(rejectTarget.id, 'reject', reason);
           }}
           onCancel={() => setRejectTarget(null)}
+        />
+      )}
+
+      {siteCommAffiliate && (
+        <SiteCommissionsModal
+          affiliate={siteCommAffiliate}
+          onClose={() => setSiteCommAffiliate(null)}
         />
       )}
     </div>
