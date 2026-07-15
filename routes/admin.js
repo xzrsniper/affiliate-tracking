@@ -984,4 +984,33 @@ router.post('/conversions/:id/reject-lead', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/admin/reports/monthly-affiliate
+ * Manually trigger the monthly affiliate report send (super_admin only).
+ * Optional body: { month: "2026-08" } to send for a specific month
+ * (defaults to previous calendar month).
+ */
+router.post('/reports/monthly-affiliate', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Super admin only' });
+    }
+
+    // Parse optional override date
+    let overrideDate;
+    if (req.body?.month) {
+      // "2026-08" → use 2026-09-03 so previousMonthRange gives Aug
+      const [y, m] = req.body.month.split('-').map(Number);
+      overrideDate = new Date(Date.UTC(y, m, 3)); // day=3, month index = m (1-based → 0-based +1 shift)
+    }
+
+    const { sendMonthlyReportsToAll } = await import('../services/affiliateMonthlyReport.js');
+    const results = await sendMonthlyReportsToAll(overrideDate);
+
+    res.json({ success: true, results });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cron from 'node-cron';
 import { testConnection } from './config/database.js';
 import './models/index.js'; // Import models to register associations
 
@@ -369,6 +370,19 @@ if (process.env.NODE_ENV === 'production') {
     res.status(404).json({ error: 'Route not found' });
   });
 }
+
+// ─── Monthly affiliate report cron ──────────────────────────────────────────
+// Runs at 07:00 UTC (= 09:00 Kyiv, UTC+2) on the 3rd of every month.
+cron.schedule('0 7 3 * *', async () => {
+  console.log('[Cron] Sending monthly affiliate reports…');
+  try {
+    const { sendMonthlyReportsToAll } = await import('./services/affiliateMonthlyReport.js');
+    const results = await sendMonthlyReportsToAll();
+    console.log('[Cron] Monthly report batch done:', results);
+  } catch (err) {
+    console.error('[Cron] Monthly report error:', err);
+  }
+}, { timezone: 'UTC' });
 
 // Start server
 const startServer = async () => {
