@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
+import { isImpersonating, getAdminUser, restoreAdminSession } from '../utils/auth.js';
 import {
   LayoutDashboard,
   Users,
@@ -15,21 +16,33 @@ import {
   Globe,
   FileText,
   MessageCircle,
-  BookOpen
+  BookOpen,
+  ShieldAlert
 } from 'lucide-react';
 import Logo from './Logo.jsx';
 
 export default function Layout({ children }) {
   const { t, i18n } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const isUk = i18n.language === 'uk';
+  const impersonating = isImpersonating();
+  const adminUser = impersonating ? getAdminUser() : null;
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleExitImpersonation = () => {
+    const adminData = restoreAdminSession();
+    if (adminData) {
+      const token = localStorage.getItem('token');
+      login(token, adminData);
+    }
+    navigate('/admin');
   };
 
   const canAccessAdmin = user?.role === 'super_admin';
@@ -163,6 +176,30 @@ export default function Layout({ children }) {
       </aside>
 
       <main className="flex-1 lg:ml-60 min-h-screen">
+        {impersonating && (
+          <div className="sticky top-0 z-40 flex items-center justify-between gap-3 bg-amber-500 px-4 py-2.5 text-white shadow-md">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              <span>
+                {isUk
+                  ? `Ви переглядаєте кабінет: ${user?.email}`
+                  : `Viewing account: ${user?.email}`}
+              </span>
+              {adminUser && (
+                <span className="opacity-70 text-xs">
+                  {isUk ? `(ви — ${adminUser.email})` : `(you are ${adminUser.email})`}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleExitImpersonation}
+              className="shrink-0 flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1 text-sm font-semibold hover:bg-white/30 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              {isUk ? 'Вийти з режиму перегляду' : 'Exit view mode'}
+            </button>
+          </div>
+        )}
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>

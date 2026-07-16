@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { User, Link, Click, Conversion } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
 import { Op, fn, col, QueryTypes } from 'sequelize';
@@ -269,6 +270,47 @@ router.get('/users/:id', async (req, res, next) => {
         unique_clicks: uniqueClicks,
         total_conversions: totalConversions,
         total_revenue: parseFloat(totalRevenue.toFixed(2))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/users/:id/impersonate-token
+ * Generate a short-lived JWT for target user so admin can log in as them
+ */
+router.post('/users/:id/impersonate-token', async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      attributes: { exclude: ['password_hash'] }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role === 'super_admin') {
+      return res.status(403).json({ error: 'Cannot impersonate another super admin' });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, impersonatedBy: req.user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        link_limit: user.link_limit,
+        affiliate_balance: user.affiliate_balance,
+        affiliate_commission_percent: user.affiliate_commission_percent
       }
     });
   } catch (error) {

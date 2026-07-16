@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
+import { saveAdminSession, setAuthToken, setUser } from '../utils/auth.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { CONTENT_FIELDS_BY_PAGE } from '../config/siteContentFields.js';
 import { useSiteTextEdit } from '../context/SiteTextEditContext.jsx';
 import {
@@ -28,6 +31,8 @@ const contentFieldId = (section, key) => `${section}.${key}`;
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const { startEdit } = useSiteTextEdit();
   const [siteTextModalOpen, setSiteTextModalOpen] = useState(false);
   const [siteTextTargetPage, setSiteTextTargetPage] = useState('home');
@@ -521,21 +526,15 @@ export default function Admin() {
   };
 
   const handleViewUser = async (userId) => {
-    const cached = users.find((u) => u.id === userId);
-    setViewingUser({
-      user: cached || { id: userId, email: '…' },
-      links: [],
-      loading: true
-    });
-    setViewingUserLoading(true);
     try {
-      const response = await api.get(`/api/admin/users/${userId}/impersonate`);
-      setViewingUser({ ...response.data, loading: false });
+      const res = await api.post(`/api/admin/users/${userId}/impersonate-token`);
+      saveAdminSession();
+      setAuthToken(res.data.token);
+      setUser(res.data.user);
+      login(res.data.token, res.data.user);
+      navigate('/dashboard');
     } catch (err) {
-      setViewingUser(null);
       setError(err.response?.data?.error || t('admin.errorLoadUserData'));
-    } finally {
-      setViewingUserLoading(false);
     }
   };
 
