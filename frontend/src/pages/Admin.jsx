@@ -767,22 +767,26 @@ export default function Admin() {
             <p className="text-sm text-slate-600 dark:text-slate-400">{t('admin.subtitle')}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setSiteTextModalOpen(true)}
-              className="px-3 py-2 text-sm font-semibold rounded-lg border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 transition-colors dark:border-amber-600 dark:bg-amber-950/50 dark:text-amber-100 dark:hover:bg-amber-900/50"
-            >
-              {t('admin.siteTextEditOpen')}
-            </button>
-            <button
-              type="button"
-              onClick={handleExportConversionsCsv}
-              disabled={exportingCsv}
-              className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              {exportingCsv ? t('common.loading') : t('admin.exportCsv')}
-            </button>
-            <button className="px-3 py-2 text-sm font-semibold rounded-lg bg-violet-700 text-white hover:bg-violet-800 transition-colors">{t('admin.inviteUser')}</button>
+            {!isModerator && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSiteTextModalOpen(true)}
+                  className="px-3 py-2 text-sm font-semibold rounded-lg border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 transition-colors dark:border-amber-600 dark:bg-amber-950/50 dark:text-amber-100 dark:hover:bg-amber-900/50"
+                >
+                  {t('admin.siteTextEditOpen')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportConversionsCsv}
+                  disabled={exportingCsv}
+                  className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {exportingCsv ? t('common.loading') : t('admin.exportCsv')}
+                </button>
+                <button className="px-3 py-2 text-sm font-semibold rounded-lg bg-violet-700 text-white hover:bg-violet-800 transition-colors">{t('admin.inviteUser')}</button>
+              </>
+            )}
           </div>
         </div>
         {exportStatus && (
