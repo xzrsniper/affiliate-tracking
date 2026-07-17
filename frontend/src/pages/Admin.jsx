@@ -22,6 +22,7 @@ import {
   Handshake
 } from 'lucide-react';
 import AffiliatesTab from '../components/admin/AffiliatesTab.jsx';
+import ModeratorUsersTab from '../components/admin/ModeratorUsersTab.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -821,6 +822,15 @@ export default function Admin() {
               </button>
             </>
           )}
+          {isModerator && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('mod-users')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'mod-users' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            >
+              <Users className="w-4 h-4 inline mr-1.5" /> Користувачі
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab('affiliates')}
@@ -1184,6 +1194,7 @@ export default function Admin() {
         )}
 
         {activeTab === 'affiliates' && <AffiliatesTab />}
+        {activeTab === 'mod-users' && <ModeratorUsersTab />}
 
         {loading ? (
           <div className="bg-white/90 backdrop-blur rounded-2xl border border-violet-100 p-10 text-center text-slate-500 text-sm">
@@ -1375,6 +1386,7 @@ export default function Admin() {
         )}
 
         {activeTab === 'affiliates' && <AffiliatesTab />}
+        {activeTab === 'mod-users' && <ModeratorUsersTab />}
 
         {viewingUser &&
           createPortal(

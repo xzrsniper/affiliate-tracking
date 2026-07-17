@@ -507,6 +507,96 @@ router.get('/conversions/export', requireSuperAdmin, async (req, res, next) => {
 });
 
 /**
+ * GET /api/admin/users/summary
+ * User list with basic stats — accessible to moderators.
+ * Returns: id, email, role, affiliate_balance, clicks, orders, sales_revenue.
+ * Query: ?search=email&role=affiliate|user|moderator|all&page=1&limit=50
+ */
+router.get('/users/summary', async (req, res, next) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    const roleFilter = req.query.role || 'all';
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit, 10) || 50);
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (search) where.email = { [Op.like]: `%${search}%` };
+    if (roleFilter !== 'all') where.role = roleFilter;
+
+    const users = await User.findAll({
+      where,
+      attributes: ['id', 'email', 'role', 'affiliate_balance', 'affiliate_commission_percent', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit,
+      offset,
+      raw: true
+    });
+
+    if (!users.length) return res.json({ success: true, users: [], total: 0, page, limit });
+
+    const userIds = users.map((u) => u.id);
+
+    // Get link ids per user
+    const links = await Link.findAll({
+      where: { user_id: { [Op.in]: userIds } },
+      attributes: ['id', 'user_id'],
+      raw: true
+    });
+    const linkIds = links.map((l) => l.id);
+    const linksByUser = new Map();
+    links.forEach((l) => {
+      const arr = linksByUser.get(l.user_id) || [];
+      arr.push(l.id);
+      linksByUser.set(l.user_id, arr);
+    });
+
+    // Click counts per link, then aggregate per user
+    const [clickAgg, convAgg] = await Promise.all([
+      linkIds.length
+        ? sequelize.query(
+            `SELECT l.user_id, COUNT(c.id) AS clicks
+             FROM clicks c JOIN links l ON l.id = c.link_id
+             WHERE c.link_id IN (:linkIds)
+             GROUP BY l.user_id`,
+            { replacements: { linkIds }, type: QueryTypes.SELECT }
+          )
+        : [],
+      linkIds.length
+        ? sequelize.query(
+            `SELECT l.user_id,
+                    COUNT(cv.id) AS orders,
+                    SUM(CASE WHEN cv.event_type='sale' AND cv.lead_status!='rejected' OR cv.lead_status='approved' THEN cv.order_value ELSE 0 END) AS sales_revenue
+             FROM conversions cv JOIN links l ON l.id = cv.link_id
+             WHERE cv.link_id IN (:linkIds)
+               AND cv.event_type IN ('lead','sale')
+             GROUP BY l.user_id`,
+            { replacements: { linkIds }, type: QueryTypes.SELECT }
+          )
+        : []
+    ]);
+
+    const clicksMap = new Map(clickAgg.map((r) => [Number(r.user_id), Number(r.clicks || 0)]));
+    const convMap = new Map(convAgg.map((r) => [Number(r.user_id), { orders: Number(r.orders || 0), sales_revenue: parseFloat(r.sales_revenue || 0) }]));
+
+    const result = users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      role: u.role,
+      affiliate_balance: parseFloat(u.affiliate_balance || 0),
+      affiliate_commission_percent: u.affiliate_commission_percent,
+      clicks: clicksMap.get(u.id) || 0,
+      orders: convMap.get(u.id)?.orders || 0,
+      sales_revenue: convMap.get(u.id)?.sales_revenue || 0
+    }));
+
+    res.json({ success: true, users: result, page, limit });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/admin/users/by-email?email=...
  * Find a single user by exact email. Accessible to moderators.
  * Returns minimal info (id, email, role) — no sensitive fields.
