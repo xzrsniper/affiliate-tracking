@@ -659,7 +659,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
       convWhere
         ? Conversion.findAll({
             where: convWhere,
-            attributes: ['link_id', 'lead_status', 'order_value'],
+            attributes: ['link_id', 'event_type', 'lead_status', 'order_value'],
             raw: true
           })
         : []
@@ -703,7 +703,9 @@ router.get('/affiliates/overview', async (req, res, next) => {
       if (!agg) return;
       agg.conversions += 1;
       if (c.lead_status === 'pending') agg.pending_conversions += 1;
-      if (c.lead_status === 'approved') {
+      const isApproved = c.lead_status === 'approved' ||
+        (c.event_type === 'sale' && c.lead_status !== 'rejected' && c.lead_status !== 'pending');
+      if (isApproved) {
         const orderValue = parseFloat(c.order_value || 0);
         agg.approved_revenue += orderValue;
         agg.affiliate_earnings += commissionFromOrder(orderValue, agg.commission_percent);
