@@ -46,7 +46,7 @@ async function getSingleLinkData(userId, linkId) {
     }),
     Conversion.findAll({
       where: { link_id: link.id },
-      attributes: ['id', 'event_type', 'order_value', 'order_id', 'created_at'],
+      attributes: ['id', 'event_type', 'lead_status', 'order_value', 'order_id', 'created_at'],
       order: [['created_at', 'DESC']],
       raw: true
     })
@@ -59,14 +59,18 @@ async function getSingleLinkData(userId, linkId) {
   const conversionsList = convRows.map((r) => {
     const val = Number(r.order_value || 0);
     conversions += 1;
-    if (r.event_type === 'sale' || r.event_type == null) {
+    // Confirmed = direct sale (not rejected) OR lead manually approved
+    const isConfirmed = (r.event_type === 'sale' && r.lead_status !== 'rejected') ||
+      (r.event_type === 'lead' && r.lead_status === 'approved') ||
+      (r.event_type == null);
+    if (isConfirmed) {
       salesCount += 1;
       salesRevenue += val;
-    } else if (r.event_type === 'lead') {
+    } else {
       leadCount += 1;
       leadRevenue += val;
     }
-    return { id: r.id, event_type: r.event_type || 'sale', amount: val, order_id: r.order_id || null, created_at: r.created_at };
+    return { id: r.id, event_type: r.event_type || 'sale', lead_status: r.lead_status, amount: val, order_id: r.order_id || null, created_at: r.created_at };
   });
 
   return {
@@ -113,7 +117,7 @@ async function getLinksCompareData(userId, linkIds) {
     }),
     Conversion.findAll({
       where: { link_id: { [Op.in]: ids } },
-      attributes: ['id', 'link_id', 'event_type', 'order_value', 'order_id', 'created_at'],
+      attributes: ['id', 'link_id', 'event_type', 'lead_status', 'order_value', 'order_id', 'created_at'],
       order: [['created_at', 'DESC']],
       raw: true
     })
@@ -127,16 +131,20 @@ async function getLinksCompareData(userId, linkIds) {
     const curr = convBy.get(id) || { conversions: 0, sales_count: 0, sales_revenue: 0, lead_count: 0, lead_revenue: 0 };
     const val = Number(r.order_value || 0);
     curr.conversions += 1;
-    if (r.event_type === 'sale' || r.event_type == null) {
+    // Confirmed = direct sale (not rejected) OR lead manually approved
+    const isConfirmed = (r.event_type === 'sale' && r.lead_status !== 'rejected') ||
+      (r.event_type === 'lead' && r.lead_status === 'approved') ||
+      (r.event_type == null);
+    if (isConfirmed) {
       curr.sales_count += 1;
       curr.sales_revenue += val;
-    } else if (r.event_type === 'lead') {
+    } else {
       curr.lead_count += 1;
       curr.lead_revenue += val;
     }
     convBy.set(id, curr);
     const list = convListBy.get(id) || [];
-    list.push({ id: r.id, event_type: r.event_type || 'sale', amount: val, order_id: r.order_id || null, created_at: r.created_at });
+    list.push({ id: r.id, event_type: r.event_type || 'sale', lead_status: r.lead_status, amount: val, order_id: r.order_id || null, created_at: r.created_at });
     convListBy.set(id, list);
   });
 
