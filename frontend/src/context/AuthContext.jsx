@@ -8,14 +8,29 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from localStorage on mount
     const token = getAuthToken();
-    const userData = getUser();
-    
-    if (token && userData) {
-      setUserState(userData);
+    if (!token) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    // Optimistically set cached user so UI doesn't flash, then verify with server
+    const cached = getUser();
+    if (cached) setUserState(cached);
+
+    // Always re-fetch current profile to pick up role changes without re-login
+    fetch(`${import.meta.env.VITE_API_URL || ''}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.user) {
+          setUser(data.user);
+          setUserState(data.user);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const login = (token, userData) => {
