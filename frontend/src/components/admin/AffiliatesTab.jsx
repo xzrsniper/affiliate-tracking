@@ -23,12 +23,30 @@ export default function AffiliatesTab() {
   const [historyItems, setHistoryItems] = useState([]);
   const [modLoading, setModLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [conversionsLog, setConversionsLog] = useState([]);
+  const [conversionsLoading, setConversionsLoading] = useState(false);
+  const [convStatusFilter, setConvStatusFilter] = useState('all');
+  const [convEventFilter, setConvEventFilter] = useState('all');
+  const [convRange, setConvRange] = useState('30');
   const [affiliateSearch, setAffiliateSearch] = useState('');
   const [sharing, setSharing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
 
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
+
+  const statusLabel = (status) => {
+    if (status === 'approved') return isUk ? 'Підтверджено' : 'Approved';
+    if (status === 'rejected') return isUk ? 'Відхилено' : 'Rejected';
+    if (status === 'pending') return 'Pending';
+    return status || '—';
+  };
+
+  const statusClass = (status) => {
+    if (status === 'approved') return 'bg-green-100 text-green-700';
+    if (status === 'rejected') return 'bg-red-100 text-red-700';
+    return 'bg-amber-100 text-amber-700';
+  };
 
   const fetchOverview = async (nextRange = range) => {
     setLoading(true);
@@ -82,6 +100,26 @@ export default function AffiliatesTab() {
     }
   };
 
+  const fetchConversionsLog = async () => {
+    setConversionsLoading(true);
+    try {
+      const res = await api.get('/api/admin/affiliates/conversions', {
+        params: {
+          status: convStatusFilter,
+          event_type: convEventFilter,
+          range: convRange,
+          limit: 500
+        }
+      });
+      setConversionsLog(res.data?.items || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load conversions log');
+      setConversionsLog([]);
+    } finally {
+      setConversionsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchOverview();
   }, [range]);
@@ -90,6 +128,10 @@ export default function AffiliatesTab() {
     fetchModeration();
     fetchHistory();
   }, []);
+
+  useEffect(() => {
+    fetchConversionsLog();
+  }, [convStatusFilter, convEventFilter, convRange]);
 
   const saveAffiliateSettings = async (affiliateId) => {
     const edit = edits[affiliateId];
@@ -118,7 +160,7 @@ export default function AffiliatesTab() {
     setUpdating(true);
     try {
       await api.post(`/api/admin/conversions/${id}/${action === 'approve' ? 'approve-lead' : 'reject-lead'}`);
-      await Promise.all([fetchModeration(), fetchHistory(), fetchOverview(range)]);
+      await Promise.all([fetchModeration(), fetchHistory(), fetchConversionsLog(), fetchOverview(range)]);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update conversion status');
     } finally {
@@ -165,6 +207,13 @@ export default function AffiliatesTab() {
     if (!searchTerm) return true;
     return String(item.affiliate_email || '').toLowerCase().includes(searchTerm);
   });
+  const filteredConversionsLog = conversionsLog.filter((item) => {
+    if (!searchTerm) return true;
+    return String(item.affiliate_email || '').toLowerCase().includes(searchTerm)
+      || String(item.order_id || '').toLowerCase().includes(searchTerm)
+      || String(item.link_name || '').toLowerCase().includes(searchTerm)
+      || String(item.link_code || '').toLowerCase().includes(searchTerm);
+  });
 
   return (
     <div className="space-y-6">
@@ -184,7 +233,7 @@ export default function AffiliatesTab() {
                 {opt.label}
               </button>
             ))}
-            <button onClick={() => { fetchOverview(range); fetchModeration(); }} className="p-2 rounded-lg border border-slate-200">
+            <button onClick={() => { fetchOverview(range); fetchModeration(); fetchHistory(); fetchConversionsLog(); }} className="p-2 rounded-lg border border-slate-200">
               <RefreshCw className="w-4 h-4" />
             </button>
             <button onClick={handleShareOverview} disabled={sharing} className="px-3 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 text-sm font-semibold disabled:opacity-50">
@@ -299,6 +348,86 @@ export default function AffiliatesTab() {
               {!filteredPending.length && (
                 <tr>
                   <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>Немає записів</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
+        <div className="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-bold text-slate-900">Історія лідів / покупок</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Повний лог конверсій по всіх афілейтах</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={convEventFilter}
+              onChange={(e) => setConvEventFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            >
+              <option value="all">Усі типи</option>
+              <option value="sale">Покупки</option>
+              <option value="lead">Ліди</option>
+            </select>
+            <select
+              value={convStatusFilter}
+              onChange={(e) => setConvStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            >
+              <option value="all">Усі статуси</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Підтверджено</option>
+              <option value="rejected">Відхилено</option>
+            </select>
+            <select
+              value={convRange}
+              onChange={(e) => setConvRange(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            >
+              {RANGE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {conversionsLoading ? (
+          <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600">
+                <th className="text-left px-3 py-2">Дата</th>
+                <th className="text-left px-3 py-2">Афілейт</th>
+                <th className="text-left px-3 py-2">Тип</th>
+                <th className="text-left px-3 py-2">Лінк</th>
+                <th className="text-left px-3 py-2">Order ID</th>
+                <th className="text-right px-3 py-2">Сума</th>
+                <th className="text-right px-3 py-2">Комісія</th>
+                <th className="text-left px-3 py-2">Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredConversionsLog.map((item) => (
+                <tr key={`log-${item.id}`} className="border-t border-slate-100">
+                  <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
+                  <td className="px-3 py-2">{item.affiliate_email}</td>
+                  <td className="px-3 py-2">{item.event_type === 'sale' ? (isUk ? 'Покупка' : 'Sale') : (isUk ? 'Лід' : 'Lead')}</td>
+                  <td className="px-3 py-2">{item.link_name || item.link_code}</td>
+                  <td className="px-3 py-2 text-slate-500">{item.order_id || '—'}</td>
+                  <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
+                  <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass(item.lead_status)}`}>
+                      {statusLabel(item.lead_status)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {!filteredConversionsLog.length && (
+                <tr>
+                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={8}>Лог порожній</td>
                 </tr>
               )}
             </tbody>

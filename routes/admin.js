@@ -951,6 +951,100 @@ router.get('/affiliates/moderation', async (req, res, next) => {
 });
 
 /**
+ * GET /api/admin/affiliates/conversions
+ * Full log of leads/sales across all affiliates (any moderation status).
+ * Query:
+ * - status: all|pending|approved|rejected (default all)
+ * - event_type: all|lead|sale (default all)
+ * - range: 1|3|7|14|30|all (default 30)
+ * - limit: max rows (default 500, max 2000)
+ */
+router.get('/affiliates/conversions', async (req, res, next) => {
+  try {
+    const statusRaw = String(req.query.status || 'all').toLowerCase();
+    const eventRaw = String(req.query.event_type || 'all').toLowerCase();
+    const allowedStatus = ['all', 'pending', 'approved', 'rejected'];
+    const allowedEvents = ['all', 'lead', 'sale'];
+    if (!allowedStatus.includes(statusRaw)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    if (!allowedEvents.includes(eventRaw)) {
+      return res.status(400).json({ error: 'Invalid event_type' });
+    }
+
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 500, 1), 2000);
+    const { label: range, fromDate } = buildRangeFromQuery(req.query.range || '30');
+
+    const affiliates = await User.findAll({
+      where: { role: 'affiliate' },
+      attributes: ['id', 'email', 'affiliate_commission_percent'],
+      raw: true
+    });
+    if (!affiliates.length) {
+      return res.json({ success: true, range, items: [] });
+    }
+
+    const affiliateById = new Map(affiliates.map((a) => [Number(a.id), a]));
+    const linkRows = await Link.findAll({
+      where: { user_id: { [Op.in]: affiliates.map((a) => a.id) } },
+      attributes: ['id', 'user_id', 'name', 'unique_code', 'original_url'],
+      raw: true
+    });
+    if (!linkRows.length) {
+      return res.json({ success: true, range, items: [] });
+    }
+
+    const linkById = new Map(linkRows.map((l) => [Number(l.id), l]));
+    const where = {
+      link_id: { [Op.in]: linkRows.map((l) => l.id) },
+      event_type: eventRaw === 'all' ? { [Op.in]: ['lead', 'sale'] } : eventRaw
+    };
+    if (statusRaw !== 'all') {
+      where.lead_status = statusRaw;
+    } else {
+      where.lead_status = { [Op.in]: ['pending', 'approved', 'rejected'] };
+    }
+    if (fromDate) {
+      where.created_at = { [Op.gte]: fromDate };
+    }
+
+    const convRows = await Conversion.findAll({
+      where,
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      order: [['created_at', 'DESC']],
+      limit,
+      raw: true
+    });
+
+    const items = convRows.map((row) => {
+      const link = linkById.get(Number(row.link_id));
+      const affiliate = affiliateById.get(Number(link?.user_id));
+      const percent = parseCommissionPercent(affiliate?.affiliate_commission_percent) || 0;
+      return {
+        id: row.id,
+        link_id: row.link_id,
+        link_name: link?.name || null,
+        link_code: link?.unique_code || null,
+        link_url: link?.original_url || null,
+        affiliate_id: link?.user_id || null,
+        affiliate_email: affiliate?.email || null,
+        event_type: row.event_type,
+        order_value: parseFloat(row.order_value || 0),
+        order_id: row.order_id,
+        lead_status: row.lead_status,
+        created_at: row.created_at,
+        commission_amount: commissionFromOrder(row.order_value, percent),
+        commission_percent: percent
+      };
+    });
+
+    res.json({ success: true, range, items });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/admin/users/:id/leads
  * List affiliate leads/sales for moderation (legacy path name).
  * Query: status=pending|approved|rejected (default pending)
