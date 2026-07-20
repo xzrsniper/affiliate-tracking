@@ -31,6 +31,7 @@ const contentFieldId = (section, key) => `${section}.${key}`;
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
+  const isUk = i18n.language === 'uk';
   const { login } = useAuth();
   const navigate = useNavigate();
   const { startEdit } = useSiteTextEdit();
@@ -1543,53 +1544,59 @@ export default function Admin() {
                 className="mb-4 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
 
-              {false && editingUser.role !== 'super_admin' && (
+              {editingUser.role !== 'super_admin' && (
                 <div className="mb-4 space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
-                  <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate'}
-                      onChange={(e) => setAffiliateEdits((prev) => ({
-                        ...prev,
-                        [editingUser.id]: {
-                          ...(prev[editingUser.id] || { percent: '10' }),
-                          isAffiliate: e.target.checked
-                        }
-                      }))}
-                    />
-                    Афілейт
-                  </label>
-                  {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        value={affiliateEdits[editingUser.id]?.percent ?? ''}
-                        onChange={(e) => setAffiliateEdits((prev) => ({
-                          ...prev,
-                          [editingUser.id]: { ...(prev[editingUser.id] || { isAffiliate: true }), percent: e.target.value }
-                        }))}
-                        className="w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
-                      />
-                      <span className="text-sm text-slate-500">%</span>
-                    </div>
-                  )}
-                </div>
-              )}
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">{t('admin.role')}</label>
+                  <select
+                    value={(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') ? 'affiliate' : 'user'}
+                    onChange={(e) => setAffiliateEdits((prev) => ({
+                      ...prev,
+                      [editingUser.id]: {
+                        ...(prev[editingUser.id] || { percent: String(editingUser.affiliate_commission_percent ?? 10) }),
+                        isAffiliate: e.target.value === 'affiliate',
+                        percent: prev[editingUser.id]?.percent ?? String(editingUser.affiliate_commission_percent ?? 10)
+                      }
+                    }))}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="user">User</option>
+                    <option value="affiliate">{isUk ? 'Афілейт' : 'Affiliate'}</option>
+                  </select>
 
-              {false && (affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
-                <div className="mb-4">
-                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Баланс</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={balanceEdits[editingUser.id] ?? editingUser.affiliate_balance ?? 0}
-                    onChange={(e) => setBalanceEdits((prev) => ({ ...prev, [editingUser.id]: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                  />
+                  {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
+                    <>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {isUk ? 'Комісія %' : 'Commission %'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          value={affiliateEdits[editingUser.id]?.percent ?? ''}
+                          onChange={(e) => setAffiliateEdits((prev) => ({
+                            ...prev,
+                            [editingUser.id]: { ...(prev[editingUser.id] || { isAffiliate: true }), percent: e.target.value }
+                          }))}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {isUk ? 'Баланс' : 'Balance'}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={balanceEdits[editingUser.id] ?? editingUser.affiliate_balance ?? 0}
+                          onChange={(e) => setBalanceEdits((prev) => ({ ...prev, [editingUser.id]: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1605,7 +1612,15 @@ export default function Admin() {
                   type="button"
                   disabled={updating}
                   onClick={async () => {
-                    await handleUpdateLinkLimit(editingUser.id);
+                    const uid = editingUser.id;
+                    await handleUpdateLinkLimit(uid);
+                    if (editingUser.role !== 'super_admin') {
+                      await handleSaveAffiliateRole(uid);
+                      const isAff = affiliateEdits[uid]?.isAffiliate ?? editingUser.role === 'affiliate';
+                      if (isAff) {
+                        await handleSaveAffiliateBalance(uid);
+                      }
+                    }
                     setEditingUser(null);
                   }}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
