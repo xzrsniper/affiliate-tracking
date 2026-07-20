@@ -208,6 +208,7 @@ export default function Admin() {
   };
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
+  const [usersSummary, setUsersSummary] = useState({ total: 0, active: 0, banned: 0, total_links: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -431,11 +432,27 @@ export default function Admin() {
       setLoading(true);
       setError('');
       const response = await api.get('/api/admin/users', {
-        params: { search: searchTerm }
+        params: { search: searchTerm, limit: 'all' }
       });
       console.log('Users response:', response.data);
       if (response.data.success && response.data.users) {
         setUsers(response.data.users);
+        if (response.data.summary) {
+          setUsersSummary({
+            total: Number(response.data.summary.total || 0),
+            active: Number(response.data.summary.active || 0),
+            banned: Number(response.data.summary.banned || 0),
+            total_links: Number(response.data.summary.total_links || 0)
+          });
+        } else {
+          const list = response.data.users || [];
+          setUsersSummary({
+            total: response.data.pagination?.total ?? list.length,
+            active: list.filter((u) => !u.is_banned && u.email_verified).length,
+            banned: list.filter((u) => u.is_banned).length,
+            total_links: list.reduce((sum, u) => sum + (u.link_count || 0), 0)
+          });
+        }
         setLimitEdits(
           Object.fromEntries((response.data.users || []).map((u) => [u.id, String(u.link_limit ?? 0)]))
         );
@@ -461,6 +478,7 @@ export default function Admin() {
         );
       } else {
         setUsers([]);
+        setUsersSummary({ total: 0, active: 0, banned: 0, total_links: 0 });
         setLimitEdits({});
       }
     } catch (err) {
@@ -502,6 +520,23 @@ export default function Admin() {
       fetchUsers();
     } catch (err) {
       setError(err.response?.data?.error || t('admin.errorUpdateUser'));
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (user.role === 'super_admin') return;
+    const ok = window.confirm(
+      t('admin.confirmDeleteUser', { email: user.email })
+    );
+    if (!ok) return;
+    try {
+      setUpdating(true);
+      await api.delete(`/api/admin/users/${user.id}`);
+      fetchUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || t('admin.errorDeleteUser'));
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -997,28 +1032,28 @@ export default function Admin() {
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-violet-100 flex items-center justify-center text-lg">👥</div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 leading-none">{users.length}</p>
+              <p className="text-2xl font-bold text-slate-900 leading-none">{usersSummary.total}</p>
               <p className="text-xs text-slate-500 mt-1">{t('admin.totalUsers')}</p>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center text-lg">✅</div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 leading-none">{users.filter(u => !u.is_banned).length}</p>
+              <p className="text-2xl font-bold text-slate-900 leading-none">{usersSummary.active}</p>
               <p className="text-xs text-slate-500 mt-1">{t('admin.active')}</p>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center text-lg">🔗</div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 leading-none">{users.reduce((sum, u) => sum + (u.link_count || 0), 0)}</p>
+              <p className="text-2xl font-bold text-slate-900 leading-none">{usersSummary.total_links}</p>
               <p className="text-xs text-slate-500 mt-1">{t('admin.totalLinks')}</p>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center text-lg">🚫</div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 leading-none">{users.filter(u => u.is_banned).length}</p>
+              <p className="text-2xl font-bold text-slate-900 leading-none">{usersSummary.banned}</p>
               <p className="text-xs text-slate-500 mt-1">{t('admin.banned')}</p>
             </div>
           </div>
@@ -1177,7 +1212,7 @@ export default function Admin() {
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-200">
               <p className="text-2xl font-bold text-slate-900">{t('admin.users')}</p>
-              <p className="text-sm text-slate-500">{t('admin.showingUsers', { shown: filteredUsers.length, total: users.length })}</p>
+              <p className="text-sm text-slate-500">{t('admin.showingUsers', { shown: filteredUsers.length, total: usersSummary.total || users.length })}</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1340,6 +1375,15 @@ export default function Admin() {
                           >
                             {user.is_banned ? t('admin.unban') : t('admin.ban')}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(user)}
+                            disabled={user.role === 'super_admin' || updating}
+                            className="px-3 py-1.5 rounded-lg transition-colors text-sm border bg-white text-red-700 border-red-300 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t('admin.deleteUser')}
+                          >
+                            {t('common.delete')}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1349,7 +1393,7 @@ export default function Admin() {
             </div>
 
             <div className="px-5 py-4 border-t border-slate-200 text-sm text-slate-500">
-              {t('admin.showingUsers', { shown: filteredUsers.length, total: users.length })}
+              {t('admin.showingUsers', { shown: filteredUsers.length, total: usersSummary.total || users.length })}
             </div>
           </div>
         )}

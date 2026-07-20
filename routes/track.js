@@ -6,6 +6,7 @@ import { Link, Click, Conversion, TrackerVerification, Website, LinkClick } from
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { resolveLeadOrderValueFallback } from '../utils/leadOrderValueFallback.js';
 import { applyAffiliateConversionEffects, getAffiliateOwnerForLink } from '../utils/affiliate.js';
+import { resolveAttributionClick, ATTRIBUTION_WINDOW_DAYS } from '../utils/attribution.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
@@ -665,17 +666,37 @@ router.post('/conversion', async (req, res, next) => {
   });
 
   try {
-    if (!unique_code && click_id) {
-      const cid = parseInt(click_id, 10);
-      if (Number.isFinite(cid) && cid > 0) {
-        const clickRow = await Click.findByPk(cid);
-        if (clickRow) {
-          const resolvedLink = await Link.findByPk(clickRow.link_id);
+    // Get visitor fingerprint early — used for 14-day attribution window
+    let visitorFingerprint = visitor_id || getVisitorFingerprint(req);
+    let attributedClick = null;
+
+    if (click_id) {
+      attributedClick = await resolveAttributionClick(Click, {
+        clickId: click_id,
+        visitorFingerprint
+      });
+      if (attributedClick) {
+        if (!unique_code) {
+          const resolvedLink = await Link.findByPk(attributedClick.link_id);
           if (resolvedLink) {
             unique_code = resolvedLink.unique_code;
-            console.log('[Conversion] Resolved unique_code from click_id', { click_id: cid, unique_code });
+            console.log('[Conversion] Resolved unique_code from click_id', {
+              click_id: attributedClick.id,
+              unique_code,
+              click_age_ok: true
+            });
           }
         }
+      } else {
+        console.warn('[Conversion] click_id outside attribution window or missing', {
+          click_id,
+          window_days: ATTRIBUTION_WINDOW_DAYS
+        });
+        return res.status(410).json({
+          error: 'Attribution expired',
+          message: `No click found within the last ${ATTRIBUTION_WINDOW_DAYS} days for this visitor/link`,
+          window_days: ATTRIBUTION_WINDOW_DAYS
+        });
       }
     }
 
@@ -693,8 +714,34 @@ router.post('/conversion', async (req, res, next) => {
       return res.status(404).json({ error: 'Link not found', unique_code });
     }
 
-    // Get visitor fingerprint
-    const visitorFingerprint = visitor_id || getVisitorFingerprint(req);
+    if (attributedClick && Number(attributedClick.link_id) !== Number(link.id)) {
+      attributedClick = null;
+    }
+
+    // No click_id in request: still require a click on this link within 14 days
+    if (!attributedClick) {
+      attributedClick = await resolveAttributionClick(Click, {
+        linkId: link.id,
+        visitorFingerprint,
+        allowAnyRecentLinkClick: true
+      });
+    }
+
+    if (!attributedClick) {
+      console.warn('[Conversion] Rejected: attribution window expired', {
+        unique_code,
+        click_id: click_id || null,
+        window_days: ATTRIBUTION_WINDOW_DAYS
+      });
+      return res.status(410).json({
+        error: 'Attribution expired',
+        message: `No click found within the last ${ATTRIBUTION_WINDOW_DAYS} days for this visitor/link`,
+        window_days: ATTRIBUTION_WINDOW_DAYS
+      });
+    }
+
+    // Prefer fingerprint from request; keep for downstream logs
+    visitorFingerprint = visitor_id || getVisitorFingerprint(req);
 
     // UNIVERSAL order value parsing - handles ANY format
     let parsedOrderValue = 0;
@@ -857,7 +904,9 @@ router.post('/conversion', async (req, res, next) => {
             ...(originalOrderId && originalOrderId !== normalizedOrderId ? [{ order_id: originalOrderId }] : [])
           );
         }
-        const clickIdNum = click_id ? parseInt(click_id, 10) : null;
+        const clickIdNum = attributedClick?.id
+          ? Number(attributedClick.id)
+          : (click_id ? parseInt(click_id, 10) : null);
         if (Number.isFinite(clickIdNum) && clickIdNum > 0) {
           orClauses.push({ click_id: clickIdNum });
         }
@@ -916,17 +965,8 @@ router.post('/conversion', async (req, res, next) => {
         conversionData.order_id = originalOrderId;
       }
       
-      if (click_id) {
-        const clickIdNum = parseInt(click_id);
-        if (!isNaN(clickIdNum) && clickIdNum > 0) {
-          // Verify the click exists before linking — prevents FK constraint violations
-          const clickExists = await Click.findByPk(clickIdNum, { attributes: ['id'], transaction: t });
-          if (clickExists) {
-            conversionData.click_id = clickIdNum;
-          } else {
-            console.warn('[Conversion] click_id not found in clicks table, skipping FK', { click_id: clickIdNum });
-          }
-        }
+      if (attributedClick?.id) {
+        conversionData.click_id = attributedClick.id;
       }
       
       try {
@@ -1050,6 +1090,23 @@ router.get('/conversion-pixel', async (req, res, next) => {
     // Get visitor fingerprint
     const visitorFingerprint = getVisitorFingerprint(req);
 
+    // 14-day attribution window
+    const attributedClick = await resolveAttributionClick(Click, {
+      linkId: link.id,
+      visitorFingerprint,
+      allowAnyRecentLinkClick: true
+    });
+    if (!attributedClick) {
+      console.warn('[Conversion Pixel] Attribution expired', {
+        unique_code: trackingCode,
+        window_days: ATTRIBUTION_WINDOW_DAYS
+      });
+      const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      res.set('Content-Type', 'image/gif');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return res.send(pixel);
+    }
+
     // Parse order value (accept both order_value and value)
     const orderValueStr = order_value || value;
     let parsedOrderValue = 0;
@@ -1102,7 +1159,8 @@ router.get('/conversion-pixel', async (req, res, next) => {
     // Only include order_id if it's provided (don't send null explicitly)
     const conversionData = {
       link_id: link.id,
-      order_value: parsedOrderValue
+      order_value: parsedOrderValue,
+      click_id: attributedClick.id
     };
     
     if (originalFinalOrderId) {
@@ -1187,6 +1245,22 @@ router.get('/conversion', async (req, res, next) => {
     // Get visitor fingerprint
     const visitorFingerprint = visitor_id || getVisitorFingerprint(req);
 
+    const attributedClick = await resolveAttributionClick(Click, {
+      linkId: link.id,
+      visitorFingerprint,
+      allowAnyRecentLinkClick: true
+    });
+    if (!attributedClick) {
+      console.warn('[Conversion GET] Attribution expired', {
+        unique_code: code,
+        window_days: ATTRIBUTION_WINDOW_DAYS
+      });
+      const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      res.set('Content-Type', 'image/gif');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return res.send(pixel);
+    }
+
     // Parse order value
     let parsedOrderValue = 0;
     if (value !== undefined && value !== null && value !== '') {
@@ -1249,7 +1323,8 @@ router.get('/conversion', async (req, res, next) => {
     const conversionData = {
       link_id: link.id,
       order_value: parsedOrderValue,
-      event_type: event_type
+      event_type: event_type,
+      click_id: attributedClick.id
     };
     
     if (originalOrderIdGet) {
@@ -1394,27 +1469,30 @@ router.post('/conversion-server', async (req, res, next) => {
 
     // Find tracking code (priority: ref_code in body > cookie)
     let trackingCode = ref_code || refCode || req.cookies?.aff_ref_code;
+    let attributedClick = null;
+    const visitorFingerprint = getVisitorFingerprint(req);
 
     // If no tracking code found, try to resolve it from a trusted click_id reference.
     if (!trackingCode) {
       const finalClickId = click_id || clickId;
-      const clickIdNum = parseInt(finalClickId, 10);
-      if (Number.isFinite(clickIdNum) && clickIdNum > 0) {
-        try {
-          const clickRow = await Click.findByPk(clickIdNum, { attributes: ['id', 'link_id'] });
-          if (clickRow) {
-            const resolvedLink = await Link.findByPk(clickRow.link_id, { attributes: ['id', 'unique_code'] });
-            if (resolvedLink?.unique_code) {
-              trackingCode = resolvedLink.unique_code;
-              console.log('[Conversion Server] Resolved tracking code from click_id', {
-                click_id: clickIdNum,
-                tracking_code: trackingCode
-              });
-            }
-          }
-        } catch (lookupError) {
-          console.warn('[Conversion Server] click_id lookup failed:', lookupError);
+      attributedClick = await resolveAttributionClick(Click, {
+        clickId: finalClickId,
+        visitorFingerprint
+      });
+      if (attributedClick) {
+        const resolvedLink = await Link.findByPk(attributedClick.link_id, { attributes: ['id', 'unique_code'] });
+        if (resolvedLink?.unique_code) {
+          trackingCode = resolvedLink.unique_code;
+          console.log('[Conversion Server] Resolved tracking code from click_id', {
+            click_id: attributedClick.id,
+            tracking_code: trackingCode
+          });
         }
+      } else if (finalClickId) {
+        console.warn('[Conversion Server] click_id outside attribution window', {
+          click_id: finalClickId,
+          window_days: ATTRIBUTION_WINDOW_DAYS
+        });
       }
     }
 
@@ -1432,6 +1510,30 @@ router.post('/conversion-server', async (req, res, next) => {
       return res.status(404).json({
         error: 'Link not found',
         message: `Tracking link with code "${trackingCode}" not found`
+      });
+    }
+
+    if (!attributedClick) {
+      const finalClickId = click_id || clickId;
+      if (finalClickId) {
+        return res.status(410).json({
+          error: 'Attribution expired',
+          message: `No click found within the last ${ATTRIBUTION_WINDOW_DAYS} days for this visitor/link`,
+          window_days: ATTRIBUTION_WINDOW_DAYS
+        });
+      }
+      attributedClick = await resolveAttributionClick(Click, {
+        linkId: link.id,
+        visitorFingerprint,
+        allowAnyRecentLinkClick: true
+      });
+    }
+
+    if (!attributedClick) {
+      return res.status(410).json({
+        error: 'Attribution expired',
+        message: `No click found within the last ${ATTRIBUTION_WINDOW_DAYS} days for this visitor/link`,
+        window_days: ATTRIBUTION_WINDOW_DAYS
       });
     }
 
@@ -1490,13 +1592,9 @@ router.post('/conversion-server', async (req, res, next) => {
         conversionData.order_id = originalServerOrderId;
       }
 
-      // Add click_id if provided (for server-to-server tracking with click reference)
-      const finalClickId = click_id || clickId;
-      if (finalClickId) {
-        const clickIdNum = parseInt(finalClickId, 10);
-        if (!isNaN(clickIdNum) && clickIdNum > 0) {
-          conversionData.click_id = clickIdNum;
-        }
+      // Add click_id from validated attribution window
+      if (attributedClick?.id) {
+        conversionData.click_id = attributedClick.id;
       }
 
       try {

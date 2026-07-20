@@ -74,7 +74,8 @@ export async function runTrackingRedirect(req, res, unique_code) {
     httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Lax',
-    maxAge: 30 * 60 * 1000,
+    // Keep affiliate attribution for 14 days (must match utils/attribution.js)
+    maxAge: 14 * 24 * 60 * 60 * 1000,
     path: '/'
   };
   res.cookie('aff_ref_code', unique_code, cookieOpts);

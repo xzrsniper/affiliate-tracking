@@ -33,6 +33,12 @@
     return;
   }
 
+  // Attribution window: remember visitor for 14 days (must match server utils/attribution.js)
+  var ATTRIBUTION_DAYS = 14;
+  var ATTRIBUTION_MINUTES = ATTRIBUTION_DAYS * 24 * 60;
+  var ATTRIBUTION_MS = ATTRIBUTION_DAYS * 24 * 60 * 60 * 1000;
+  var ATTRIB_AT_KEY = 'lehko_attrib_at';
+
   // ── Persistence: localStorage + cookies ────────────────────────────────
   function ls(key, val) {
     try {
@@ -48,6 +54,24 @@
       if (val === null) return sessionStorage.removeItem(key);
       sessionStorage.setItem(key, val);
     } catch (e) { return null; }
+  }
+
+  function clearAttributionStorage() {
+    ls('lehko_ref', null);
+    ls('lehko_click_id', null);
+    ls(ATTRIB_AT_KEY, null);
+  }
+
+  function touchAttributionTimestamp() {
+    ls(ATTRIB_AT_KEY, String(Date.now()));
+  }
+
+  function isAttributionFresh() {
+    var raw = ls(ATTRIB_AT_KEY);
+    if (!raw) return false;
+    var ts = parseInt(raw, 10);
+    if (!Number.isFinite(ts)) return false;
+    return (Date.now() - ts) <= ATTRIBUTION_MS;
   }
 
   /** So checkout.pay.shop.com sees click_id set on www.shop.com (localStorage is per-host). */
@@ -79,15 +103,30 @@
     return m ? decodeURIComponent(m[1]) : null;
   }
 
-  // Read from ANY available source (URL params > localStorage > cookies)
+  // Read from ANY available source (URL params > localStorage > cookies).
+  // localStorage without a fresh timestamp (or older than 14 days) is cleared.
+  function getStoredAttribution(key) {
+    var fromCookie = getCookie(key);
+    var fromLs = ls(key);
+    if (!fromCookie && !fromLs) return null;
+    // Prefer cookie (has browser-enforced 14d expiry). For LS-only, require timestamp.
+    if (fromLs && !fromCookie) {
+      if (!isAttributionFresh()) {
+        clearAttributionStorage();
+        return null;
+      }
+    }
+    return fromLs || fromCookie || null;
+  }
+
   function getRef() {
     return new URLSearchParams(location.search).get('ref') ||
-           ls('lehko_ref') || getCookie('lehko_ref') || null;
+           getStoredAttribution('lehko_ref');
   }
 
   function getClickId() {
     return new URLSearchParams(location.search).get('click_id') ||
-           ls('lehko_click_id') || getCookie('lehko_click_id') || null;
+           getStoredAttribution('lehko_click_id');
   }
 
   var SESSION_START_KEY = 'lehko_session_started_at';
@@ -221,7 +260,8 @@
         if (d.success && d.click_id) {
           // Store click_id so conversions can be linked to this click
           ls('lehko_click_id', String(d.click_id));
-          setCookie('lehko_click_id', String(d.click_id), 30);
+          setCookie('lehko_click_id', String(d.click_id), ATTRIBUTION_MINUTES);
+          touchAttributionTimestamp();
           ensureSessionTracking();
         }
       })
@@ -229,20 +269,22 @@
   }
 
   // ── 1. Capture & Persist ───────────────────────────────────────────────
-  // Save tracking params to ALL persistence layers
+  // Save tracking params to ALL persistence layers (14-day attribution window)
   function captureAndPersist() {
     var params = new URLSearchParams(location.search);
     var urlRef = params.get('ref');
     var urlCid = params.get('click_id');
 
-    // If URL has fresh params, they take priority
+    // If URL has fresh params, they take priority and reset the 14-day clock
     if (urlRef) {
       ls('lehko_ref', urlRef);
-      setCookie('lehko_ref', urlRef, 30);
+      setCookie('lehko_ref', urlRef, ATTRIBUTION_MINUTES);
+      touchAttributionTimestamp();
     }
     if (urlCid) {
       ls('lehko_click_id', urlCid);
-      setCookie('lehko_click_id', urlCid, 30);
+      setCookie('lehko_click_id', urlCid, ATTRIBUTION_MINUTES);
+      touchAttributionTimestamp();
     }
 
     // Sync: if localStorage has data but cookie doesn't (or vice versa)
@@ -250,11 +292,13 @@
     var cid = getClickId();
     if (ref) {
       if (!ls('lehko_ref')) ls('lehko_ref', ref);
-      if (!getCookie('lehko_ref')) setCookie('lehko_ref', ref, 30);
+      if (!getCookie('lehko_ref')) setCookie('lehko_ref', ref, ATTRIBUTION_MINUTES);
+      if (!ls(ATTRIB_AT_KEY)) touchAttributionTimestamp();
     }
     if (cid) {
       if (!ls('lehko_click_id')) ls('lehko_click_id', cid);
-      if (!getCookie('lehko_click_id')) setCookie('lehko_click_id', cid, 30);
+      if (!getCookie('lehko_click_id')) setCookie('lehko_click_id', cid, ATTRIBUTION_MINUTES);
+      if (!ls(ATTRIB_AT_KEY)) touchAttributionTimestamp();
     }
   }
 

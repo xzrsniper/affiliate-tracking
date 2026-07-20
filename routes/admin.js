@@ -1,6 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { User, Link, Click, Conversion } from '../models/index.js';
+import { User, Link, Click, Conversion, Website, LinkVariant, LinkClick } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
 import { Op, fn, col, QueryTypes } from 'sequelize';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
@@ -47,14 +47,21 @@ function buildRangeFromQuery(rangeRaw) {
  * Query params:
  * - search: (optional) Search by email
  * - page: (optional) Page number for pagination
- * - limit: (optional) Items per page
+ * - limit: (optional) Items per page — omit / "all" / 0 = return all users
  */
 router.get('/users', async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search || '';
-    const offset = (page - 1) * limit;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limitRaw = req.query.limit;
+    const wantAll =
+      limitRaw === undefined ||
+      limitRaw === null ||
+      limitRaw === '' ||
+      String(limitRaw).toLowerCase() === 'all' ||
+      parseInt(limitRaw, 10) === 0;
+    const limit = wantAll ? null : Math.min(Math.max(parseInt(limitRaw, 10) || 10, 1), 5000);
+    const search = String(req.query.search || '').trim();
+    const offset = limit ? (page - 1) * limit : 0;
 
     const where = {};
     if (search) {
@@ -63,13 +70,35 @@ router.get('/users', async (req, res, next) => {
       };
     }
 
-    const { count, rows: users } = await User.findAndCountAll({
+    const query = {
       where,
       attributes: { exclude: ['password_hash'] },
-      limit,
-      offset,
       order: [['created_at', 'DESC']]
+    };
+    if (limit) {
+      query.limit = limit;
+      query.offset = offset;
+    }
+
+    const { count, rows: users } = await User.findAndCountAll(query);
+
+    // Global summary for cards (all matching search, not just current page)
+    const allMatching = await User.findAll({
+      where,
+      attributes: ['id', 'is_banned', 'email_verified'],
+      raw: true
     });
+    const matchingIds = allMatching.map((u) => u.id);
+    const totalLinks = matchingIds.length
+      ? await Link.count({ where: { user_id: { [Op.in]: matchingIds } } })
+      : 0;
+
+    const summary = {
+      total: allMatching.length,
+      active: allMatching.filter((u) => !u.is_banned && !!u.email_verified).length,
+      banned: allMatching.filter((u) => !!u.is_banned).length,
+      total_links: totalLinks
+    };
 
     const userIds = users.map((user) => user.id);
     const linkCountRows = userIds.length
@@ -93,11 +122,12 @@ router.get('/users', async (req, res, next) => {
     res.json({
       success: true,
       users: usersWithStats,
+      summary,
       pagination: {
         page,
-        limit,
+        limit: limit || count,
         total: count,
-        pages: Math.ceil(count / limit)
+        pages: limit ? Math.ceil(count / limit) : 1
       }
     });
   } catch (error) {
@@ -185,6 +215,66 @@ router.post('/users/:id/ban', async (req, res, next) => {
         email: user.email,
         is_banned: user.is_banned
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:id
+ * Permanently delete a user and all related data so the email can be re-registered.
+ */
+router.delete('/users/:id', async (req, res, next) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.role === 'super_admin') {
+      return res.status(403).json({ error: 'Cannot delete super admin users' });
+    }
+
+    if (Number(req.user.id) === userId) {
+      return res.status(403).json({ error: 'Cannot delete your own account' });
+    }
+
+    const email = user.email;
+
+    await sequelize.transaction(async (t) => {
+      const links = await Link.findAll({
+        where: { user_id: userId },
+        attributes: ['id'],
+        transaction: t
+      });
+      const linkIds = links.map((l) => l.id);
+
+      if (linkIds.length) {
+        await Conversion.update(
+          { click_id: null },
+          { where: { link_id: { [Op.in]: linkIds } }, transaction: t }
+        );
+        await Conversion.destroy({ where: { link_id: { [Op.in]: linkIds } }, transaction: t });
+        await Click.destroy({ where: { link_id: { [Op.in]: linkIds } }, transaction: t });
+        await LinkVariant.destroy({ where: { link_id: { [Op.in]: linkIds } }, transaction: t });
+        await LinkClick.destroy({ where: { link_id: { [Op.in]: linkIds } }, transaction: t });
+        await Link.destroy({ where: { id: { [Op.in]: linkIds } }, transaction: t });
+      }
+
+      await Website.destroy({ where: { user_id: userId }, transaction: t });
+      await user.destroy({ transaction: t });
+    });
+
+    res.json({
+      success: true,
+      message: `User ${email} permanently deleted. The email can be registered again.`,
+      deleted_email: email
     });
   } catch (error) {
     next(error);
