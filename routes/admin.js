@@ -28,17 +28,63 @@ function csvEscape(value) {
 router.use(authenticate);
 router.use(requireSuperAdmin);
 
-function buildRangeFromQuery(rangeRaw) {
-  const v = String(rangeRaw || 'all').toLowerCase();
-  if (v === 'all') return { label: 'all', fromDate: null };
+function parseDateOnly(value, endOfDay = false) {
+  const s = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T${endOfDay ? '23:59:59.999' : '00:00:00'}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Supports:
+ * - range=1|3|7|14|30|all  (relative presets)
+ * - from=YYYY-MM-DD & to=YYYY-MM-DD (custom calendar range; either may be omitted)
+ */
+function buildRangeFromQuery(queryOrRange = {}) {
+  const query = typeof queryOrRange === 'string' || queryOrRange == null
+    ? { range: queryOrRange }
+    : queryOrRange;
+
+  const fromCustom = parseDateOnly(query.from || query.date_from, false);
+  const toCustom = parseDateOnly(query.to || query.date_to, true);
+
+  if (fromCustom || toCustom) {
+    let fromDate = fromCustom;
+    let toDate = toCustom;
+    if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
+      const start = new Date(toDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(fromDate);
+      end.setHours(23, 59, 59, 999);
+      fromDate = start;
+      toDate = end;
+    }
+    const fromLabel = (query.from || query.date_from || '').toString().slice(0, 10);
+    const toLabel = (query.to || query.date_to || '').toString().slice(0, 10);
+    return {
+      label: `custom:${fromLabel || '…'}_${toLabel || '…'}`,
+      fromDate: fromDate || null,
+      toDate: toDate || null
+    };
+  }
+
+  const v = String(query.range || 'all').toLowerCase();
+  if (v === 'all') return { label: 'all', fromDate: null, toDate: null };
   const days = parseInt(v, 10);
   if (!Number.isFinite(days) || ![1, 3, 7, 14, 30].includes(days)) {
-    return { label: 'all', fromDate: null };
+    return { label: 'all', fromDate: null, toDate: null };
   }
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   from.setDate(from.getDate() - (days - 1));
-  return { label: String(days), fromDate: from };
+  return { label: String(days), fromDate: from, toDate: null };
+}
+
+function createdAtFilter({ fromDate, toDate }) {
+  if (fromDate && toDate) return { created_at: { [Op.between]: [fromDate, toDate] } };
+  if (fromDate) return { created_at: { [Op.gte]: fromDate } };
+  if (toDate) return { created_at: { [Op.lte]: toDate } };
+  return {};
 }
 
 /**
@@ -719,12 +765,13 @@ router.patch('/users/:id/balance', async (req, res, next) => {
 
 /**
  * GET /api/admin/affiliates/overview
- * Affiliate list + stats by period (1,3,7,14,30 days or all).
- * Query: range=1|3|7|14|30|all
+ * Affiliate list + stats by period.
+ * Query: range=1|3|7|14|30|all  OR  from=YYYY-MM-DD&to=YYYY-MM-DD
  */
 router.get('/affiliates/overview', async (req, res, next) => {
   try {
-    const { label: range, fromDate } = buildRangeFromQuery(req.query.range);
+    const { label: range, fromDate, toDate } = buildRangeFromQuery(req.query);
+    const dateFilter = createdAtFilter({ fromDate, toDate });
 
     const affiliates = await User.findAll({
       where: { role: 'affiliate' },
@@ -737,6 +784,8 @@ router.get('/affiliates/overview', async (req, res, next) => {
       return res.json({
         success: true,
         range,
+        from: fromDate ? fromDate.toISOString().slice(0, 10) : null,
+        to: toDate ? toDate.toISOString().slice(0, 10) : null,
         summary: {
           affiliates: 0,
           links: 0,
@@ -764,14 +813,14 @@ router.get('/affiliates/overview', async (req, res, next) => {
     const clickWhere = linkIds.length
       ? {
           link_id: { [Op.in]: linkIds },
-          ...(fromDate ? { created_at: { [Op.gte]: fromDate } } : {})
+          ...dateFilter
         }
       : null;
     const convWhere = linkIds.length
       ? {
           link_id: { [Op.in]: linkIds },
           event_type: { [Op.in]: ['lead', 'sale'] },
-          ...(fromDate ? { created_at: { [Op.gte]: fromDate } } : {})
+          ...dateFilter
         }
       : null;
 
@@ -878,7 +927,14 @@ router.get('/affiliates/overview', async (req, res, next) => {
     summary.affiliate_earnings = parseFloat(summary.affiliate_earnings.toFixed(2));
     summary.balance_total = parseFloat(summary.balance_total.toFixed(2));
 
-    res.json({ success: true, range, summary, affiliates: items });
+    res.json({
+      success: true,
+      range,
+      from: fromDate ? fromDate.toISOString().slice(0, 10) : null,
+      to: toDate ? toDate.toISOString().slice(0, 10) : null,
+      summary,
+      affiliates: items
+    });
   } catch (error) {
     next(error);
   }
@@ -957,6 +1013,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
  * - status: all|pending|approved|rejected (default all)
  * - event_type: all|lead|sale (default all)
  * - range: 1|3|7|14|30|all (default 30)
+ * - from / to: YYYY-MM-DD custom calendar range (overrides range)
  * - limit: max rows (default 500, max 2000)
  */
 router.get('/affiliates/conversions', async (req, res, next) => {
@@ -973,7 +1030,12 @@ router.get('/affiliates/conversions', async (req, res, next) => {
     }
 
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 500, 1), 2000);
-    const { label: range, fromDate } = buildRangeFromQuery(req.query.range || '30');
+    const rangeQuery = {
+      ...req.query,
+      range: req.query.range || '30'
+    };
+    const { label: range, fromDate, toDate } = buildRangeFromQuery(rangeQuery);
+    const dateFilter = createdAtFilter({ fromDate, toDate });
 
     const affiliates = await User.findAll({
       where: { role: 'affiliate' },
@@ -997,15 +1059,13 @@ router.get('/affiliates/conversions', async (req, res, next) => {
     const linkById = new Map(linkRows.map((l) => [Number(l.id), l]));
     const where = {
       link_id: { [Op.in]: linkRows.map((l) => l.id) },
-      event_type: eventRaw === 'all' ? { [Op.in]: ['lead', 'sale'] } : eventRaw
+      event_type: eventRaw === 'all' ? { [Op.in]: ['lead', 'sale'] } : eventRaw,
+      ...dateFilter
     };
     if (statusRaw !== 'all') {
       where.lead_status = statusRaw;
     } else {
       where.lead_status = { [Op.in]: ['pending', 'approved', 'rejected'] };
-    }
-    if (fromDate) {
-      where.created_at = { [Op.gte]: fromDate };
     }
 
     const convRows = await Conversion.findAll({

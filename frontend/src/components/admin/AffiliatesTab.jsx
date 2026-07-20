@@ -12,10 +12,17 @@ const RANGE_OPTIONS = [
   { value: 'all', label: 'All' }
 ];
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function AffiliatesTab() {
   const { i18n } = useTranslation();
   const isUk = i18n.language === 'uk';
   const [range, setRange] = useState('7');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [customActive, setCustomActive] = useState(false);
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,13 +34,29 @@ export default function AffiliatesTab() {
   const [conversionsLoading, setConversionsLoading] = useState(false);
   const [convStatusFilter, setConvStatusFilter] = useState('all');
   const [convEventFilter, setConvEventFilter] = useState('all');
-  const [convRange, setConvRange] = useState('30');
   const [affiliateSearch, setAffiliateSearch] = useState('');
   const [sharing, setSharing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
 
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
+
+  const periodParams = useMemo(() => {
+    if (customActive && (dateFrom || dateTo)) {
+      const params = {};
+      if (dateFrom) params.from = dateFrom;
+      if (dateTo) params.to = dateTo;
+      return params;
+    }
+    return { range };
+  }, [customActive, dateFrom, dateTo, range]);
+
+  const periodLabel = useMemo(() => {
+    if (customActive && (dateFrom || dateTo)) {
+      return `${dateFrom || '…'} → ${dateTo || '…'}`;
+    }
+    return RANGE_OPTIONS.find((o) => o.value === range)?.label || range;
+  }, [customActive, dateFrom, dateTo, range]);
 
   const statusLabel = (status) => {
     if (status === 'approved') return isUk ? 'Підтверджено' : 'Approved';
@@ -48,11 +71,11 @@ export default function AffiliatesTab() {
     return 'bg-amber-100 text-amber-700';
   };
 
-  const fetchOverview = async (nextRange = range) => {
+  const fetchOverview = async (params = periodParams) => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/api/admin/affiliates/overview', { params: { range: nextRange } });
+      const res = await api.get('/api/admin/affiliates/overview', { params });
       setOverview(res.data);
       const nextEdits = {};
       (res.data?.affiliates || []).forEach((a) => {
@@ -100,15 +123,15 @@ export default function AffiliatesTab() {
     }
   };
 
-  const fetchConversionsLog = async () => {
+  const fetchConversionsLog = async (params = periodParams) => {
     setConversionsLoading(true);
     try {
       const res = await api.get('/api/admin/affiliates/conversions', {
         params: {
           status: convStatusFilter,
           event_type: convEventFilter,
-          range: convRange,
-          limit: 500
+          limit: 500,
+          ...params
         }
       });
       setConversionsLog(res.data?.items || []);
@@ -120,18 +143,33 @@ export default function AffiliatesTab() {
     }
   };
 
+  const applyPreset = (value) => {
+    setRange(value);
+    setCustomActive(false);
+  };
+
+  const applyCustomRange = () => {
+    if (!dateFrom && !dateTo) {
+      setError(isUk ? 'Оберіть хоча б одну дату' : 'Select at least one date');
+      return;
+    }
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      setError(isUk ? 'Дата «від» не може бути пізніше за «до»' : 'Start date cannot be after end date');
+      return;
+    }
+    setError('');
+    setCustomActive(true);
+  };
+
   useEffect(() => {
-    fetchOverview();
-  }, [range]);
+    fetchOverview(periodParams);
+    fetchConversionsLog(periodParams);
+  }, [periodParams, convStatusFilter, convEventFilter]);
 
   useEffect(() => {
     fetchModeration();
     fetchHistory();
   }, []);
-
-  useEffect(() => {
-    fetchConversionsLog();
-  }, [convStatusFilter, convEventFilter, convRange]);
 
   const saveAffiliateSettings = async (affiliateId) => {
     const edit = edits[affiliateId];
@@ -148,7 +186,7 @@ export default function AffiliatesTab() {
         commission_percent: commission
       });
       await api.patch(`/api/admin/users/${affiliateId}/balance`, { balance });
-      await fetchOverview(range);
+      await fetchOverview(periodParams);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update affiliate settings');
     } finally {
@@ -160,7 +198,12 @@ export default function AffiliatesTab() {
     setUpdating(true);
     try {
       await api.post(`/api/admin/conversions/${id}/${action === 'approve' ? 'approve-lead' : 'reject-lead'}`);
-      await Promise.all([fetchModeration(), fetchHistory(), fetchConversionsLog(), fetchOverview(range)]);
+      await Promise.all([
+        fetchModeration(),
+        fetchHistory(),
+        fetchConversionsLog(periodParams),
+        fetchOverview(periodParams)
+      ]);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update conversion status');
     } finally {
@@ -173,7 +216,8 @@ export default function AffiliatesTab() {
     try {
       const res = await api.post('/api/reports/share', {
         type: 'affiliates_overview',
-        range
+        range: customActive ? 'all' : range,
+        ...(customActive ? { from: dateFrom || undefined, to: dateTo || undefined } : {})
       });
       await navigator.clipboard.writeText(res.data.url);
       setError('');
@@ -221,25 +265,75 @@ export default function AffiliatesTab() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Афілейти</h1>
-            <p className="text-sm text-slate-500">Статистика, баланс і модерація в одному табі.</p>
+            <p className="text-sm text-slate-500">
+              {isUk ? 'Статистика, баланс і модерація в одному табі.' : 'Stats, balance and moderation in one tab.'}
+              <span className="ml-2 text-violet-700 font-medium">
+                {isUk ? 'Період:' : 'Period:'} {periodLabel}
+              </span>
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {RANGE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setRange(opt.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm border ${range === opt.value ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200'}`}
+                type="button"
+                onClick={() => applyPreset(opt.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm border ${!customActive && range === opt.value ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-600 border-slate-200'}`}
               >
                 {opt.label}
               </button>
             ))}
-            <button onClick={() => { fetchOverview(range); fetchModeration(); fetchHistory(); fetchConversionsLog(); }} className="p-2 rounded-lg border border-slate-200">
+            <button
+              type="button"
+              onClick={() => { fetchOverview(periodParams); fetchModeration(); fetchHistory(); fetchConversionsLog(periodParams); }}
+              className="p-2 rounded-lg border border-slate-200"
+            >
               <RefreshCw className="w-4 h-4" />
             </button>
             <button onClick={handleShareOverview} disabled={sharing} className="px-3 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 text-sm font-semibold disabled:opacity-50">
-              {sharing ? 'Створення...' : 'Поділитись звітом'}
+              {sharing ? (isUk ? 'Створення...' : 'Creating...') : (isUk ? 'Поділитись звітом' : 'Share report')}
             </button>
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">{isUk ? 'Від' : 'From'}</label>
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || todayISO()}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">{isUk ? 'До' : 'To'}</label>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              max={todayISO()}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={applyCustomRange}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold border ${customActive ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-violet-700 border-violet-300 hover:bg-violet-50'}`}
+          >
+            {isUk ? 'Застосувати період' : 'Apply range'}
+          </button>
+          {customActive && (
+            <button
+              type="button"
+              onClick={() => { setCustomActive(false); setDateFrom(''); setDateTo(''); }}
+              className="px-3 py-2 rounded-lg text-sm border border-slate-200 text-slate-600 bg-white"
+            >
+              {isUk ? 'Скинути' : 'Reset'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -380,15 +474,6 @@ export default function AffiliatesTab() {
               <option value="pending">Pending</option>
               <option value="approved">Підтверджено</option>
               <option value="rejected">Відхилено</option>
-            </select>
-            <select
-              value={convRange}
-              onChange={(e) => setConvRange(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
-            >
-              {RANGE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
             </select>
           </div>
         </div>
