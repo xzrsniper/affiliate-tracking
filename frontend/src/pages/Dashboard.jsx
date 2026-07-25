@@ -36,7 +36,9 @@ import {
   HelpCircle,
   Eraser,
   Shuffle,
-  PlusCircle
+  PlusCircle,
+  Share2,
+  Link as LinkIcon
 } from 'lucide-react';
 
 const EMPTY_NEW_LINK = {
@@ -81,6 +83,10 @@ export default function Dashboard() {
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [sharedReportUrl, setSharedReportUrl] = useState(null);
+  const [copiedReportUrl, setCopiedReportUrl] = useState(false);
+  const [shareLinkModal, setShareLinkModal] = useState(null); // { link, url, copied }
+  const [shareLinkLoading, setShareLinkLoading] = useState(null); // link.id while loading
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -612,15 +618,38 @@ export default function Dashboard() {
     try {
       const res = await api.post('/api/reports/share', {
         type: 'links_compare',
-        link_ids: selectedLinkIds
+        link_ids: selectedLinkIds,
+        currency: isUk ? '₴' : '$'
       });
-      await navigator.clipboard.writeText(res.data.url);
-      setSuccessMessage(i18n.language === 'uk' ? 'Публічний лінк звіту скопійовано' : 'Public report link copied');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      const url = res.data.url;
+      setSharedReportUrl(url);
+      setCopiedReportUrl(false);
+      await navigator.clipboard.writeText(url);
+      setCopiedReportUrl(true);
+      setTimeout(() => setCopiedReportUrl(false), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create public report link');
     } finally {
       setShareLoading(false);
+    }
+  };
+
+  const handleShareLink = async (link) => {
+    setShareLinkLoading(link.id);
+    try {
+      const res = await api.post('/api/reports/share', {
+        type: 'link_single',
+        link_id: link.id,
+        currency: i18n.language === 'uk' ? '₴' : '$'
+      });
+      const url = res.data.url;
+      await navigator.clipboard.writeText(url).catch(() => {});
+      setShareLinkModal({ link, url, copied: true });
+      setTimeout(() => setShareLinkModal((prev) => prev ? { ...prev, copied: false } : prev), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create share link');
+    } finally {
+      setShareLinkLoading(null);
     }
   };
 
@@ -1667,7 +1696,10 @@ export default function Dashboard() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-violet-600 text-[13px] break-all">{link.tracking_url}</div>
+                              <div
+                                className="text-violet-500 text-[11px] truncate max-w-[260px]"
+                                title={link.tracking_url}
+                              >{link.tracking_url}</div>
                             </td>
                             <td className="px-4 py-4">
                               <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${getSourceBadge(link.source_type)}`}>
@@ -1715,6 +1747,17 @@ export default function Dashboard() {
                                   className="px-3 py-1.5 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50 text-sm"
                                 >
                                   {copiedLinkId === link.id ? t('common.copied') : t('common.copy')}
+                                </button>
+                                <button
+                                  onClick={() => handleShareLink(link)}
+                                  disabled={shareLinkLoading === link.id}
+                                  className="px-3 py-1.5 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-sm flex items-center gap-1 disabled:opacity-50"
+                                  title={isUk ? 'Поділитись звітом' : 'Share report'}
+                                >
+                                  {shareLinkLoading === link.id
+                                    ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    : <Share2 className="w-3.5 h-3.5" />}
+                                  {isUk ? 'Звіт' : 'Share'}
                                 </button>
                                 <button
                                   onClick={() => openPurchaseModal(link)}
@@ -1768,6 +1811,71 @@ export default function Dashboard() {
         </div>
       )}
 
+      {shareLinkModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShareLinkModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                  <Share2 className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">{isUk ? 'Публічний звіт' : 'Public report'}</h3>
+                  <p className="text-xs text-slate-500 truncate max-w-[220px]">{shareLinkModal.link.name || shareLinkModal.link.unique_code}</p>
+                </div>
+              </div>
+              <button onClick={() => setShareLinkModal(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center gap-2">
+              <LinkIcon className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+              <a
+                href={shareLinkModal.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 text-xs text-indigo-700 font-mono truncate hover:underline"
+              >
+                {shareLinkModal.url}
+              </a>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shareLinkModal.url);
+                  setShareLinkModal((prev) => ({ ...prev, copied: true }));
+                  setTimeout(() => setShareLinkModal((prev) => prev ? { ...prev, copied: false } : prev), 2000);
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                  shareLinkModal.copied
+                    ? 'bg-green-100 text-green-700 border border-green-300'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                }`}
+              >
+                {shareLinkModal.copied
+                  ? <><Check className="w-4 h-4" />{isUk ? 'Скопійовано!' : 'Copied!'}</>
+                  : <><Copy className="w-4 h-4" />{isUk ? 'Копіювати лінк' : 'Copy link'}</>}
+              </button>
+              <a
+                href={shareLinkModal.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-4 h-4" />
+                {isUk ? 'Відкрити' : 'Open'}
+              </a>
+            </div>
+
+            <p className="text-xs text-slate-400 text-center">
+              {isUk ? 'Посилання автоматично скопійовано в буфер' : 'Link was auto-copied to clipboard'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {showCompareModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCompareModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -1777,14 +1885,39 @@ export default function Dashboard() {
                 <p className="text-xs text-slate-500 mt-1">{i18n.language === 'uk' ? 'До 6 посилань: кліки, конверсії, дохід та конверсія' : 'Up to 6 links: clicks, conversions, revenue, conversion rate'}</p>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50">
-                  {shareLoading ? (i18n.language === 'uk' ? 'Створення...' : 'Creating...') : (i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report')}
+                <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50 flex items-center gap-1.5">
+                  {shareLoading ? (
+                    <>{i18n.language === 'uk' ? 'Створення...' : 'Creating...'}</>
+                  ) : (
+                    <><Share2 className="w-4 h-4" />{i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report'}</>
+                  )}
                 </button>
-                <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
+                <button onClick={() => { setShowCompareModal(false); setSharedReportUrl(null); }} className="p-2 rounded-lg hover:bg-slate-100">
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
+
+            {sharedReportUrl && (
+              <div className="mx-6 mt-4 mb-0 p-3 bg-violet-50 border border-violet-200 rounded-xl flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                <a
+                  href={sharedReportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-xs text-violet-700 font-mono truncate hover:underline"
+                >
+                  {sharedReportUrl}
+                </a>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(sharedReportUrl); setCopiedReportUrl(true); setTimeout(() => setCopiedReportUrl(false), 2000); }}
+                  className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${copiedReportUrl ? 'bg-green-100 text-green-700' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+                >
+                  {copiedReportUrl ? <><Check className="w-3.5 h-3.5" />{i18n.language === 'uk' ? 'Скопійовано' : 'Copied'}</> : <><Copy className="w-3.5 h-3.5" />{i18n.language === 'uk' ? 'Копіювати' : 'Copy'}</>}
+                </button>
+              </div>
+            )}
+
             <div className="p-6 space-y-6">
               {selectedLinksForCompare.length < 2 ? (
                 <p className="text-sm text-slate-500">{i18n.language === 'uk' ? 'Виберіть мінімум 2 посилання для порівняння.' : 'Select at least 2 links to compare.'}</p>
@@ -1985,10 +2118,26 @@ export default function Dashboard() {
       {purchaseModalLink && (() => {
         const modalSales = purchaseModalItems.filter((c) => c.event_type === 'sale' || !c.event_type);
         const modalLeads = purchaseModalItems.filter((c) => c.event_type === 'lead');
+        const canConfirm = user?.role !== 'affiliate';
 
-        const ConvTable = ({ items, emptyKey, amountClass }) => (
+        const handleConfirmLead = async (convId) => {
+          try {
+            await api.post(`/api/links/${purchaseModalLink.id}/conversions/${convId}/confirm`);
+            // Move confirmed lead from leads → sales in local state
+            setPurchaseModalItems((prev) =>
+              prev.map((c) => c.id === convId ? { ...c, event_type: 'sale' } : c)
+            );
+            // Refresh link stats in background
+            const res = await api.get('/api/links');
+            if (res.data?.links) setLinks(res.data.links);
+          } catch (err) {
+            setError(err.response?.data?.error || 'Failed to confirm lead');
+          }
+        };
+
+        const SalesTable = ({ items }) => (
           items.length === 0 ? (
-            <p className="text-sm text-slate-400 py-3 px-1">{t(emptyKey)}</p>
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoSales')}</p>
           ) : (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
               <table className="w-full text-sm">
@@ -2003,8 +2152,47 @@ export default function Dashboard() {
                   {items.map((item) => (
                     <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
-                      <td className={`px-4 py-3 font-semibold ${amountClass}`}>{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(item.amount)}</td>
                       <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        );
+
+        const LeadsTable = ({ items }) => (
+          items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoLeads')}</p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+                    {canConfirm && <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500"></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
+                      <td className="px-4 py-3 font-semibold text-amber-700">{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                      {canConfirm && (
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleConfirmLead(item.id)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            {isUk ? 'Зарахувати як продаж' : 'Confirm as sale'}
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -2044,7 +2232,7 @@ export default function Dashboard() {
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convSaleNote')}</span>
                     </div>
-                    <ConvTable items={modalSales} emptyKey="dashboard.convNoSales" amountClass="text-emerald-700" />
+                    <SalesTable items={modalSales} />
                   </div>
 
                   <div className="border-t border-slate-100" />
@@ -2058,8 +2246,11 @@ export default function Dashboard() {
                         <span className="ml-1 font-normal text-amber-700">({modalLeads.length})</span>
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convLeadNote')}</span>
+                      {canConfirm && modalLeads.length > 0 && (
+                        <span className="text-xs text-slate-400 italic">{isUk ? '— натисніть кнопку, щоб підтвердити продаж' : '— click button to confirm as sale'}</span>
+                      )}
                     </div>
-                    <ConvTable items={modalLeads} emptyKey="dashboard.convNoLeads" amountClass="text-amber-700" />
+                    <LeadsTable items={modalLeads} />
                   </div>
                 </div>
               )}

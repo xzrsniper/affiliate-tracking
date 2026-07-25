@@ -807,6 +807,37 @@ router.get('/:id/purchases', authenticate, async (req, res, next) => {
 });
 
 /**
+ * POST /api/links/:linkId/conversions/:convId/confirm
+ * Promote a lead conversion to a sale. Blocked for affiliates.
+ */
+router.post('/:linkId/conversions/:convId/confirm', authenticate, async (req, res, next) => {
+  try {
+    if (req.user.role === 'affiliate') {
+      return res.status(403).json({ error: 'Affiliates cannot confirm leads' });
+    }
+
+    const link = await Link.findOne({
+      where: { id: req.params.linkId, user_id: req.user.id },
+      attributes: ['id']
+    });
+    if (!link) return res.status(404).json({ error: 'Link not found' });
+
+    const conversion = await Conversion.findOne({
+      where: { id: req.params.convId, link_id: link.id, event_type: 'lead' }
+    });
+    if (!conversion) return res.status(404).json({ error: 'Lead conversion not found' });
+
+    conversion.event_type = 'sale';
+    if ('lead_status' in conversion.dataValues) conversion.lead_status = 'approved';
+    await conversion.save();
+
+    res.json({ success: true, id: conversion.id, event_type: conversion.event_type });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/links/:id
  * Get single link by ID (belonging to current user)
  */

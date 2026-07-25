@@ -11,7 +11,7 @@ on:
       vps_host:
         description: 'VPS IP / hostname'
         required: false
-        default: '185.237.209.107'
+        default: '185.237.207.109'
       vps_user:
         description: 'SSH user'
         required: false
