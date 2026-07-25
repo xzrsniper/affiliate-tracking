@@ -279,16 +279,42 @@ router.get('/public/:token', async (req, res, next) => {
     if (payload.type === 'link_single') {
       const data = await getSingleLinkData(payload.user_id, payload.link_id);
       if (!data) return res.status(404).json({ error: 'Link not found' });
-      const title = data.link.name ? `${data.link.name} — Link Report` : 'Link Report';
-      return res.json({ success: true, type: payload.type, title, currency, white_label: payload.white_label, ...data });
+      const name = data.link.name || data.link.unique_code;
+      return res.json({
+        success: true,
+        type: payload.type,
+        title: name ? `${name} — Link Report` : 'Link Report',
+        titles: {
+          uk: name ? `${name} — Звіт по посиланню` : 'Звіт по посиланню',
+          en: name ? `${name} — Link report` : 'Link report'
+        },
+        currency,
+        white_label: payload.white_label,
+        ...data
+      });
     }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
-      return res.json({ success: true, type: payload.type, title: 'Links comparison report', currency, white_label: payload.white_label, ...data });
+      return res.json({
+        success: true,
+        type: payload.type,
+        title: 'Links comparison report',
+        titles: { uk: 'Порівняння посилань', en: 'Links comparison' },
+        currency,
+        white_label: payload.white_label,
+        ...data
+      });
     }
     if (payload.type === 'affiliates_overview') {
       const data = await getAffiliatesOverview(payload.range || 'all');
-      return res.json({ success: true, type: payload.type, title: 'Affiliates overview report', white_label: payload.white_label, ...data });
+      return res.json({
+        success: true,
+        type: payload.type,
+        title: 'Affiliates overview report',
+        titles: { uk: 'Звіт по афілейтах', en: 'Affiliates overview' },
+        white_label: payload.white_label,
+        ...data
+      });
     }
 
     return res.status(400).json({ error: 'Unsupported report type' });
@@ -304,30 +330,77 @@ router.get('/public/:token/export', async (req, res, next) => {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
 
+    const lang = String(req.query.lang || '').toLowerCase() === 'en' ? 'en' : 'uk';
+    const csvHeaders = {
+      uk: {
+        link: 'Посилання',
+        url: 'URL',
+        clicks: 'Кліки',
+        uniqueClicks: 'Унікальні кліки',
+        unique: 'Унікальні',
+        conversions: 'Конверсії',
+        leads: 'Ліди',
+        cr: 'CR %',
+        totalRevenue: 'Загальний дохід',
+        salesRevenue: 'Дохід з продажів',
+        salesCount: 'Продажі',
+        leadCount: 'Ліди',
+        leadRevenue: 'Дохід з лідів',
+        affiliate: 'Афілейт',
+        commission: 'Комісія %',
+        balance: 'Баланс',
+        pending: 'Очікують',
+        approvedRevenue: 'Підтверджений дохід',
+        earnings: 'Заробіток'
+      },
+      en: {
+        link: 'Link',
+        url: 'URL',
+        clicks: 'Clicks',
+        uniqueClicks: 'Unique Clicks',
+        unique: 'Unique',
+        conversions: 'Conversions',
+        leads: 'Leads',
+        cr: 'CR %',
+        totalRevenue: 'Total Revenue',
+        salesRevenue: 'Sales Revenue',
+        salesCount: 'Sales Count',
+        leadCount: 'Lead Count',
+        leadRevenue: 'Lead Revenue',
+        affiliate: 'Affiliate',
+        commission: 'Commission %',
+        balance: 'Balance',
+        pending: 'Pending',
+        approvedRevenue: 'Approved Revenue',
+        earnings: 'Earnings'
+      }
+    };
+    const h = csvHeaders[lang];
+
     if (payload.type === 'link_single') {
       const data = await getSingleLinkData(payload.user_id, payload.link_id);
       if (!data) return res.status(404).send('Link not found');
       const s = data.stats;
       const rows = [
-        ['Link', 'URL', 'Clicks', 'Unique Clicks', 'Conversions', 'Leads', 'CR %', 'Total Revenue', 'Sales Revenue'],
+        [h.link, h.url, h.clicks, h.uniqueClicks, h.conversions, h.leads, h.cr, h.totalRevenue, h.salesRevenue],
         [data.link.name, data.link.original_url, s.clicks, s.unique_clicks, s.conversions, s.lead_count, s.conversion_rate, s.total_revenue, s.sales_revenue]
       ];
       res.setHeader('Content-Disposition', `attachment; filename="link-report-${data.link.unique_code}.csv"`);
-      return res.send(rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
+      return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
-      const rows = [['Link', 'URL', 'Clicks', 'Unique', 'Conversions', 'CR %', 'Sales Count', 'Sales Revenue', 'Lead Count', 'Lead Revenue']];
+      const rows = [[h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue]];
       data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.sales_count, i.sales_revenue, i.lead_count, i.lead_revenue]));
       res.setHeader('Content-Disposition', 'attachment; filename="links-report.csv"');
-      return res.send(rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
+      return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
 
     const data = await getAffiliatesOverview(payload.range || 'all');
-    const rows = [['Affiliate', 'Commission %', 'Balance', 'Conversions', 'Pending', 'Approved Revenue', 'Earnings']];
+    const rows = [[h.affiliate, h.commission, h.balance, h.conversions, h.pending, h.approvedRevenue, h.earnings]];
     data.items.forEach((i) => rows.push([i.email, i.commission_percent, i.affiliate_balance, i.conversions, i.pending_conversions, i.approved_revenue, i.affiliate_earnings]));
     res.setHeader('Content-Disposition', 'attachment; filename="affiliates-report.csv"');
-    return res.send(rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
+    return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
   } catch (error) {
     next(error);
   }

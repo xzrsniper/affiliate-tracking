@@ -7,12 +7,28 @@ import {
 
 const COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2'];
 
+const LANG_STORAGE_KEY = 'lehko_lang';
+
+function getInitialReportLang() {
+  try {
+    const saved = localStorage.getItem(LANG_STORAGE_KEY);
+    if (saved === 'uk' || saved === 'en') return saved;
+  } catch (_) { /* ignore */ }
+  const bl = (typeof navigator !== 'undefined' ? navigator.language : '') || '';
+  return bl.toLowerCase().startsWith('en') ? 'en' : 'uk';
+}
+
 // ── Translation dictionary ──────────────────────────────────────────────────
 const TRANSLATIONS = {
   uk: {
     loading: 'Завантаження звіту…',
+    loadError: 'Не вдалося завантажити публічний звіт',
     poweredBy: 'Powered by lehko.space',
     download: 'Завантажити Excel (CSV)',
+    publicReport: 'Публічний звіт',
+    linkReport: 'Звіт по посиланню',
+    linksCompareReport: 'Порівняння посилань',
+    affiliatesReport: 'Звіт по афілейтах',
     // link_single
     clicks: 'Кліки',
     unique: 'унікальних',
@@ -59,8 +75,13 @@ const TRANSLATIONS = {
   },
   en: {
     loading: 'Loading report…',
+    loadError: 'Failed to load public report',
     poweredBy: 'Powered by lehko.space',
     download: 'Download Excel (CSV)',
+    publicReport: 'Public report',
+    linkReport: 'Link report',
+    linksCompareReport: 'Links comparison',
+    affiliatesReport: 'Affiliates overview',
     // link_single
     clicks: 'Clicks',
     unique: 'unique',
@@ -106,6 +127,18 @@ const TRANSLATIONS = {
     salesRevenueLabel: 'Sales revenue',
   },
 };
+
+function getReportTitle(report, t, lang) {
+  if (!report) return t.publicReport;
+  if (report.titles?.[lang]) return report.titles[lang];
+  if (report.type === 'link_single') {
+    const name = report.link?.name || report.link?.unique_code;
+    return name ? `${name} — ${t.linkReport}` : t.linkReport;
+  }
+  if (report.type === 'links_compare') return t.linksCompareReport;
+  if (report.type === 'affiliates_overview') return t.affiliatesReport;
+  return t.publicReport;
+}
 
 function StatCard({ label, value, sub }) {
   return (
@@ -216,20 +249,24 @@ function MiniBarChart({ data, dataKey, formatter }) {
 }
 
 // ── Language toggle ─────────────────────────────────────────────────────────
-function LangToggle({ lang, setLang }) {
+function LangToggle({ lang, onChange }) {
   return (
-    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 gap-0.5">
-      {['uk', 'en'].map((l) => (
+    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 gap-0.5" role="group" aria-label="Language">
+      {[
+        { code: 'uk', label: 'UKR' },
+        { code: 'en', label: 'EN' },
+      ].map(({ code, label }) => (
         <button
-          key={l}
-          onClick={() => setLang(l)}
+          key={code}
+          type="button"
+          onClick={() => onChange(code)}
           className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-            lang === l
+            lang === code
               ? 'bg-white text-violet-700 shadow-sm border border-slate-200'
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          {l === 'uk' ? '🇺🇦 УКР' : '🇬🇧 ENG'}
+          {label}
         </button>
       ))}
     </div>
@@ -241,15 +278,21 @@ export default function PublicReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [report, setReport] = useState(null);
-
-  // Default to browser language, fall back to 'uk'
-  const [lang, setLang] = useState(() => {
-    const bl = (navigator.language || '').toLowerCase();
-    return bl.startsWith('en') ? 'en' : 'uk';
-  });
+  const [lang, setLang] = useState(getInitialReportLang);
 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.uk;
   const locale = lang === 'uk' ? 'uk-UA' : 'en-US';
+
+  const handleLangChange = (next) => {
+    setLang(next);
+    try {
+      localStorage.setItem(LANG_STORAGE_KEY, next);
+    } catch (_) { /* ignore */ }
+  };
+
+  useEffect(() => {
+    document.documentElement.lang = lang === 'en' ? 'en' : 'uk';
+  }, [lang]);
 
   useEffect(() => {
     const meta = document.createElement('meta');
@@ -263,10 +306,11 @@ export default function PublicReport() {
     const run = async () => {
       try {
         setLoading(true);
+        setError('');
         const res = await api.get(`/api/reports/public/${token}`);
         setReport(res.data);
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to load public report');
+        setError(err.response?.data?.error || 'LOAD_FAILED');
       } finally {
         setLoading(false);
       }
@@ -274,12 +318,34 @@ export default function PublicReport() {
     run();
   }, [token]);
 
-  const downloadUrl = useMemo(() => `/api/reports/public/${token}/export`, [token]);
+  const downloadUrl = useMemo(
+    () => `/api/reports/public/${token}/export?lang=${encodeURIComponent(lang)}`,
+    [token, lang]
+  );
   const currency = report?.currency || '₴';
   const fmtMoney = (v) => `${Number(v || 0).toLocaleString(locale)} ${currency}`;
+  const displayTitle = getReportTitle(report, t, lang);
+  const displayError = error === 'LOAD_FAILED' || !error
+    ? t.loadError
+    : (error === 'Report not found' || error === 'Link not found'
+      ? (lang === 'uk'
+        ? (error === 'Link not found' ? 'Посилання не знайдено' : 'Звіт не знайдено')
+        : error)
+      : error);
 
   if (loading) return <div className="min-h-screen bg-slate-50 p-8 text-slate-600">{t.loading}</div>;
-  if (error) return <div className="min-h-screen bg-slate-50 p-8 text-red-600">{error}</div>;
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-8">
+        <div className="max-w-lg mx-auto space-y-4">
+          <div className="flex justify-end">
+            <LangToggle lang={lang} onChange={handleLangChange} />
+          </div>
+          <p className="text-red-600">{displayError}</p>
+        </div>
+      </div>
+    );
+  }
 
   const items = report?.items || [];
 
@@ -291,11 +357,11 @@ export default function PublicReport() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">{report?.title || 'Public Report'}</h1>
+              <h1 className="text-2xl font-bold text-slate-900">{displayTitle}</h1>
               <p className="text-sm text-slate-500 mt-1">{t.poweredBy}</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <LangToggle lang={lang} setLang={setLang} />
+              <LangToggle lang={lang} onChange={handleLangChange} />
               <a
                 href={downloadUrl}
                 className="px-4 py-2 rounded-lg bg-violet-600 text-white font-semibold text-sm hover:bg-violet-700 transition-colors"
