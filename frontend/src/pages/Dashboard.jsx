@@ -101,16 +101,30 @@ export default function Dashboard() {
   const [activeSnapshot, setActiveSnapshot] = useState(''); // applied value 'YYYY-MM-DDTHH'
   const [timeRange, setTimeRange] = useState('today');
   const [affiliateSummary, setAffiliateSummary] = useState(null);
+  const [adminAffiliateBalanceTotal, setAdminAffiliateBalanceTotal] = useState(null);
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  const fetchAdminAffiliateBalance = async () => {
+    if (user?.role !== 'super_admin') return;
+    try {
+      const response = await api.get('/api/admin/affiliates/overview', { params: { range: 'all' } });
+      const total = response.data?.summary?.balance_total;
+      setAdminAffiliateBalanceTotal(total != null ? Number(total) : 0);
+    } catch (err) {
+      console.error('Admin affiliate balance error:', err);
+    }
+  };
 
   // Auto-fetch links and chart on mount
   useEffect(() => {
     isMountedRef.current = true;
     fetchLinks(true);
     fetchChartData(i18n.language, '', sourceFilter);
+    fetchAdminAffiliateBalance();
     return () => {
       isMountedRef.current = false;
     };
-  }, [i18n.language]);
+  }, [i18n.language, user?.role]);
 
   useEffect(() => {
     if (!isMountedRef.current) return;
@@ -740,21 +754,28 @@ export default function Dashboard() {
               <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
               <p className="text-sm text-slate-600">{currentDate}</p>
             </div>
-            {isAffiliate && (
+            {(isAffiliate || isSuperAdmin) && (
               <div className="flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2 dark:border-violet-800/60 dark:bg-violet-950/40">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/50">
                   <DollarSign className="h-4 w-4 text-violet-600 dark:text-violet-300" />
                 </div>
                 <div className="leading-tight">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-600/80 dark:text-violet-300/80">
-                    {isUk ? 'Баланс' : 'Balance'}
+                    {isSuperAdmin
+                      ? (isUk ? 'Баланс афілейтів' : 'Affiliates balance')
+                      : (isUk ? 'Баланс' : 'Balance')}
                   </div>
                   <div className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    {affiliateBalance.toLocaleString()} ₴
+                    {(isSuperAdmin ? (adminAffiliateBalanceTotal ?? 0) : affiliateBalance).toLocaleString()} ₴
                   </div>
-                  {affiliateCommissionPercent != null && (
+                  {isAffiliate && affiliateCommissionPercent != null && (
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
                       {isUk ? 'Комісія' : 'Commission'}: {affiliateCommissionPercent}%
+                    </div>
+                  )}
+                  {isSuperAdmin && (
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {isUk ? 'Сума балансів усіх афілейтів' : 'Sum of all affiliate balances'}
                     </div>
                   )}
                 </div>
@@ -766,6 +787,7 @@ export default function Dashboard() {
               onClick={() => {
                 fetchLinks(true, activeSnapshot, timeRange);
                 fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
+                fetchAdminAffiliateBalance();
               }}
               disabled={loading}
               className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-50"
