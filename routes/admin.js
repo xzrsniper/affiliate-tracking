@@ -87,6 +87,26 @@ function createdAtFilter({ fromDate, toDate }) {
   return {};
 }
 
+function leadStatusWhere(status) {
+  // Older conversions may have NULL instead of 'pending'
+  if (status === 'pending') {
+    return { [Op.or]: [{ lead_status: 'pending' }, { lead_status: null }] };
+  }
+  return { lead_status: status };
+}
+
+function leadStatusWhereAllOrFilter(statusRaw) {
+  if (statusRaw === 'all') {
+    return {
+      [Op.or]: [
+        { lead_status: { [Op.in]: ['pending', 'approved', 'rejected'] } },
+        { lead_status: null }
+      ]
+    };
+  }
+  return leadStatusWhere(statusRaw);
+}
+
 /**
  * GET /api/admin/users
  * List all users
@@ -883,7 +903,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
       const agg = byAffiliate.get(ownerId);
       if (!agg) return;
       agg.conversions += 1;
-      if (c.lead_status === 'pending') agg.pending_conversions += 1;
+      if (c.lead_status === 'pending' || c.lead_status == null) agg.pending_conversions += 1;
       if (c.lead_status === 'approved') {
         const orderValue = parseFloat(c.order_value || 0);
         agg.approved_revenue += orderValue;
@@ -971,7 +991,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
       where: {
         link_id: { [Op.in]: linkRows.map((l) => l.id) },
         event_type: { [Op.in]: ['lead', 'sale'] },
-        lead_status: status
+        ...leadStatusWhere(status)
       },
       attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
       order: [['created_at', 'DESC']],
@@ -994,7 +1014,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         event_type: row.event_type,
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
-        lead_status: row.lead_status,
+        lead_status: row.lead_status || 'pending',
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent)
       };
@@ -1060,13 +1080,9 @@ router.get('/affiliates/conversions', async (req, res, next) => {
     const where = {
       link_id: { [Op.in]: linkRows.map((l) => l.id) },
       event_type: eventRaw === 'all' ? { [Op.in]: ['lead', 'sale'] } : eventRaw,
-      ...dateFilter
+      ...dateFilter,
+      ...leadStatusWhereAllOrFilter(statusRaw)
     };
-    if (statusRaw !== 'all') {
-      where.lead_status = statusRaw;
-    } else {
-      where.lead_status = { [Op.in]: ['pending', 'approved', 'rejected'] };
-    }
 
     const convRows = await Conversion.findAll({
       where,
@@ -1091,7 +1107,7 @@ router.get('/affiliates/conversions', async (req, res, next) => {
         event_type: row.event_type,
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
-        lead_status: row.lead_status,
+        lead_status: row.lead_status || 'pending',
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent),
         commission_percent: percent
@@ -1140,7 +1156,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
       where: {
         link_id: { [Op.in]: linkIds },
         event_type: { [Op.in]: ['lead', 'sale'] },
-        lead_status: status
+        ...leadStatusWhere(status)
       },
       attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
       order: [['created_at', 'DESC']],
@@ -1159,7 +1175,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
       event_type: row.event_type,
       order_value: parseFloat(row.order_value || 0),
       order_id: row.order_id,
-      lead_status: row.lead_status,
+      lead_status: row.lead_status || 'pending',
       created_at: row.created_at,
       commission_amount: commissionFromOrder(row.order_value, percent)
     });
@@ -1184,7 +1200,9 @@ async function moderateAffiliateConversion(conversionId, action) {
     if (!conversion || !isAffiliatePayoutEvent(conversion.event_type)) {
       return { error: 'Conversion not found', status: 404 };
     }
-    if (conversion.lead_status !== 'pending') {
+    // Treat NULL as pending — older conversions were created without lead_status
+    const status = conversion.lead_status || 'pending';
+    if (status !== 'pending') {
       return { error: 'Conversion is not pending approval', status: 400 };
     }
 
@@ -1210,7 +1228,11 @@ async function moderateAffiliateConversion(conversionId, action) {
     }
 
     const amount = commissionFromOrder(conversion.order_value, percent);
+    // Approving a lead confirms it for payout (same as confirmed sale in reports)
     conversion.lead_status = 'approved';
+    if (conversion.event_type === 'lead') {
+      conversion.event_type = 'sale';
+    }
     await conversion.save({ transaction: t });
 
     let newBalance = parseFloat(affiliate.affiliate_balance || 0);
