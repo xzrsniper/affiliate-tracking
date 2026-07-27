@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [purchaseModalLink, setPurchaseModalLink] = useState(null);
   const [purchaseModalItems, setPurchaseModalItems] = useState([]);
   const [purchaseModalLoading, setPurchaseModalLoading] = useState(false);
+  const [leadActionId, setLeadActionId] = useState(null);
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
@@ -2117,14 +2118,51 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Edit Link Modal */}
+      {/* Conversions Modal */}
       {purchaseModalLink && (() => {
         const modalSales = purchaseModalItems.filter((c) => c.event_type === 'sale' || !c.event_type);
         const modalLeads = purchaseModalItems.filter((c) => c.event_type === 'lead');
+        const canConfirm = user?.role !== 'affiliate';
+        const canManageLeads = true;
 
-        const ConvTable = ({ items, emptyKey, amountClass }) => (
+        const refreshAfterLeadChange = async () => {
+          await fetchLinks(false, activeSnapshot, timeRange);
+          fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
+        };
+
+        const handleConfirmLead = async (convId) => {
+          try {
+            setLeadActionId(convId);
+            await api.post(`/api/links/${purchaseModalLink.id}/conversions/${convId}/confirm`);
+            setPurchaseModalItems((prev) =>
+              prev.map((c) => (c.id === convId ? { ...c, event_type: 'sale' } : c))
+            );
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.confirmLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const handleDeleteLead = async (convId) => {
+          const ok = window.confirm(t('dashboard.deleteLeadConfirm'));
+          if (!ok) return;
+          try {
+            setLeadActionId(convId);
+            await api.delete(`/api/links/${purchaseModalLink.id}/conversions/${convId}`);
+            setPurchaseModalItems((prev) => prev.filter((c) => c.id !== convId));
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.deleteLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const SalesTable = ({ items }) => (
           items.length === 0 ? (
-            <p className="text-sm text-slate-400 py-3 px-1">{t(emptyKey)}</p>
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoSales')}</p>
           ) : (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
               <table className="w-full text-sm">
@@ -2139,8 +2177,66 @@ export default function Dashboard() {
                   {items.map((item) => (
                     <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
-                      <td className={`px-4 py-3 font-semibold ${amountClass}`}>{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(item.amount)}</td>
                       <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        );
+
+        const LeadsTable = ({ items }) => (
+          items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoLeads')}</p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+                    {canManageLeads && (
+                      <th className="px-4 py-3 text-right text-xs uppercase tracking-wide text-slate-500">
+                        {t('dashboard.leadActions')}
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
+                      <td className="px-4 py-3 font-semibold text-amber-700">{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                      {canManageLeads && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            {canConfirm && (
+                              <button
+                                type="button"
+                                disabled={leadActionId === item.id}
+                                onClick={() => handleConfirmLead(item.id)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                {t('dashboard.confirmLeadAsSale')}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={leadActionId === item.id}
+                              onClick={() => handleDeleteLead(item.id)}
+                              className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {t('dashboard.deleteLead')}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -2180,22 +2276,25 @@ export default function Dashboard() {
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convSaleNote')}</span>
                     </div>
-                    <ConvTable items={modalSales} emptyKey="dashboard.convNoSales" amountClass="text-emerald-700" />
+                    <SalesTable items={modalSales} />
                   </div>
 
                   <div className="border-t border-slate-100" />
 
                   {/* --- Purchase-intent leads --- */}
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
                         {t('dashboard.convSectionLeads')}
                         <span className="ml-1 font-normal text-amber-700">({modalLeads.length})</span>
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convLeadNote')}</span>
+                      {modalLeads.length > 0 && (
+                        <span className="text-xs text-slate-400 italic">{t('dashboard.leadActionsHint')}</span>
+                      )}
                     </div>
-                    <ConvTable items={modalLeads} emptyKey="dashboard.convNoLeads" amountClass="text-amber-700" />
+                    <LeadsTable items={modalLeads} />
                   </div>
                 </div>
               )}

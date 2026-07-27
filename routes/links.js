@@ -829,6 +829,87 @@ router.get('/:id/purchases', authenticate, async (req, res, next) => {
 });
 
 /**
+ * POST /api/links/:linkId/conversions/:convId/confirm
+ * Promote a lead conversion to a sale (link owner). Blocked for affiliates
+ * — they go through admin moderation payout flow.
+ */
+router.post('/:linkId/conversions/:convId/confirm', authenticate, async (req, res, next) => {
+  try {
+    if (req.user.role === 'affiliate') {
+      return res.status(403).json({ error: 'Affiliates cannot confirm leads' });
+    }
+
+    const linkId = parseInt(req.params.linkId, 10);
+    const convId = parseInt(req.params.convId, 10);
+    if (!Number.isInteger(linkId) || linkId <= 0 || !Number.isInteger(convId) || convId <= 0) {
+      return res.status(400).json({ error: 'Invalid id' });
+    }
+
+    const link = await Link.findOne({
+      where: { id: linkId, user_id: req.user.id },
+      attributes: ['id']
+    });
+    if (!link) return res.status(404).json({ error: 'Link not found' });
+
+    const conversion = await Conversion.findOne({
+      where: { id: convId, link_id: link.id, event_type: 'lead' }
+    });
+    if (!conversion) return res.status(404).json({ error: 'Lead conversion not found' });
+
+    conversion.event_type = 'sale';
+    if (Object.prototype.hasOwnProperty.call(conversion.dataValues, 'lead_status')) {
+      conversion.lead_status = 'approved';
+    }
+    await conversion.save();
+
+    res.json({
+      success: true,
+      id: conversion.id,
+      event_type: conversion.event_type,
+      lead_status: conversion.lead_status || null
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/links/:linkId/conversions/:convId
+ * Cancel/delete a lead from a tracking link (owner only).
+ */
+router.delete('/:linkId/conversions/:convId', authenticate, async (req, res, next) => {
+  try {
+    const linkId = parseInt(req.params.linkId, 10);
+    const convId = parseInt(req.params.convId, 10);
+    if (!Number.isInteger(linkId) || linkId <= 0 || !Number.isInteger(convId) || convId <= 0) {
+      return res.status(400).json({ error: 'Invalid id' });
+    }
+
+    const link = await Link.findOne({
+      where: { id: linkId, user_id: req.user.id },
+      attributes: ['id']
+    });
+    if (!link) return res.status(404).json({ error: 'Link not found' });
+
+    const conversion = await Conversion.findOne({
+      where: { id: convId, link_id: link.id, event_type: 'lead' }
+    });
+    if (!conversion) return res.status(404).json({ error: 'Lead conversion not found' });
+
+    // Do not allow deleting already-paid affiliate approvals via this endpoint
+    if (conversion.lead_status === 'approved') {
+      return res.status(400).json({ error: 'Approved leads cannot be deleted here' });
+    }
+
+    await conversion.destroy();
+
+    res.json({ success: true, deleted_id: convId });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/links/:id
  * Get single link by ID (belonging to current user)
  */
