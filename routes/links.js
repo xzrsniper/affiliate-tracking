@@ -6,7 +6,14 @@ import { runTrackingRedirect } from '../utils/trackingRedirect.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
-import { commissionFromOrder, isAffiliateUser, parseCommissionPercent } from '../utils/affiliate.js';
+import {
+  commissionFromOrder,
+  isAffiliateUser,
+  parseCommissionPercent,
+  resolveCommissionPercentWithSites,
+  groupWebsitesByUserId
+} from '../utils/affiliate.js';
+import { conversionSql, isCartEvent, isLeadEvent, isSaleEvent } from '../utils/statsAggregation.js';
 import { randomExplorationLimit, getSplitStatsForLink } from '../utils/splitTest.js';
 import LinkVariant from '../models/LinkVariant.js';
 
@@ -509,17 +516,18 @@ router.get('/my-links', async (req, res, next) => {
       sequelize.query(`
         SELECT
           link_id,
-          COUNT(*) as conversions,
-          COALESCE(SUM(order_value), 0) as total_revenue,
-          SUM(CASE WHEN event_type = 'lead' THEN 1 ELSE 0 END) as leads,
-          SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN 1 ELSE 0 END) as sales,
-          SUM(CASE WHEN event_type = 'cart' THEN 1 ELSE 0 END) as carts,
-          COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) as sales_revenue,
-          COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) as lead_revenue,
-          COALESCE(SUM(CASE WHEN event_type = 'lead' AND lead_status = 'approved' THEN order_value ELSE 0 END), 0) as approved_lead_revenue,
-          COALESCE(SUM(CASE WHEN (event_type = 'sale' OR event_type IS NULL) AND lead_status = 'approved' THEN order_value ELSE 0 END), 0) as approved_sale_revenue,
-          SUM(CASE WHEN event_type = 'lead' AND (lead_status = 'pending' OR lead_status IS NULL) THEN 1 ELSE 0 END) as pending_leads,
-          SUM(CASE WHEN (event_type = 'sale' OR event_type IS NULL) AND (lead_status = 'pending' OR lead_status IS NULL) THEN 1 ELSE 0 END) as pending_sales
+          ${conversionSql.conversionsCount} as conversions,
+          ${conversionSql.conversionRevenue} as total_revenue,
+          ${conversionSql.leadCount} as leads,
+          ${conversionSql.salesCount} as sales,
+          ${conversionSql.cartCount} as carts,
+          ${conversionSql.salesRevenue} as sales_revenue,
+          ${conversionSql.leadRevenue} as lead_revenue,
+          ${conversionSql.cartRevenue} as cart_revenue,
+          ${conversionSql.approvedLeadRevenue} as approved_lead_revenue,
+          ${conversionSql.approvedSaleRevenue} as approved_sale_revenue,
+          ${conversionSql.pendingLeads} as pending_leads,
+          ${conversionSql.pendingSales} as pending_sales
         FROM conversions
         WHERE link_id IN (?)${snapshotCondition}
         GROUP BY link_id
@@ -539,7 +547,7 @@ router.get('/my-links', async (req, res, next) => {
     const domainsToMatch = Array.from(new Set(candidateDomains.flatMap((domain) => [domain, `www.${domain}`])));
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-    const [connectedWebsites, recentVerifications] = await Promise.all([
+    const [connectedWebsites, recentVerifications, affiliateWebsites] = await Promise.all([
       Website.findAll({
         where: {
           user_id: req.user.id,
@@ -555,7 +563,14 @@ router.get('/my-links', async (req, res, next) => {
       `, {
         replacements: [domainsToMatch, tenMinutesAgo],
         type: QueryTypes.SELECT
-      })
+      }),
+      isAffiliateUser(req.user)
+        ? Website.findAll({
+            where: { user_id: req.user.id },
+            attributes: ['user_id', 'domain', 'commission_percent'],
+            raw: true
+          })
+        : Promise.resolve([])
     ]);
 
     const connectedDomains = new Set();
@@ -570,6 +585,7 @@ router.get('/my-links', async (req, res, next) => {
 
     const isAffiliate = isAffiliateUser(req.user);
     const affiliatePercent = isAffiliate ? parseCommissionPercent(req.user.affiliate_commission_percent) : null;
+    const affiliateSites = isAffiliate ? (groupWebsitesByUserId(affiliateWebsites).get(Number(req.user.id)) || []) : [];
 
     const linksWithStats = links.map((link) => {
       const clickStats = clickStatsByLinkId.get(link.id) || {};
@@ -584,6 +600,7 @@ router.get('/my-links', async (req, res, next) => {
       const totalCarts = parseInt(conversionStats?.carts || 0);
       const rawSalesRevenue = parseFloat(conversionStats?.sales_revenue || 0);
       const rawLeadRevenue = parseFloat(conversionStats?.lead_revenue || 0);
+      const cartRevenue = parseFloat(conversionStats?.cart_revenue || 0);
       const rawApprovedLeadRevenue = parseFloat(conversionStats?.approved_lead_revenue || 0);
       const rawApprovedSaleRevenue = parseFloat(conversionStats?.approved_sale_revenue || 0);
       const pendingLeads = parseInt(conversionStats?.pending_leads || 0);
@@ -604,12 +621,15 @@ router.get('/my-links', async (req, res, next) => {
 
       const trackingUrl = buildTrackingUrlForLink(link, req);
 
-      // Earnings = commission only on admin-approved leads & sales.
-      const affiliateEarningsSales = isAffiliate && affiliatePercent != null
-        ? commissionFromOrder(rawApprovedSaleRevenue, affiliatePercent)
+      // Earnings = commission only on admin-approved leads & sales (per-site override when set).
+      const linkCommissionPercent = isAffiliate
+        ? (resolveCommissionPercentWithSites(req.user, link, affiliateSites) ?? affiliatePercent)
+        : null;
+      const affiliateEarningsSales = isAffiliate && linkCommissionPercent != null
+        ? commissionFromOrder(rawApprovedSaleRevenue, linkCommissionPercent)
         : 0;
-      const affiliateEarningsLeads = isAffiliate && affiliatePercent != null
-        ? commissionFromOrder(rawApprovedLeadRevenue, affiliatePercent)
+      const affiliateEarningsLeads = isAffiliate && linkCommissionPercent != null
+        ? commissionFromOrder(rawApprovedLeadRevenue, linkCommissionPercent)
         : 0;
       const affiliateEarnings = parseFloat((affiliateEarningsSales + affiliateEarningsLeads).toFixed(2));
       const pendingPayouts = pendingLeads + pendingSales;
@@ -639,12 +659,14 @@ router.get('/my-links', async (req, res, next) => {
           total_revenue: totalRevenue,
           sales_revenue: salesRevenue,
           lead_revenue: leadRevenue,
+          cart_revenue: parseFloat(cartRevenue.toFixed(2)),
           pending_leads: pendingLeads,
           pending_sales: pendingSales,
           pending_payouts: pendingPayouts,
           affiliate_earnings: affiliateEarnings,
           affiliate_earnings_sales: affiliateEarningsSales,
           affiliate_earnings_leads: affiliateEarningsLeads,
+          affiliate_commission_percent: linkCommissionPercent,
           revenue_adjustment: adj,
           raw_total_revenue: parseFloat(rawTotalRevenue.toFixed(2)),
           avg_session_seconds: parseFloat(avgSessionSeconds.toFixed(2)),
@@ -835,26 +857,34 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Link not found' });
     }
 
-    // Calculate stats
+    // Calculate stats — cart is funnel-only, not a conversion/revenue total
     const clicks = link.clicks || [];
     const conversions = link.conversions || [];
     const uniqueFingerprints = new Set(clicks.map(c => c.visitor_fingerprint));
 
     let rawSalesRev = 0;
     let rawLeadRev = 0;
+    let rawCartRev = 0;
     let rawTotalRev = 0;
     let salesCount = 0;
+    let leadCount = 0;
+    let cartCount = 0;
     for (const conv of conversions) {
       const v = parseFloat(conv.order_value || 0);
-      rawTotalRev += v;
       const et = conv.event_type;
-      if (et === 'lead') {
+      if (isCartEvent(et)) {
+        cartCount += 1;
+        rawCartRev += v;
+        continue;
+      }
+      rawTotalRev += v;
+      if (isLeadEvent(et)) {
         rawLeadRev += v;
-      } else if (et === 'sale' || et === undefined || et === null) {
+        leadCount += 1;
+      } else if (isSaleEvent(et)) {
         rawSalesRev += v;
         salesCount += 1;
       }
-      // cart та інше: лише в загальній сумі (як у SQL total_revenue)
     }
     const adj = parseFloat(link.revenue_adjustment || 0);
     const adjusted = applyRevenueAdjustment(rawTotalRev, rawSalesRev, rawLeadRev, adj, salesCount);
@@ -873,10 +903,14 @@ router.get('/:id', async (req, res, next) => {
         stats: {
           unique_clicks: uniqueFingerprints.size,
           total_clicks: clicks.length,
-          conversions: conversions.length,
+          conversions: salesCount + leadCount,
+          leads: leadCount,
+          sales: salesCount,
+          carts: cartCount,
           total_revenue: adjusted.total_revenue,
           sales_revenue: adjusted.sales_revenue,
           lead_revenue: adjusted.lead_revenue,
+          cart_revenue: parseFloat(rawCartRev.toFixed(2)),
           revenue_adjustment: adj,
           raw_total_revenue: parseFloat(rawTotalRev.toFixed(2)),
           average_check: adjusted.average_check
