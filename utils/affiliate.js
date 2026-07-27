@@ -118,7 +118,7 @@ export async function creditAffiliateBalance(userId, amount, transaction) {
   return next;
 }
 
-/** Load link owner if affiliate with commission configured. */
+/** Load link owner if affiliate with commission configured (global or per-site). */
 export async function getAffiliateOwnerForLink(link, transaction) {
   if (!link?.user_id) return null;
   const user = await User.findByPk(link.user_id, {
@@ -126,7 +126,7 @@ export async function getAffiliateOwnerForLink(link, transaction) {
     transaction
   });
   if (!isAffiliateUser(user)) return null;
-  const percent = parseCommissionPercent(user.affiliate_commission_percent);
+  const percent = await resolveCommissionPercentForLink(user, link, { transaction });
   if (percent == null) return null;
   return { user, percent };
 }

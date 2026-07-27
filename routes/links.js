@@ -518,8 +518,8 @@ router.get('/my-links', async (req, res, next) => {
           COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) as lead_revenue,
           COALESCE(SUM(CASE WHEN event_type = 'lead' AND lead_status = 'approved' THEN order_value ELSE 0 END), 0) as approved_lead_revenue,
           COALESCE(SUM(CASE WHEN (event_type = 'sale' OR event_type IS NULL) AND lead_status = 'approved' THEN order_value ELSE 0 END), 0) as approved_sale_revenue,
-          SUM(CASE WHEN event_type = 'lead' AND lead_status = 'pending' THEN 1 ELSE 0 END) as pending_leads,
-          SUM(CASE WHEN (event_type = 'sale' OR event_type IS NULL) AND lead_status = 'pending' THEN 1 ELSE 0 END) as pending_sales
+          SUM(CASE WHEN event_type = 'lead' AND (lead_status = 'pending' OR lead_status IS NULL) THEN 1 ELSE 0 END) as pending_leads,
+          SUM(CASE WHEN (event_type = 'sale' OR event_type IS NULL) AND (lead_status = 'pending' OR lead_status IS NULL) THEN 1 ELSE 0 END) as pending_sales
         FROM conversions
         WHERE link_id IN (?)${snapshotCondition}
         GROUP BY link_id
