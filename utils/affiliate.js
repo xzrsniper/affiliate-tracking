@@ -1,8 +1,7 @@
 /**
  * Affiliate commission and balance helpers.
  */
-import sequelize from '../config/database.js';
-import { User } from '../models/index.js';
+import { User, Website } from '../models/index.js';
 
 export function isAffiliateUser(user) {
   return user?.role === 'affiliate';
@@ -21,6 +20,76 @@ export function commissionFromOrder(orderValue, percent) {
   const v = parseFloat(orderValue);
   if (!Number.isFinite(v) || v <= 0) return 0;
   return Math.round((v * p) / 100 * 100) / 100;
+}
+
+/** Normalize domain/host the same way as routes/links.js */
+export function normalizeDomain(domain) {
+  if (!domain) return null;
+  return String(domain)
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '')
+    .toLowerCase()
+    .split('/')[0]
+    .replace(/^www\./, '');
+}
+
+/** Extract hostname from a URL (or bare host), without www. */
+export function extractHostFromUrl(url) {
+  if (!url) return null;
+  try {
+    const raw = String(url).trim();
+    const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    return new URL(withProto).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return normalizeDomain(url);
+  }
+}
+
+/**
+ * Resolve commission % for a link using optional preloaded websites.
+ * Site override wins when set; otherwise falls back to affiliate global %.
+ */
+export function resolveCommissionPercentWithSites(affiliate, link, websites = []) {
+  const global = parseCommissionPercent(affiliate?.affiliate_commission_percent);
+  const host = extractHostFromUrl(link?.original_url);
+  if (!host || !Array.isArray(websites) || websites.length === 0) return global;
+
+  for (const site of websites) {
+    const siteHost = normalizeDomain(site.domain);
+    if (!siteHost || siteHost !== host) continue;
+    const sitePct = parseCommissionPercent(site.commission_percent);
+    if (sitePct != null) return sitePct;
+  }
+  return global;
+}
+
+/**
+ * Resolve commission % for a link by loading the affiliate's websites.
+ */
+export async function resolveCommissionPercentForLink(affiliate, link, options = {}) {
+  if (!affiliate?.id) {
+    return parseCommissionPercent(affiliate?.affiliate_commission_percent);
+  }
+
+  const websites = options.websites || await Website.findAll({
+    where: { user_id: affiliate.id },
+    attributes: ['domain', 'commission_percent'],
+    raw: true,
+    transaction: options.transaction
+  });
+
+  return resolveCommissionPercentWithSites(affiliate, link, websites);
+}
+
+/** Group website rows by user_id for batch commission resolution. */
+export function groupWebsitesByUserId(websiteRows = []) {
+  const map = new Map();
+  for (const row of websiteRows) {
+    const uid = Number(row.user_id);
+    if (!map.has(uid)) map.set(uid, []);
+    map.get(uid).push(row);
+  }
+  return map;
 }
 
 /** Lead/sale conversions that can earn affiliate commission. */
@@ -49,7 +118,7 @@ export async function creditAffiliateBalance(userId, amount, transaction) {
   return next;
 }
 
-/** Load link owner if affiliate with commission configured. */
+/** Load link owner if affiliate with commission configured (global or per-site). */
 export async function getAffiliateOwnerForLink(link, transaction) {
   if (!link?.user_id) return null;
   const user = await User.findByPk(link.user_id, {
@@ -57,7 +126,7 @@ export async function getAffiliateOwnerForLink(link, transaction) {
     transaction
   });
   if (!isAffiliateUser(user)) return null;
-  const percent = parseCommissionPercent(user.affiliate_commission_percent);
+  const percent = await resolveCommissionPercentForLink(user, link, { transaction });
   if (percent == null) return null;
   return { user, percent };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, RefreshCw, X } from 'lucide-react';
+import { Check, RefreshCw, X, Globe, Percent } from 'lucide-react';
 import api from '../../config/api.js';
 
 const RANGE_OPTIONS = [
@@ -14,6 +14,137 @@ const RANGE_OPTIONS = [
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function SiteCommissionsModal({ affiliate, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [edits, setEdits] = useState({});
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!affiliate) return;
+    setLoading(true);
+    setError('');
+    api.get(`/api/admin/users/${affiliate.user_id}/website-commissions`)
+      .then((res) => {
+        setData(res.data);
+        const init = {};
+        (res.data?.websites || []).forEach((w) => {
+          init[w.id] = w.commission_percent !== null && w.commission_percent !== undefined
+            ? String(w.commission_percent)
+            : '';
+        });
+        setEdits(init);
+      })
+      .catch((err) => {
+        setError(err.response?.data?.error || 'Failed to load site commissions');
+      })
+      .finally(() => setLoading(false));
+  }, [affiliate]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const updates = (data?.websites || []).map((w) => ({
+        website_id: w.id,
+        commission_percent: edits[w.id] === '' ? null : parseFloat(edits[w.id])
+      }));
+      await api.patch(`/api/admin/users/${affiliate.user_id}/website-commissions`, { updates });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe className="w-5 h-5 text-violet-500" />
+            <h2 className="font-bold text-slate-800">Комісія по сайтах</h2>
+          </div>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-500">
+          <span className="font-medium text-slate-700">{affiliate.email}</span>
+          {' · '}Глобальна комісія:{' '}
+          <span className="font-semibold text-violet-700">{data?.global_commission ?? '?'}%</span>
+        </p>
+        <p className="text-xs text-slate-400">Порожнє поле = використовується глобальний %. Override тільки для цього сайту.</p>
+
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+        )}
+
+        {loading ? (
+          <p className="text-sm text-slate-400 py-4 text-center">Завантаження…</p>
+        ) : (data?.websites || []).length === 0 ? (
+          <p className="text-sm text-slate-400 py-4 text-center">Немає сайтів у цього афілейта</p>
+        ) : (
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+            {(data?.websites || []).map((w) => (
+              <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 truncate">{w.name || w.domain}</p>
+                  <p className="text-xs text-slate-400 truncate">
+                    {w.domain || '—'}
+                    {w.is_connected ? ' · connected' : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={edits[w.id] ?? ''}
+                      onChange={(e) => setEdits((prev) => ({ ...prev, [w.id]: e.target.value }))}
+                      placeholder={String(data?.global_commission ?? '')}
+                      className="w-20 text-right px-2 py-1.5 pr-7 border border-slate-200 rounded-lg text-sm bg-white"
+                    />
+                    <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                  </div>
+                  {edits[w.id] === '' && (
+                    <span className="text-xs text-slate-400 whitespace-nowrap">= global</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || loading || (data?.websites || []).length === 0}
+            className="flex-1 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50"
+          >
+            {saved ? '✓ Збережено' : saving ? 'Збереження…' : 'Зберегти'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+          >
+            Закрити
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AffiliatesTab() {
@@ -38,6 +169,7 @@ export default function AffiliatesTab() {
   const [sharing, setSharing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
+  const [siteCommAffiliate, setSiteCommAffiliate] = useState(null);
 
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
 
@@ -385,7 +517,18 @@ export default function AffiliatesTab() {
                     <input type="number" step="0.01" min="0" value={edits[a.user_id]?.balance ?? ''} onChange={(e) => setEdits((prev) => ({ ...prev, [a.user_id]: { ...(prev[a.user_id] || {}), balance: e.target.value } }))} className="w-24 text-right px-2 py-1 border border-slate-200 rounded-md" />
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                    <div className="inline-flex items-center gap-1.5">
+                      <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                      <button
+                        type="button"
+                        onClick={() => setSiteCommAffiliate(a)}
+                        className="px-2.5 py-1.5 text-xs rounded-lg border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 flex items-center gap-1"
+                        title="Комісія по сайтах"
+                      >
+                        <Globe className="w-3 h-3" />
+                        Сайти %
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -564,6 +707,13 @@ export default function AffiliatesTab() {
           </table>
         )}
       </div>
+
+      {siteCommAffiliate && (
+        <SiteCommissionsModal
+          affiliate={siteCommAffiliate}
+          onClose={() => setSiteCommAffiliate(null)}
+        />
+      )}
     </div>
   );
 }

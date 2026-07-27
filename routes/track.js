@@ -6,6 +6,7 @@ import { Link, Click, Conversion, TrackerVerification, Website, LinkClick } from
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { resolveLeadOrderValueFallback } from '../utils/leadOrderValueFallback.js';
 import { applyAffiliateConversionEffects, getAffiliateOwnerForLink } from '../utils/affiliate.js';
+import { recordAttributedConversion } from '../utils/conversionRecord.js';
 import { resolveAttributionClick, ATTRIBUTION_WINDOW_DAYS } from '../utils/attribution.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
@@ -655,6 +656,7 @@ router.post('/conversion', async (req, res, next) => {
   const event_type = (req.body.event_type === 'lead' || req.body.event_type === 'sale' || req.body.event_type === 'cart') ? req.body.event_type : 'sale';
   // Declared here (outside try/catch) so the catch block can safely reference it in log messages.
   const normalizedOrderId = normalizeOrderId(originalOrderId);
+  let link = null;
 
   console.log('[Conversion] POST received', {
     unique_code: unique_code || '(missing)',
@@ -708,7 +710,7 @@ router.post('/conversion', async (req, res, next) => {
       });
     }
 
-    const link = await Link.findOne({ where: { unique_code } });
+    link = await Link.findOne({ where: { unique_code } });
     if (!link) {
       console.warn('[Conversion] Rejected: link not found', { unique_code });
       return res.status(404).json({ error: 'Link not found', unique_code });
@@ -803,199 +805,32 @@ router.post('/conversion', async (req, res, next) => {
       }
     }
 
-    // Check for duplicate conversions (if order_id provided)
     let isDuplicate = false;
-    let existingConversion = null;
-    
-    // Use transaction with lock to prevent race conditions
+
     const conversion = await sequelize.transaction(async (t) => {
-      if (normalizedOrderId) {
-        try {
-          // Check if conversion with same normalized order_id already exists for this link
-          // Use transaction lock to prevent race conditions
-          // Use raw query with FOR UPDATE lock for MySQL to prevent race conditions
-          const lockQuery = `
-            SELECT * FROM conversions 
-            WHERE link_id = ? 
-            AND (order_id = ? ${originalOrderId && originalOrderId !== normalizedOrderId ? 'OR order_id = ?' : ''})
-            LIMIT 1
-            FOR UPDATE
-          `;
-          const lockParams = originalOrderId && originalOrderId !== normalizedOrderId 
-            ? [link.id, normalizedOrderId, originalOrderId]
-            : [link.id, normalizedOrderId];
-          
-          const lockResults = await sequelize.query(lockQuery, {
-            replacements: lockParams,
-            type: QueryTypes.SELECT,
-            transaction: t
-          });
-          
-          if (lockResults && lockResults.length > 0) {
-            existingConversion = await Conversion.findByPk(lockResults[0].id, { transaction: t });
-          } else {
-            existingConversion = null;
-          }
-          
-          if (existingConversion) {
-            isDuplicate = true;
-            console.log('[Conversion Warning] Duplicate conversion detected - order_id already exists', {
-              existing_id: existingConversion.id,
-              order_id: normalizedOrderId,
-              original_order_id: originalOrderId,
-              link_id: link.id
-            });
-            
-            // Return existing conversion instead of creating a new one
-            throw { isDuplicate: true, existingConversion };
-          }
-        } catch (checkError) {
-          // If it's our duplicate error, re-throw it
-          if (checkError.isDuplicate) {
-            throw checkError;
-          }
-          // If order_id field doesn't exist or query fails, log but continue
-          console.warn('[Conversion Warning] Could not check for duplicates by order_id:', checkError.message);
-          // Continue without duplicate check
-        }
-      } else {
-        // No order_id: block duplicate same event_type from same link (lead: 60s, sale: 3s)
-        const dedupSeconds = event_type === 'lead' ? 60 : 3;
-        const recentResults = await sequelize.query(`
-          SELECT * FROM conversions 
-          WHERE link_id = ? 
-          AND event_type = ?
-          AND created_at >= DATE_SUB(NOW(), INTERVAL ? SECOND)
-          ORDER BY created_at DESC
-          LIMIT 1
-          FOR UPDATE
-        `, {
-          replacements: [link.id, event_type, dedupSeconds],
-          type: QueryTypes.SELECT,
-          transaction: t
-        });
-        
-        const recentConversion = recentResults && recentResults.length > 0
-          ? await Conversion.findByPk(recentResults[0].id, { transaction: t })
-          : null;
-        
-        if (recentConversion) {
-          console.log('[Conversion Warning] Duplicate blocked (same event_type within ' + dedupSeconds + 's)', {
-            existing_id: recentConversion.id,
-            event_type: event_type,
-            time_diff: Date.now() - new Date(recentConversion.created_at).getTime()
-          });
-          throw { isDuplicate: true, existingConversion: recentConversion };
-        }
-      }
-
-      // If sale arrives for the same tracked interaction that already created a lead,
-      // upgrade that row instead of creating a second conversion entry.
-      if (event_type === 'sale') {
-        const upgradeWhere = {
+      const result = await recordAttributedConversion({
+        link,
+        attributedClick,
+        eventType: event_type,
+        parsedOrderValue,
+        originalOrderId,
+        normalizedOrderId,
+        clickIdRaw: click_id,
+        transaction: t
+      });
+      isDuplicate = !!result.duplicate;
+      if (result.merged && result.duplicate) isDuplicate = true;
+      if (result.upgraded) {
+        console.log('[Conversion] Upgraded/merged sale', {
+          conversion_id: result.conversion.id,
           link_id: link.id,
-          event_type: 'lead'
-        };
-
-        const orClauses = [];
-        if (normalizedOrderId) {
-          orClauses.push(
-            { order_id: normalizedOrderId },
-            ...(originalOrderId && originalOrderId !== normalizedOrderId ? [{ order_id: originalOrderId }] : [])
-          );
-        }
-        const clickIdNum = attributedClick?.id
-          ? Number(attributedClick.id)
-          : (click_id ? parseInt(click_id, 10) : null);
-        if (Number.isFinite(clickIdNum) && clickIdNum > 0) {
-          orClauses.push({ click_id: clickIdNum });
-        }
-
-        if (orClauses.length > 0) {
-          upgradeWhere[Op.or] = orClauses;
-
-          const leadToUpgrade = await Conversion.findOne({
-            where: upgradeWhere,
-            transaction: t,
-            lock: t.LOCK.UPDATE,
-            order: [['created_at', 'DESC']]
-          });
-
-          if (leadToUpgrade) {
-            leadToUpgrade.event_type = 'sale';
-            if (originalOrderId) {
-              leadToUpgrade.order_id = originalOrderId;
-            }
-            if (Number.isFinite(clickIdNum) && clickIdNum > 0) {
-              leadToUpgrade.click_id = clickIdNum;
-            }
-            // Keep max value so delayed/partial lead value does not overwrite real sale value.
-            leadToUpgrade.order_value = Math.max(
-              Number(leadToUpgrade.order_value || 0),
-              Number(parsedOrderValue || 0)
-            );
-            await leadToUpgrade.save({ transaction: t });
-            await applyAffiliateConversionEffects(leadToUpgrade, link, 'sale', t);
-            console.log('[Conversion] Upgraded lead to sale', {
-              conversion_id: leadToUpgrade.id,
-              link_id: link.id,
-              order_id: originalOrderId || null,
-              click_id: Number.isFinite(clickIdNum) && clickIdNum > 0 ? clickIdNum : null
-            });
-            return leadToUpgrade;
-          }
-        }
+          order_id: originalOrderId || null,
+          click_id: attributedClick?.id || null,
+          upgraded: !!result.upgraded,
+          duplicate: !!result.duplicate
+        });
       }
-
-      const conversionData = {
-        link_id: link.id,
-        order_value: parsedOrderValue,
-        event_type: event_type
-      };
-
-      if (event_type === 'lead' || event_type === 'sale') {
-        const affiliateOwner = await getAffiliateOwnerForLink(link, t);
-        if (affiliateOwner) {
-          conversionData.lead_status = 'pending';
-        }
-      }
-
-      if (originalOrderId) {
-        // Keep real store-issued order_id for dashboard visibility.
-        conversionData.order_id = originalOrderId;
-      }
-      
-      if (attributedClick?.id) {
-        conversionData.click_id = attributedClick.id;
-      }
-      
-      try {
-        const created = await Conversion.create(conversionData, { transaction: t });
-        await applyAffiliateConversionEffects(created, link, event_type, t);
-        return created;
-      } catch (createError) {
-        const msg = createError.message || '';
-        if (msg.includes('order_id') || msg.includes('event_type') || msg.includes('lead_status')) {
-          console.warn('[Conversion Warning] Retrying without problematic fields:', createError.message);
-          delete conversionData.order_id;
-          if (msg.includes('lead_status')) delete conversionData.lead_status;
-          // Keep event_type on first retry — stripping it stored leads as "sale" and broke lead_revenue
-          try {
-            const created = await Conversion.create(conversionData, { transaction: t });
-            await applyAffiliateConversionEffects(created, link, event_type, t);
-            return created;
-          } catch (e2) {
-            if (e2.message && String(e2.message).includes('event_type')) {
-              delete conversionData.event_type;
-              const created = await Conversion.create(conversionData, { transaction: t });
-              await applyAffiliateConversionEffects(created, link, event_type, t);
-              return created;
-            }
-            throw e2;
-          }
-        }
-        throw createError;
-      }
+      return result.conversion;
     });
 
     // Log for debugging
@@ -1003,7 +838,7 @@ router.post('/conversion', async (req, res, next) => {
       conversion_id: conversion.id,
       link_id: link.id,
       unique_code: unique_code,
-      order_value: parsedOrderValue,
+      order_value: conversion.order_value ?? parsedOrderValue,
       order_id: originalOrderId || normalizedOrderId || 'none',
       click_id: click_id || 'none',
       visitor_id: visitorFingerprint,
@@ -1011,38 +846,21 @@ router.post('/conversion', async (req, res, next) => {
       timestamp: new Date().toISOString()
     });
 
-    res.json({ 
-      success: true, 
-      message: 'Conversion tracked successfully',
+    res.json({
+      success: true,
+      message: isDuplicate ? 'Conversion already tracked (duplicate prevented)' : 'Conversion tracked successfully',
       conversion_id: conversion.id,
-      order_value: parsedOrderValue,
+      order_value: conversion.order_value ?? parsedOrderValue,
       link_id: link.id,
-      unique_code: unique_code
+      unique_code: unique_code,
+      ...(isDuplicate ? { is_duplicate: true } : {})
     });
   } catch (error) {
-    // Handle duplicate error from transaction
-    if (error.isDuplicate && error.existingConversion) {
-      console.log('[Conversion Warning] Duplicate conversion prevented by transaction lock', {
-        existing_id: error.existingConversion.id,
-        order_id: originalOrderId || normalizedOrderId,
-        link_id: link.id
-      });
-      
-      return res.json({ 
-        success: true, 
-        message: 'Conversion already tracked (duplicate prevented)',
-        conversion_id: error.existingConversion.id,
-        order_value: error.existingConversion.order_value,
-        link_id: link.id,
-        unique_code: unique_code,
-        is_duplicate: true
-      });
-    }
-    
     console.error('[❌ Conversion Error]', {
       error: error.message,
       stack: error.stack,
-      body: req.body
+      body: req.body,
+      link_id: link?.id || null
     });
     next(error);
   }
@@ -1122,63 +940,28 @@ router.get('/conversion-pixel', async (req, res, next) => {
       : null;
     const normalizedFinalOrderId = normalizeOrderId(originalFinalOrderId);
 
-    // Check for duplicate conversions (if order_id provided)
-    if (normalizedFinalOrderId) {
-      try {
-        const existingConversion = await Conversion.findOne({
-          where: {
-            link_id: link.id,
-            [Op.or]: [
-              { order_id: normalizedFinalOrderId },
-              ...(originalFinalOrderId && originalFinalOrderId !== normalizedFinalOrderId ? [{ order_id: originalFinalOrderId }] : [])
-            ]
-          }
-        });
-        
-        if (existingConversion) {
-          console.log('[Conversion Pixel Warning] Duplicate conversion detected - order_id already exists', {
-            existing_id: existingConversion.id,
-            order_id: normalizedFinalOrderId,
-            original_order_id: originalFinalOrderId,
-            link_id: link.id
-          });
-          
-          // Return pixel silently (don't break client site)
-          const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
-          res.set('Content-Type', 'image/gif');
-          res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-          return res.send(pixel);
-        }
-      } catch (checkError) {
-        // If order_id field doesn't exist, skip duplicate check
-        console.warn('[Conversion Pixel Warning] Could not check for duplicates by order_id:', checkError.message);
-      }
-    }
+    const eventTypePixel = (req.query.event_type === 'lead' || req.query.event_type === 'sale' || req.query.event_type === 'cart')
+      ? req.query.event_type
+      : 'sale';
 
-    // Record conversion
-    // Only include order_id if it's provided (don't send null explicitly)
-    const conversionData = {
-      link_id: link.id,
-      order_value: parsedOrderValue,
-      click_id: attributedClick.id
-    };
-    
-    if (originalFinalOrderId) {
-      conversionData.order_id = originalFinalOrderId;
-    }
-    
     let conversion;
     try {
-      conversion = await Conversion.create(conversionData);
+      const result = await sequelize.transaction(async (t) => {
+        return recordAttributedConversion({
+          link,
+          attributedClick,
+          eventType: eventTypePixel,
+          parsedOrderValue,
+          originalOrderId: originalFinalOrderId,
+          normalizedOrderId: normalizedFinalOrderId,
+          clickIdRaw: attributedClick?.id,
+          transaction: t
+        });
+      });
+      conversion = result.conversion;
     } catch (createError) {
-      // If order_id field doesn't exist, try without it
-      if (createError.message && createError.message.includes('order_id')) {
-        console.warn('[Conversion Pixel Warning] order_id field not available, creating without it:', createError.message);
-        delete conversionData.order_id;
-        conversion = await Conversion.create(conversionData);
-      } else {
-        throw createError;
-      }
+      console.error('[Conversion Pixel] record failed', createError.message);
+      throw createError;
     }
 
     // Log for debugging
@@ -1286,63 +1069,25 @@ router.get('/conversion', async (req, res, next) => {
 
     // Normalize order_id
     const normalizedOrderIdGet = normalizeOrderId(originalOrderIdGet);
-    
-    // Check for duplicate conversions (if order_id provided)
-    if (normalizedOrderIdGet) {
-      try {
-        const existingConversion = await Conversion.findOne({
-          where: {
-            link_id: link.id,
-            [Op.or]: [
-              { order_id: normalizedOrderIdGet },
-              ...(originalOrderIdGet && originalOrderIdGet !== normalizedOrderIdGet ? [{ order_id: originalOrderIdGet }] : [])
-            ]
-          }
-        });
-        
-        if (existingConversion) {
-          console.log('[Conversion GET Warning] Duplicate conversion detected - order_id already exists', {
-            existing_id: existingConversion.id,
-            order_id: normalizedOrderIdGet,
-            original_order_id: originalOrderIdGet,
-            link_id: link.id
-          });
-          
-          // Return pixel silently (don't break client site)
-          const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
-          res.set('Content-Type', 'image/gif');
-          res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-          return res.send(pixel);
-        }
-      } catch (checkError) {
-        // If order_id field doesn't exist, skip duplicate check
-        console.warn('[Conversion GET Warning] Could not check for duplicates by order_id:', checkError.message);
-      }
-    }
 
-    const conversionData = {
-      link_id: link.id,
-      order_value: parsedOrderValue,
-      event_type: event_type,
-      click_id: attributedClick.id
-    };
-    
-    if (originalOrderIdGet) {
-      conversionData.order_id = originalOrderIdGet;
-    }
-    
     let conversion;
     try {
-      conversion = await Conversion.create(conversionData);
+      const result = await sequelize.transaction(async (t) => {
+        return recordAttributedConversion({
+          link,
+          attributedClick,
+          eventType: event_type,
+          parsedOrderValue,
+          originalOrderId: originalOrderIdGet,
+          normalizedOrderId: normalizedOrderIdGet,
+          clickIdRaw: attributedClick?.id,
+          transaction: t
+        });
+      });
+      conversion = result.conversion;
     } catch (createError) {
-      if (createError.message && (createError.message.includes('order_id') || createError.message.includes('event_type'))) {
-        console.warn('[Conversion GET Warning] Some fields not available:', createError.message);
-        delete conversionData.order_id;
-        delete conversionData.event_type;
-        conversion = await Conversion.create(conversionData);
-      } else {
-        throw createError;
-      }
+      console.error('[Conversion GET] record failed', createError.message);
+      throw createError;
     }
 
     console.log('[Conversion Tracked via GET]', {
@@ -1543,78 +1288,26 @@ router.post('/conversion-server', async (req, res, next) => {
       : null;
     const normalizedOrderId = normalizeOrderId(originalServerOrderId);
 
-    // Check for duplicate conversions using transaction lock
+    // Record with shared merge/upgrade logic (event_type + affiliate pending)
     const conversion = await sequelize.transaction(async (t) => {
-      if (normalizedOrderId) {
-        try {
-          const lockQuery = `
-            SELECT * FROM conversions 
-            WHERE link_id = ? 
-            AND (order_id = ? ${originalServerOrderId && originalServerOrderId !== normalizedOrderId ? 'OR order_id = ?' : ''})
-            LIMIT 1
-            FOR UPDATE
-          `;
-          const lockParams = originalServerOrderId && originalServerOrderId !== normalizedOrderId
-            ? [link.id, normalizedOrderId, originalServerOrderId]
-            : [link.id, normalizedOrderId];
+      const eventTypeServer = (req.body?.event_type === 'lead' || req.body?.event_type === 'sale' || req.body?.event_type === 'cart')
+        ? req.body.event_type
+        : 'sale';
 
-          const lockResults = await sequelize.query(lockQuery, {
-            replacements: lockParams,
-            type: QueryTypes.SELECT,
-            transaction: t
-          });
-
-          if (lockResults && lockResults.length > 0) {
-            const existingConversion = await Conversion.findByPk(lockResults[0].id, { transaction: t });
-            console.log('[Conversion Server] Duplicate conversion detected', {
-              existing_id: existingConversion.id,
-              order_id: normalizedOrderId,
-              link_id: link.id
-            });
-
-            return {
-              isDuplicate: true,
-              conversion: existingConversion
-            };
-          }
-        } catch (checkError) {
-          console.warn('[Conversion Server] Duplicate check failed:', checkError);
-        }
-      }
-
-      // Create new conversion
-      const conversionData = {
-        link_id: link.id,
-        order_value: parsedOrderValue
+      const result = await recordAttributedConversion({
+        link,
+        attributedClick,
+        eventType: eventTypeServer,
+        parsedOrderValue,
+        originalOrderId: originalServerOrderId,
+        normalizedOrderId,
+        clickIdRaw: attributedClick?.id,
+        transaction: t
+      });
+      return {
+        isDuplicate: !!result.duplicate,
+        conversion: result.conversion
       };
-
-      if (originalServerOrderId) {
-        conversionData.order_id = originalServerOrderId;
-      }
-
-      // Add click_id from validated attribution window
-      if (attributedClick?.id) {
-        conversionData.click_id = attributedClick.id;
-      }
-
-      try {
-        const newConversion = await Conversion.create(conversionData, { transaction: t });
-        return {
-          isDuplicate: false,
-          conversion: newConversion
-        };
-      } catch (createError) {
-        if (createError.message && (createError.message.includes('order_id') || createError.message.includes('click_id'))) {
-          delete conversionData.order_id;
-          delete conversionData.click_id;
-          const newConversion = await Conversion.create(conversionData, { transaction: t });
-          return {
-            isDuplicate: false,
-            conversion: newConversion
-          };
-        }
-        throw createError;
-      }
     });
 
     // Handle duplicate
