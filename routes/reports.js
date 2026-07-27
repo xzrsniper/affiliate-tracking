@@ -14,6 +14,7 @@ import {
   isConversionEvent,
   isPendingModerationStatus
 } from '../utils/statsAggregation.js';
+import { sendPublicReportEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -482,6 +483,197 @@ router.post('/share', authenticate, async (req, res, next) => {
     const token = signPayload(payload);
     const base = `${req.protocol}://${req.get('host')}`;
     res.json({ success: true, token, url: `${base}/report/${token}` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function csvEscape(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+function buildCsv(rows) {
+  return `\uFEFF${rows.map((r) => r.map(csvEscape).join(',')).join('\n')}`;
+}
+
+/**
+ * POST /api/reports/email
+ * Create a public report token and email it to the user (or optional recipient).
+ * Body: { type: 'link_single'|'links_compare', link_id?, link_ids?, currency?, lang?, to? }
+ */
+router.post('/email', authenticate, async (req, res, next) => {
+  try {
+    const { type } = req.body || {};
+    const lang = String(req.body?.lang || '').toLowerCase() === 'en' ? 'en' : 'uk';
+    const currency = ['₴', '$', '€', '£'].includes(req.body?.currency) ? req.body.currency : '₴';
+    const locale = lang === 'en' ? 'en-US' : 'uk-UA';
+    const to = String(req.body?.to || req.user.email || '').trim().toLowerCase();
+    if (!isValidEmail(to)) {
+      return res.status(400).json({ error: 'Valid recipient email required' });
+    }
+
+    let payload;
+    if (type === 'link_single') {
+      const linkId = parseInt(req.body?.link_id, 10);
+      if (!Number.isInteger(linkId) || linkId <= 0) return res.status(400).json({ error: 'link_id required' });
+      payload = { v: 1, type, user_id: req.user.id, link_id: linkId, currency, white_label: null };
+    } else if (type === 'links_compare') {
+      const linkIds = Array.isArray(req.body?.link_ids)
+        ? req.body.link_ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0).slice(0, 6)
+        : [];
+      if (linkIds.length < 1) return res.status(400).json({ error: 'link_ids required' });
+      payload = { v: 1, type, user_id: req.user.id, link_ids: linkIds, currency, white_label: null };
+    } else {
+      return res.status(400).json({ error: 'Unsupported report type for email' });
+    }
+
+    payload.issued_at = Date.now();
+    const token = signPayload(payload);
+    const base = `${req.protocol}://${req.get('host')}`;
+    const reportUrl = `${base}/report/${token}`;
+    const exportUrl = `${base}/api/reports/public/${token}/export?lang=${lang}`;
+
+    let title;
+    let periodLabel = '';
+    let stats = [];
+    let tableRows = [];
+    let attachment = null;
+
+    if (type === 'link_single') {
+      const data = await getSingleLinkData(req.user.id, payload.link_id);
+      if (!data) return res.status(404).json({ error: 'Link not found' });
+      const name = data.link.name || data.link.unique_code;
+      title = lang === 'en'
+        ? (name ? `${name} — Link report` : 'Link report')
+        : (name ? `${name} — Звіт по посиланню` : 'Звіт по посиланню');
+      periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+      const s = data.stats || {};
+      stats = [
+        { label: lang === 'en' ? 'Clicks' : 'Кліки', value: Number(s.clicks || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'Unique' : 'Унікальні', value: Number(s.unique_clicks || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'Sales' : 'Продажі', value: Number(s.sales_count || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'Leads' : 'Ліди', value: Number(s.lead_count || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'CR' : 'CR', value: `${Number(s.conversion_rate || 0).toLocaleString(locale)}%` },
+        {
+          label: lang === 'en' ? 'Sales revenue' : 'Дохід з продажів',
+          value: `${Number(s.sales_revenue || 0).toLocaleString(locale)} ${currency}`
+        }
+      ];
+      attachment = {
+        filename: `link-report-${data.link.unique_code}.csv`,
+        content: buildCsv([
+          [lang === 'en' ? 'Period' : 'Період', periodLabel],
+          [],
+          [
+            lang === 'en' ? 'Link' : 'Посилання',
+            'URL',
+            lang === 'en' ? 'Clicks' : 'Кліки',
+            lang === 'en' ? 'Unique' : 'Унікальні',
+            lang === 'en' ? 'Conversions' : 'Конверсії',
+            lang === 'en' ? 'Sales' : 'Продажі',
+            lang === 'en' ? 'Leads' : 'Ліди',
+            lang === 'en' ? 'Carts' : 'Кошик',
+            'CR %',
+            lang === 'en' ? 'Sales revenue' : 'Дохід з продажів'
+          ],
+          [
+            name,
+            data.link.original_url,
+            s.clicks,
+            s.unique_clicks,
+            s.conversions,
+            s.sales_count,
+            s.lead_count,
+            s.cart_count,
+            s.conversion_rate,
+            s.sales_revenue
+          ]
+        ])
+      };
+    } else {
+      const data = await getLinksCompareData(req.user.id, payload.link_ids || []);
+      title = lang === 'en' ? 'Links comparison report' : 'Порівняння посилань';
+      periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+      const items = data.items || [];
+      const totalClicks = items.reduce((sum, i) => sum + Number(i.clicks || 0), 0);
+      const totalConv = items.reduce((sum, i) => sum + Number(i.conversions || 0), 0);
+      const totalSales = items.reduce((sum, i) => sum + Number(i.sales_count || 0), 0);
+      const totalRevenue = items.reduce((sum, i) => sum + Number(i.sales_revenue || 0), 0);
+      stats = [
+        { label: lang === 'en' ? 'Links' : 'Посилання', value: String(items.length) },
+        { label: lang === 'en' ? 'Clicks' : 'Кліки', value: totalClicks.toLocaleString(locale) },
+        { label: lang === 'en' ? 'Conversions' : 'Конверсії', value: totalConv.toLocaleString(locale) },
+        { label: lang === 'en' ? 'Sales' : 'Продажі', value: totalSales.toLocaleString(locale) },
+        {
+          label: lang === 'en' ? 'Sales revenue' : 'Дохід з продажів',
+          value: `${totalRevenue.toLocaleString(locale)} ${currency}`
+        }
+      ];
+      tableRows = items.map((i) => [
+        i.name,
+        Number(i.clicks || 0).toLocaleString(locale),
+        Number(i.conversions || 0).toLocaleString(locale),
+        `${Number(i.sales_revenue || 0).toLocaleString(locale)} ${currency}`
+      ]);
+      attachment = {
+        filename: 'links-report.csv',
+        content: buildCsv([
+          [lang === 'en' ? 'Period' : 'Період', periodLabel],
+          [],
+          [
+            lang === 'en' ? 'Link' : 'Посилання',
+            'URL',
+            lang === 'en' ? 'Clicks' : 'Кліки',
+            lang === 'en' ? 'Unique' : 'Унікальні',
+            lang === 'en' ? 'Conversions' : 'Конверсії',
+            'CR %',
+            lang === 'en' ? 'Sales' : 'Продажі',
+            lang === 'en' ? 'Sales revenue' : 'Дохід з продажів',
+            lang === 'en' ? 'Leads' : 'Ліди',
+            lang === 'en' ? 'Lead revenue' : 'Дохід з лідів',
+            lang === 'en' ? 'Carts' : 'Кошик',
+            lang === 'en' ? 'Cart revenue' : 'Сума кошиків'
+          ],
+          ...items.map((i) => [
+            i.name,
+            i.original_url,
+            i.clicks,
+            i.unique_clicks,
+            i.conversions,
+            i.conversion_rate,
+            i.sales_count,
+            i.sales_revenue,
+            i.lead_count,
+            i.lead_revenue,
+            i.cart_count,
+            i.cart_revenue
+          ])
+        ])
+      };
+    }
+
+    const sent = await sendPublicReportEmail({
+      to,
+      lang,
+      type,
+      title,
+      periodLabel: periodLabel.replace(/^Період:\s*/i, '').replace(/^Period:\s*/i, ''),
+      reportUrl,
+      exportUrl,
+      stats,
+      tableRows,
+      attachment
+    });
+
+    if (!sent.ok) {
+      return res.status(503).json({ error: sent.error || 'Failed to send email' });
+    }
+
+    res.json({ success: true, to, url: reportUrl });
   } catch (error) {
     next(error);
   }

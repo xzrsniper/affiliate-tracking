@@ -38,6 +38,7 @@ import {
   Shuffle,
   PlusCircle,
   Share2,
+  Mail,
   Link as LinkIcon
 } from 'lucide-react';
 
@@ -86,6 +87,8 @@ export default function Dashboard() {
   const [shareLoading, setShareLoading] = useState(false);
   const [shareLinkModal, setShareLinkModal] = useState(null);
   const [shareLinkLoading, setShareLinkLoading] = useState(null);
+  const [emailReportLoading, setEmailReportLoading] = useState(null); // linkId | 'compare' | null
+  const [emailReportSentTo, setEmailReportSentTo] = useState('');
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -646,6 +649,30 @@ export default function Dashboard() {
     }
   };
 
+  const handleEmailCompare = async () => {
+    if (selectedLinkIds.length < 1) return;
+    setEmailReportLoading('compare');
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'links_compare',
+        link_ids: selectedLinkIds,
+        currency: i18n.language === 'uk' ? '₴' : '$',
+        lang: i18n.language === 'uk' ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setSuccessMessage(
+        i18n.language === 'uk'
+          ? `Звіт надіслано на ${res.data?.to || user?.email || 'email'}`
+          : `Report emailed to ${res.data?.to || user?.email || 'email'}`
+      );
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || (isUk ? 'Не вдалося надіслати звіт на пошту' : 'Failed to email report'));
+    } finally {
+      setEmailReportLoading(null);
+    }
+  };
+
   const handleShareLink = async (link) => {
     setShareLinkLoading(link.id);
     try {
@@ -656,12 +683,41 @@ export default function Dashboard() {
       });
       const url = res.data.url;
       await navigator.clipboard.writeText(url).catch(() => {});
-      setShareLinkModal({ link, url, copied: true });
+      setShareLinkModal({ link, url, copied: true, emailed: false });
       setTimeout(() => setShareLinkModal((prev) => (prev ? { ...prev, copied: false } : prev)), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create share link');
     } finally {
       setShareLinkLoading(null);
+    }
+  };
+
+  const handleEmailLinkReport = async (link) => {
+    if (!link?.id) return;
+    setEmailReportLoading(link.id);
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'link_single',
+        link_id: link.id,
+        currency: i18n.language === 'uk' ? '₴' : '$',
+        lang: i18n.language === 'uk' ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setShareLinkModal((prev) => (
+        prev && prev.link?.id === link.id
+          ? { ...prev, emailed: true, emailedTo: res.data?.to || user?.email || '' }
+          : prev
+      ));
+      setSuccessMessage(
+        i18n.language === 'uk'
+          ? `Звіт надіслано на ${res.data?.to || user?.email || 'email'}`
+          : `Report emailed to ${res.data?.to || user?.email || 'email'}`
+      );
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || (isUk ? 'Не вдалося надіслати звіт на пошту' : 'Failed to email report'));
+    } finally {
+      setEmailReportLoading(null);
     }
   };
 
@@ -1898,6 +1954,28 @@ export default function Dashboard() {
               </a>
             </div>
 
+            <button
+              type="button"
+              disabled={emailReportLoading === shareLinkModal.link.id}
+              onClick={() => handleEmailLinkReport(shareLinkModal.link)}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 ${
+                shareLinkModal.emailed
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              {emailReportLoading === shareLinkModal.link.id
+                ? (isUk ? 'Надсилаємо...' : 'Sending...')
+                : shareLinkModal.emailed
+                  ? (isUk
+                    ? `Надіслано на ${shareLinkModal.emailedTo || emailReportSentTo || user?.email || 'email'}`
+                    : `Sent to ${shareLinkModal.emailedTo || emailReportSentTo || user?.email || 'email'}`)
+                  : (isUk
+                    ? `Надіслати на пошту (${user?.email || 'email'})`
+                    : `Email report (${user?.email || 'email'})`)}
+            </button>
+
             <p className="text-xs text-slate-400 text-center">
               {isUk ? 'Посилання автоматично скопійовано в буфер' : 'Link was auto-copied to clipboard'}
             </p>
@@ -1916,6 +1994,16 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50">
                   {shareLoading ? (i18n.language === 'uk' ? 'Створення...' : 'Creating...') : (i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report')}
+                </button>
+                <button
+                  onClick={handleEmailCompare}
+                  disabled={emailReportLoading === 'compare' || selectedLinksForCompare.length < 1}
+                  className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  {emailReportLoading === 'compare'
+                    ? (i18n.language === 'uk' ? 'Надсилаємо...' : 'Sending...')
+                    : (i18n.language === 'uk' ? 'На пошту' : 'Email')}
                 </button>
                 <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
                   <X className="w-5 h-5" />
