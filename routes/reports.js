@@ -2,8 +2,18 @@ import express from 'express';
 import crypto from 'crypto';
 import { Op, fn, col } from 'sequelize';
 import { authenticate } from '../middleware/auth.js';
-import { User, Link, Click, Conversion } from '../models/index.js';
-import { parseCommissionPercent, commissionFromOrder } from '../utils/affiliate.js';
+import { User, Link, Click, Conversion, Website } from '../models/index.js';
+import {
+  parseCommissionPercent,
+  commissionFromOrder,
+  resolveCommissionPercentWithSites,
+  groupWebsitesByUserId
+} from '../utils/affiliate.js';
+import {
+  isApprovedModerationStatus,
+  isConversionEvent,
+  isPendingModerationStatus
+} from '../utils/statsAggregation.js';
 
 const router = express.Router();
 
@@ -67,6 +77,38 @@ function verifyToken(token) {
   } catch {
     return null;
   }
+}
+
+function parseDateOnly(value, endOfDay = false) {
+  const s = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T${endOfDay ? '23:59:59.999' : '00:00:00'}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function buildAffiliatesDateFilter({ range = 'all', from = null, to = null } = {}) {
+  const fromDate = parseDateOnly(from, false);
+  const toDate = parseDateOnly(to, true);
+  if (fromDate || toDate) {
+    const created_at = {};
+    if (fromDate) created_at[Op.gte] = fromDate;
+    if (toDate) created_at[Op.lte] = toDate;
+    return {
+      label: fromDate && toDate
+        ? `${fromDate.toISOString().slice(0, 10)}…${toDate.toISOString().slice(0, 10)}`
+        : (fromDate ? `from ${fromDate.toISOString().slice(0, 10)}` : `to ${toDate.toISOString().slice(0, 10)}`),
+      filter: { created_at }
+    };
+  }
+
+  if (['1', '3', '7', '14', '30'].includes(String(range))) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - (Number(range) - 1));
+    return { label: String(range), filter: { created_at: { [Op.gte]: d } } };
+  }
+
+  return { label: 'all', filter: {} };
 }
 
 async function getSingleLinkData(userId, linkId) {
@@ -192,15 +234,8 @@ async function getLinksCompareData(userId, linkIds) {
   return { items };
 }
 
-async function getAffiliatesOverview(range = 'all') {
-  const fromDate = ['1', '3', '7', '14', '30'].includes(String(range))
-    ? (() => {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        d.setDate(d.getDate() - (Number(range) - 1));
-        return d;
-      })()
-    : null;
+async function getAffiliatesOverview({ range = 'all', from = null, to = null } = {}) {
+  const { label, filter: dateFilter } = buildAffiliatesDateFilter({ range, from, to });
 
   const affiliates = await User.findAll({
     where: { role: 'affiliate' },
@@ -210,16 +245,30 @@ async function getAffiliatesOverview(range = 'all') {
   const affiliateIds = affiliates.map((a) => a.id);
   const links = await Link.findAll({
     where: { user_id: { [Op.in]: affiliateIds } },
-    attributes: ['id', 'user_id'],
+    attributes: ['id', 'user_id', 'original_url'],
     raw: true
   });
   const linkIds = links.map((l) => l.id);
+  const linkById = new Map(links.map((l) => [Number(l.id), l]));
   const linkOwnerById = new Map(links.map((l) => [Number(l.id), Number(l.user_id)]));
+  const affiliateById = new Map(affiliates.map((a) => [Number(a.id), a]));
+
+  const websiteRows = affiliateIds.length
+    ? await Website.findAll({
+        where: { user_id: { [Op.in]: affiliateIds } },
+        attributes: ['user_id', 'domain', 'commission_percent'],
+        raw: true
+      })
+    : [];
+  const websitesByUser = groupWebsitesByUserId(websiteRows);
 
   const whereConv = {
     link_id: { [Op.in]: linkIds },
-    event_type: { [Op.in]: ['lead', 'sale'] },
-    ...(fromDate ? { created_at: { [Op.gte]: fromDate } } : {})
+    [Op.or]: [
+      { event_type: { [Op.in]: ['lead', 'sale'] } },
+      { event_type: null }
+    ],
+    ...dateFilter
   };
   const convRows = linkIds.length ? await Conversion.findAll({ where: whereConv, raw: true }) : [];
 
@@ -243,18 +292,32 @@ async function getAffiliatesOverview(range = 'all') {
     const ownerId = linkOwnerById.get(Number(r.link_id));
     const agg = byAffiliate.get(ownerId);
     if (!agg) return;
+    if (!isConversionEvent(r.event_type)) return;
     agg.conversions += 1;
-    if (r.lead_status === 'pending') agg.pending_conversions += 1;
-    // Count revenue for approved leads and direct sales (event_type=sale without rejection)
-    const isApproved = r.lead_status === 'approved' || (r.event_type === 'sale' && r.lead_status !== 'rejected');
-    if (isApproved) {
+    if (isPendingModerationStatus(r.lead_status)) agg.pending_conversions += 1;
+    // Same as admin overview: only explicitly approved conversions count as payout revenue
+    if (isApprovedModerationStatus(r.lead_status)) {
       const val = Number(r.order_value || 0);
+      const percent = resolveCommissionPercentWithSites(
+        affiliateById.get(ownerId),
+        linkById.get(Number(r.link_id)),
+        websitesByUser.get(ownerId) || []
+      ) ?? agg.commission_percent;
       agg.approved_revenue += val;
-      agg.affiliate_earnings += commissionFromOrder(val, agg.commission_percent);
+      agg.affiliate_earnings += commissionFromOrder(val, percent);
     }
   });
 
-  return { range, items: Array.from(byAffiliate.values()) };
+  return {
+    range: label,
+    from: from || null,
+    to: to || null,
+    items: Array.from(byAffiliate.values()).map((a) => ({
+      ...a,
+      approved_revenue: Number(a.approved_revenue.toFixed(2)),
+      affiliate_earnings: Number(a.affiliate_earnings.toFixed(2))
+    }))
+  };
 }
 
 router.post('/share', authenticate, async (req, res, next) => {
@@ -277,7 +340,9 @@ router.post('/share', authenticate, async (req, res, next) => {
         return res.status(403).json({ error: 'Admin only report' });
       }
       const range = ['1', '3', '7', '14', '30', 'all'].includes(String(req.body?.range)) ? String(req.body.range) : 'all';
-      payload = { v: 1, type, range, user_id: req.user.id, white_label: null };
+      const from = parseDateOnly(req.body?.from) ? String(req.body.from).slice(0, 10) : null;
+      const to = parseDateOnly(req.body?.to) ? String(req.body.to).slice(0, 10) : null;
+      payload = { v: 1, type, range, from, to, user_id: req.user.id, white_label: null };
     } else {
       return res.status(400).json({ error: 'Unsupported report type' });
     }
@@ -328,7 +393,11 @@ router.get('/public/:token', async (req, res, next) => {
       });
     }
     if (payload.type === 'affiliates_overview') {
-      const data = await getAffiliatesOverview(payload.range || 'all');
+      const data = await getAffiliatesOverview({
+        range: payload.range || 'all',
+        from: payload.from || null,
+        to: payload.to || null
+      });
       return res.json({
         success: true,
         type: payload.type,
@@ -422,7 +491,11 @@ router.get('/public/:token/export', async (req, res, next) => {
       return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
 
-    const data = await getAffiliatesOverview(payload.range || 'all');
+    const data = await getAffiliatesOverview({
+      range: payload.range || 'all',
+      from: payload.from || null,
+      to: payload.to || null
+    });
     const rows = [[h.affiliate, h.commission, h.balance, h.conversions, h.pending, h.approvedRevenue, h.earnings]];
     data.items.forEach((i) => rows.push([i.email, i.commission_percent, i.affiliate_balance, i.conversions, i.pending_conversions, i.approved_revenue, i.affiliate_earnings]));
     res.setHeader('Content-Disposition', 'attachment; filename="affiliates-report.csv"');

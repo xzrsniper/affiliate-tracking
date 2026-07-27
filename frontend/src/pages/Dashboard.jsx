@@ -1928,7 +1928,7 @@ export default function Dashboard() {
                 const COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2'];
                 const compareItems = selectedLinksForCompare.map((link, idx) => {
                   const clicks = Number(link.stats?.total_clicks || 0);
-                  const conversions = Number(link.stats?.conversions || 0);
+                  const conversions = Number(link.stats?.sales || 0) + Number(link.stats?.leads || 0);
                   const cr = clicks > 0 ? parseFloat(((conversions / clicks) * 100).toFixed(2)) : 0;
                   const revenue = Number(link.stats?.sales_revenue || 0);
                   const label = (link.name || link.unique_code || '').slice(0, 18);
