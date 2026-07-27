@@ -533,9 +533,10 @@ router.post('/email', authenticate, async (req, res, next) => {
 
     payload.issued_at = Date.now();
     const token = signPayload(payload);
-    const base = `${req.protocol}://${req.get('host')}`;
-    const reportUrl = `${base}/report/${token}`;
-    const exportUrl = `${base}/api/reports/public/${token}/export?lang=${lang}`;
+    const requestBase = `${req.protocol}://${req.get('host')}`;
+    const publicBase = (process.env.FRONTEND_URL || process.env.APP_URL || requestBase).replace(/\/$/, '');
+    const reportUrl = `${publicBase}/report/${token}`;
+    const exportUrl = `${publicBase}/api/reports/public/${token}/export?lang=${lang}`;
 
     let title;
     let periodLabel = '';
