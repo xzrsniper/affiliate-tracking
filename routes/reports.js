@@ -2,8 +2,19 @@ import express from 'express';
 import crypto from 'crypto';
 import { Op, fn, col } from 'sequelize';
 import { authenticate } from '../middleware/auth.js';
-import { User, Link, Click, Conversion } from '../models/index.js';
-import { parseCommissionPercent, commissionFromOrder } from '../utils/affiliate.js';
+import { User, Link, Click, Conversion, Website } from '../models/index.js';
+import {
+  parseCommissionPercent,
+  commissionFromOrder,
+  resolveCommissionPercentWithSites,
+  groupWebsitesByUserId
+} from '../utils/affiliate.js';
+import {
+  isApprovedModerationStatus,
+  isConversionEvent,
+  isPendingModerationStatus
+} from '../utils/statsAggregation.js';
+import { sendPublicReportEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -69,6 +80,141 @@ function verifyToken(token) {
   }
 }
 
+function parseDateOnly(value, endOfDay = false) {
+  const s = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T${endOfDay ? '23:59:59.999' : '00:00:00'}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toDateOnlyString(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  // Local calendar date (server timezone) for consistent day boundaries
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayDateOnly() {
+  return toDateOnlyString(new Date());
+}
+
+function formatPeriodLabel(from, to, { allTime = false, live = false } = {}) {
+  if (allTime && !from && !to) {
+    return {
+      uk: 'Період: весь час',
+      en: 'Period: all time'
+    };
+  }
+  if (from && to && from === to) {
+    return {
+      uk: `Період: ${from}`,
+      en: `Period: ${from}`
+    };
+  }
+  if (from && to) {
+    const liveNoteUk = live ? ' (актуально на день перегляду)' : '';
+    const liveNoteEn = live ? ' (as of view date)' : '';
+    return {
+      uk: `Період: ${from} — ${to}${liveNoteUk}`,
+      en: `Period: ${from} — ${to}${liveNoteEn}`
+    };
+  }
+  if (from) {
+    return {
+      uk: `Період: з ${from}`,
+      en: `Period: from ${from}`
+    };
+  }
+  if (to) {
+    return {
+      uk: `Період: до ${to}`,
+      en: `Period: until ${to}`
+    };
+  }
+  return {
+    uk: 'Період: весь час',
+    en: 'Period: all time'
+  };
+}
+
+function buildPeriod({ from = null, to = null, range = null, live = false, allTime = false } = {}) {
+  const labels = formatPeriodLabel(from, to, { allTime, live });
+  return {
+    from: from || null,
+    to: to || null,
+    range: range || null,
+    live: Boolean(live),
+    all_time: Boolean(allTime),
+    label: labels.uk,
+    labels
+  };
+}
+
+/** Freeze preset affiliate ranges into absolute calendar dates at share time. */
+function resolveAffiliateSharePeriod(rangeInput, fromInput, toInput) {
+  const from = parseDateOnly(fromInput) ? String(fromInput).slice(0, 10) : null;
+  const to = parseDateOnly(toInput) ? String(toInput).slice(0, 10) : null;
+  if (from || to) {
+    return { range: 'custom', from, to };
+  }
+  const range = ['1', '3', '7', '14', '30', 'all'].includes(String(rangeInput))
+    ? String(rangeInput)
+    : 'all';
+  if (['1', '3', '7', '14', '30'].includes(range)) {
+    const toDate = new Date();
+    toDate.setHours(0, 0, 0, 0);
+    const fromDate = new Date(toDate);
+    fromDate.setDate(fromDate.getDate() - (Number(range) - 1));
+    return {
+      range,
+      from: toDateOnlyString(fromDate),
+      to: toDateOnlyString(toDate)
+    };
+  }
+  return { range: 'all', from: null, to: null };
+}
+
+function buildAffiliatesDateFilter({ range = 'all', from = null, to = null } = {}) {
+  const fromDate = parseDateOnly(from, false);
+  const toDate = parseDateOnly(to, true);
+  if (fromDate || toDate) {
+    const created_at = {};
+    if (fromDate) created_at[Op.gte] = fromDate;
+    if (toDate) created_at[Op.lte] = toDate;
+    const fromStr = fromDate ? toDateOnlyString(fromDate) : null;
+    const toStr = toDate ? toDateOnlyString(toDate) : null;
+    return {
+      from: fromStr,
+      to: toStr,
+      range: fromStr || toStr ? 'custom' : String(range || 'all'),
+      filter: { created_at }
+    };
+  }
+
+  if (['1', '3', '7', '14', '30'].includes(String(range))) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - (Number(range) - 1));
+    const fromStr = toDateOnlyString(d);
+    const toStr = todayDateOnly();
+    return {
+      from: fromStr,
+      to: toStr,
+      range: String(range),
+      filter: { created_at: { [Op.gte]: d } }
+    };
+  }
+
+  return { from: null, to: null, range: 'all', filter: {} };
+}
+
 async function getSingleLinkData(userId, linkId) {
   const link = await Link.findOne({
     where: { user_id: userId, id: linkId },
@@ -100,6 +246,8 @@ async function getSingleLinkData(userId, linkId) {
   const buckets = emptyBuckets();
   const conversionsList = convRows.map((r) => aggregateConversionRow(r, buckets));
   const conversions = buckets.sales_count + buckets.lead_count;
+  const periodFrom = toDateOnlyString(link.created_at);
+  const periodTo = todayDateOnly();
 
   return {
     link: {
@@ -109,6 +257,7 @@ async function getSingleLinkData(userId, linkId) {
       original_url: link.original_url,
       created_at: link.created_at
     },
+    period: buildPeriod({ from: periodFrom, to: periodTo, live: true }),
     stats: {
       clicks,
       unique_clicks: uniqueClicks,
@@ -175,6 +324,7 @@ async function getLinksCompareData(userId, linkIds) {
       id: l.id,
       name: l.name || l.unique_code,
       original_url: l.original_url,
+      created_at: l.created_at,
       clicks,
       unique_clicks: Number(c.unique_clicks || 0),
       conversions,
@@ -189,18 +339,22 @@ async function getLinksCompareData(userId, linkIds) {
     };
   });
 
-  return { items };
+  const createdDates = links
+    .map((l) => toDateOnlyString(l.created_at))
+    .filter(Boolean)
+    .sort();
+  const periodFrom = createdDates[0] || null;
+  const periodTo = todayDateOnly();
+
+  return {
+    items,
+    period: buildPeriod({ from: periodFrom, to: periodTo, live: true })
+  };
 }
 
-async function getAffiliatesOverview(range = 'all') {
-  const fromDate = ['1', '3', '7', '14', '30'].includes(String(range))
-    ? (() => {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        d.setDate(d.getDate() - (Number(range) - 1));
-        return d;
-      })()
-    : null;
+async function getAffiliatesOverview({ range = 'all', from = null, to = null } = {}) {
+  const { from: resolvedFrom, to: resolvedTo, range: resolvedRange, filter: dateFilter } =
+    buildAffiliatesDateFilter({ range, from, to });
 
   const affiliates = await User.findAll({
     where: { role: 'affiliate' },
@@ -210,16 +364,30 @@ async function getAffiliatesOverview(range = 'all') {
   const affiliateIds = affiliates.map((a) => a.id);
   const links = await Link.findAll({
     where: { user_id: { [Op.in]: affiliateIds } },
-    attributes: ['id', 'user_id'],
+    attributes: ['id', 'user_id', 'original_url'],
     raw: true
   });
   const linkIds = links.map((l) => l.id);
+  const linkById = new Map(links.map((l) => [Number(l.id), l]));
   const linkOwnerById = new Map(links.map((l) => [Number(l.id), Number(l.user_id)]));
+  const affiliateById = new Map(affiliates.map((a) => [Number(a.id), a]));
+
+  const websiteRows = affiliateIds.length
+    ? await Website.findAll({
+        where: { user_id: { [Op.in]: affiliateIds } },
+        attributes: ['user_id', 'domain', 'commission_percent'],
+        raw: true
+      })
+    : [];
+  const websitesByUser = groupWebsitesByUserId(websiteRows);
 
   const whereConv = {
     link_id: { [Op.in]: linkIds },
-    event_type: { [Op.in]: ['lead', 'sale'] },
-    ...(fromDate ? { created_at: { [Op.gte]: fromDate } } : {})
+    [Op.or]: [
+      { event_type: { [Op.in]: ['lead', 'sale'] } },
+      { event_type: null }
+    ],
+    ...dateFilter
   };
   const convRows = linkIds.length ? await Conversion.findAll({ where: whereConv, raw: true }) : [];
 
@@ -243,18 +411,39 @@ async function getAffiliatesOverview(range = 'all') {
     const ownerId = linkOwnerById.get(Number(r.link_id));
     const agg = byAffiliate.get(ownerId);
     if (!agg) return;
+    if (!isConversionEvent(r.event_type)) return;
     agg.conversions += 1;
-    if (r.lead_status === 'pending') agg.pending_conversions += 1;
-    // Count revenue for approved leads and direct sales (event_type=sale without rejection)
-    const isApproved = r.lead_status === 'approved' || (r.event_type === 'sale' && r.lead_status !== 'rejected');
-    if (isApproved) {
+    if (isPendingModerationStatus(r.lead_status)) agg.pending_conversions += 1;
+    // Same as admin overview: only explicitly approved conversions count as payout revenue
+    if (isApprovedModerationStatus(r.lead_status)) {
       const val = Number(r.order_value || 0);
+      const percent = resolveCommissionPercentWithSites(
+        affiliateById.get(ownerId),
+        linkById.get(Number(r.link_id)),
+        websitesByUser.get(ownerId) || []
+      ) ?? agg.commission_percent;
       agg.approved_revenue += val;
-      agg.affiliate_earnings += commissionFromOrder(val, agg.commission_percent);
+      agg.affiliate_earnings += commissionFromOrder(val, percent);
     }
   });
 
-  return { range, items: Array.from(byAffiliate.values()) };
+  return {
+    range: resolvedRange,
+    from: resolvedFrom,
+    to: resolvedTo,
+    period: buildPeriod({
+      from: resolvedFrom,
+      to: resolvedTo,
+      range: resolvedRange,
+      live: false,
+      allTime: resolvedRange === 'all' && !resolvedFrom && !resolvedTo
+    }),
+    items: Array.from(byAffiliate.values()).map((a) => ({
+      ...a,
+      approved_revenue: Number(a.approved_revenue.toFixed(2)),
+      affiliate_earnings: Number(a.affiliate_earnings.toFixed(2))
+    }))
+  };
 }
 
 router.post('/share', authenticate, async (req, res, next) => {
@@ -276,8 +465,16 @@ router.post('/share', authenticate, async (req, res, next) => {
       if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Admin only report' });
       }
-      const range = ['1', '3', '7', '14', '30', 'all'].includes(String(req.body?.range)) ? String(req.body.range) : 'all';
-      payload = { v: 1, type, range, user_id: req.user.id, white_label: null };
+      const sharedPeriod = resolveAffiliateSharePeriod(req.body?.range, req.body?.from, req.body?.to);
+      payload = {
+        v: 1,
+        type,
+        range: sharedPeriod.range,
+        from: sharedPeriod.from,
+        to: sharedPeriod.to,
+        user_id: req.user.id,
+        white_label: null
+      };
     } else {
       return res.status(400).json({ error: 'Unsupported report type' });
     }
@@ -286,6 +483,198 @@ router.post('/share', authenticate, async (req, res, next) => {
     const token = signPayload(payload);
     const base = `${req.protocol}://${req.get('host')}`;
     res.json({ success: true, token, url: `${base}/report/${token}` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function csvEscape(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+function buildCsv(rows) {
+  return `\uFEFF${rows.map((r) => r.map(csvEscape).join(',')).join('\n')}`;
+}
+
+/**
+ * POST /api/reports/email
+ * Create a public report token and email it to the user (or optional recipient).
+ * Body: { type: 'link_single'|'links_compare', link_id?, link_ids?, currency?, lang?, to? }
+ */
+router.post('/email', authenticate, async (req, res, next) => {
+  try {
+    const { type } = req.body || {};
+    const lang = String(req.body?.lang || '').toLowerCase() === 'en' ? 'en' : 'uk';
+    const currency = ['₴', '$', '€', '£'].includes(req.body?.currency) ? req.body.currency : '₴';
+    const locale = lang === 'en' ? 'en-US' : 'uk-UA';
+    const to = String(req.body?.to || req.user.email || '').trim().toLowerCase();
+    if (!isValidEmail(to)) {
+      return res.status(400).json({ error: 'Valid recipient email required' });
+    }
+
+    let payload;
+    if (type === 'link_single') {
+      const linkId = parseInt(req.body?.link_id, 10);
+      if (!Number.isInteger(linkId) || linkId <= 0) return res.status(400).json({ error: 'link_id required' });
+      payload = { v: 1, type, user_id: req.user.id, link_id: linkId, currency, white_label: null };
+    } else if (type === 'links_compare') {
+      const linkIds = Array.isArray(req.body?.link_ids)
+        ? req.body.link_ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id) && id > 0).slice(0, 6)
+        : [];
+      if (linkIds.length < 1) return res.status(400).json({ error: 'link_ids required' });
+      payload = { v: 1, type, user_id: req.user.id, link_ids: linkIds, currency, white_label: null };
+    } else {
+      return res.status(400).json({ error: 'Unsupported report type for email' });
+    }
+
+    payload.issued_at = Date.now();
+    const token = signPayload(payload);
+    const requestBase = `${req.protocol}://${req.get('host')}`;
+    const publicBase = (process.env.FRONTEND_URL || process.env.APP_URL || requestBase).replace(/\/$/, '');
+    const reportUrl = `${publicBase}/report/${token}`;
+    const exportUrl = `${publicBase}/api/reports/public/${token}/export?lang=${lang}`;
+
+    let title;
+    let periodLabel = '';
+    let stats = [];
+    let tableRows = [];
+    let attachment = null;
+
+    if (type === 'link_single') {
+      const data = await getSingleLinkData(req.user.id, payload.link_id);
+      if (!data) return res.status(404).json({ error: 'Link not found' });
+      const name = data.link.name || data.link.unique_code;
+      title = lang === 'en'
+        ? (name ? `${name} — Link report` : 'Link report')
+        : (name ? `${name} — Звіт по посиланню` : 'Звіт по посиланню');
+      periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+      const s = data.stats || {};
+      stats = [
+        { label: lang === 'en' ? 'Clicks' : 'Кліки', value: Number(s.clicks || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'Unique' : 'Унікальні', value: Number(s.unique_clicks || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'Sales' : 'Продажі', value: Number(s.sales_count || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'Leads' : 'Ліди', value: Number(s.lead_count || 0).toLocaleString(locale) },
+        { label: lang === 'en' ? 'CR' : 'CR', value: `${Number(s.conversion_rate || 0).toLocaleString(locale)}%` },
+        {
+          label: lang === 'en' ? 'Sales revenue' : 'Дохід з продажів',
+          value: `${Number(s.sales_revenue || 0).toLocaleString(locale)} ${currency}`
+        }
+      ];
+      attachment = {
+        filename: `link-report-${data.link.unique_code}.csv`,
+        content: buildCsv([
+          [lang === 'en' ? 'Period' : 'Період', periodLabel],
+          [],
+          [
+            lang === 'en' ? 'Link' : 'Посилання',
+            'URL',
+            lang === 'en' ? 'Clicks' : 'Кліки',
+            lang === 'en' ? 'Unique' : 'Унікальні',
+            lang === 'en' ? 'Conversions' : 'Конверсії',
+            lang === 'en' ? 'Sales' : 'Продажі',
+            lang === 'en' ? 'Leads' : 'Ліди',
+            lang === 'en' ? 'Carts' : 'Кошик',
+            'CR %',
+            lang === 'en' ? 'Sales revenue' : 'Дохід з продажів'
+          ],
+          [
+            name,
+            data.link.original_url,
+            s.clicks,
+            s.unique_clicks,
+            s.conversions,
+            s.sales_count,
+            s.lead_count,
+            s.cart_count,
+            s.conversion_rate,
+            s.sales_revenue
+          ]
+        ])
+      };
+    } else {
+      const data = await getLinksCompareData(req.user.id, payload.link_ids || []);
+      title = lang === 'en' ? 'Links comparison report' : 'Порівняння посилань';
+      periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+      const items = data.items || [];
+      const totalClicks = items.reduce((sum, i) => sum + Number(i.clicks || 0), 0);
+      const totalConv = items.reduce((sum, i) => sum + Number(i.conversions || 0), 0);
+      const totalSales = items.reduce((sum, i) => sum + Number(i.sales_count || 0), 0);
+      const totalRevenue = items.reduce((sum, i) => sum + Number(i.sales_revenue || 0), 0);
+      stats = [
+        { label: lang === 'en' ? 'Links' : 'Посилання', value: String(items.length) },
+        { label: lang === 'en' ? 'Clicks' : 'Кліки', value: totalClicks.toLocaleString(locale) },
+        { label: lang === 'en' ? 'Conversions' : 'Конверсії', value: totalConv.toLocaleString(locale) },
+        { label: lang === 'en' ? 'Sales' : 'Продажі', value: totalSales.toLocaleString(locale) },
+        {
+          label: lang === 'en' ? 'Sales revenue' : 'Дохід з продажів',
+          value: `${totalRevenue.toLocaleString(locale)} ${currency}`
+        }
+      ];
+      tableRows = items.map((i) => [
+        i.name,
+        Number(i.clicks || 0).toLocaleString(locale),
+        Number(i.conversions || 0).toLocaleString(locale),
+        `${Number(i.sales_revenue || 0).toLocaleString(locale)} ${currency}`
+      ]);
+      attachment = {
+        filename: 'links-report.csv',
+        content: buildCsv([
+          [lang === 'en' ? 'Period' : 'Період', periodLabel],
+          [],
+          [
+            lang === 'en' ? 'Link' : 'Посилання',
+            'URL',
+            lang === 'en' ? 'Clicks' : 'Кліки',
+            lang === 'en' ? 'Unique' : 'Унікальні',
+            lang === 'en' ? 'Conversions' : 'Конверсії',
+            'CR %',
+            lang === 'en' ? 'Sales' : 'Продажі',
+            lang === 'en' ? 'Sales revenue' : 'Дохід з продажів',
+            lang === 'en' ? 'Leads' : 'Ліди',
+            lang === 'en' ? 'Lead revenue' : 'Дохід з лідів',
+            lang === 'en' ? 'Carts' : 'Кошик',
+            lang === 'en' ? 'Cart revenue' : 'Сума кошиків'
+          ],
+          ...items.map((i) => [
+            i.name,
+            i.original_url,
+            i.clicks,
+            i.unique_clicks,
+            i.conversions,
+            i.conversion_rate,
+            i.sales_count,
+            i.sales_revenue,
+            i.lead_count,
+            i.lead_revenue,
+            i.cart_count,
+            i.cart_revenue
+          ])
+        ])
+      };
+    }
+
+    const sent = await sendPublicReportEmail({
+      to,
+      lang,
+      type,
+      title,
+      periodLabel: periodLabel.replace(/^Період:\s*/i, '').replace(/^Period:\s*/i, ''),
+      reportUrl,
+      exportUrl,
+      stats,
+      tableRows,
+      attachment
+    });
+
+    if (!sent.ok) {
+      return res.status(503).json({ error: sent.error || 'Failed to send email' });
+    }
+
+    res.json({ success: true, to, url: reportUrl });
   } catch (error) {
     next(error);
   }
@@ -328,7 +717,11 @@ router.get('/public/:token', async (req, res, next) => {
       });
     }
     if (payload.type === 'affiliates_overview') {
-      const data = await getAffiliatesOverview(payload.range || 'all');
+      const data = await getAffiliatesOverview({
+        range: payload.range || 'all',
+        from: payload.from || null,
+        to: payload.to || null
+      });
       return res.json({
         success: true,
         type: payload.type,
@@ -402,12 +795,16 @@ router.get('/public/:token/export', async (req, res, next) => {
       }
     };
     const h = csvHeaders[lang];
+    const periodHeader = lang === 'en' ? 'Period' : 'Період';
 
     if (payload.type === 'link_single') {
       const data = await getSingleLinkData(payload.user_id, payload.link_id);
       if (!data) return res.status(404).send('Link not found');
       const s = data.stats;
+      const periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
       const rows = [
+        [periodHeader, periodLabel],
+        [],
         [h.link, h.url, h.clicks, h.uniqueClicks, h.conversions, h.leads, h.carts, h.cr, h.salesRevenue, h.cartRevenue],
         [data.link.name, data.link.original_url, s.clicks, s.unique_clicks, s.conversions, s.lead_count, s.cart_count, s.conversion_rate, s.sales_revenue, s.cart_revenue]
       ];
@@ -416,14 +813,28 @@ router.get('/public/:token/export', async (req, res, next) => {
     }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
-      const rows = [[h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue, h.carts, h.cartRevenue]];
+      const periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+      const rows = [
+        [periodHeader, periodLabel],
+        [],
+        [h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue, h.carts, h.cartRevenue]
+      ];
       data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.sales_count, i.sales_revenue, i.lead_count, i.lead_revenue, i.cart_count, i.cart_revenue]));
       res.setHeader('Content-Disposition', 'attachment; filename="links-report.csv"');
       return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
 
-    const data = await getAffiliatesOverview(payload.range || 'all');
-    const rows = [[h.affiliate, h.commission, h.balance, h.conversions, h.pending, h.approvedRevenue, h.earnings]];
+    const data = await getAffiliatesOverview({
+      range: payload.range || 'all',
+      from: payload.from || null,
+      to: payload.to || null
+    });
+    const periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+    const rows = [
+      [periodHeader, periodLabel],
+      [],
+      [h.affiliate, h.commission, h.balance, h.conversions, h.pending, h.approvedRevenue, h.earnings]
+    ];
     data.items.forEach((i) => rows.push([i.email, i.commission_percent, i.affiliate_balance, i.conversions, i.pending_conversions, i.approved_revenue, i.affiliate_earnings]));
     res.setHeader('Content-Disposition', 'attachment; filename="affiliates-report.csv"');
     return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
