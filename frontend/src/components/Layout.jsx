@@ -45,7 +45,7 @@ export default function Layout({ children }) {
     navigate('/admin');
   };
 
-  const canAccessAdmin = user?.role === 'super_admin';
+  const canAccessAdmin = user?.role === 'super_admin' || user?.role === 'admin';
 
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('layout.dashboard') },
@@ -157,7 +157,13 @@ export default function Layout({ children }) {
           <div className="px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors">
             <p className="text-sm font-semibold text-slate-900 truncate">{user?.email}</p>
             <p className="text-xs text-slate-500 mt-0.5">
-              {user?.role === 'super_admin' ? t('layout.superAdmin') : t('layout.user')}
+              {user?.role === 'super_admin'
+                ? t('layout.superAdmin')
+                : user?.role === 'admin'
+                  ? t('layout.administrator')
+                  : user?.role === 'affiliate'
+                    ? t('layout.affiliate')
+                    : t('layout.user')}
             </p>
           </div>
           <div className="mt-1">

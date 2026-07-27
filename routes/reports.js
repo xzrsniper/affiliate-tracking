@@ -273,7 +273,9 @@ router.post('/share', authenticate, async (req, res, next) => {
       if (linkIds.length < 1) return res.status(400).json({ error: 'link_ids required' });
       payload = { v: 1, type, user_id: req.user.id, link_ids: linkIds, currency, white_label: null };
     } else if (type === 'affiliates_overview') {
-      if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Admin only report' });
+      if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin only report' });
+      }
       const range = ['1', '3', '7', '14', '30', 'all'].includes(String(req.body?.range)) ? String(req.body.range) : 'all';
       payload = { v: 1, type, range, user_id: req.user.id, white_label: null };
     } else {

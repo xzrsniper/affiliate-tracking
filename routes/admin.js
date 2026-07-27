@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { User, Link, Click, Conversion, Website, LinkVariant, LinkClick } from '../models/index.js';
-import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
+import { authenticate, requireSuperAdmin, requireAdminOrAbove } from '../middleware/auth.js';
 import { Op, fn, col, QueryTypes } from 'sequelize';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 import sequelize from '../config/database.js';
@@ -24,9 +24,9 @@ function csvEscape(value) {
   return str;
 }
 
-// All admin routes require authentication and super admin role
+// Base: super_admin OR admin. Super-admin-only routes add requireSuperAdmin inline.
 router.use(authenticate);
-router.use(requireSuperAdmin);
+router.use(requireAdminOrAbove);
 
 function parseDateOnly(value, endOfDay = false) {
   const s = String(value || '').trim();
@@ -115,7 +115,7 @@ function leadStatusWhereAllOrFilter(statusRaw) {
  * - page: (optional) Page number for pagination
  * - limit: (optional) Items per page — omit / "all" / 0 = return all users
  */
-router.get('/users', async (req, res, next) => {
+router.get('/users', requireSuperAdmin, async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limitRaw = req.query.limit;
@@ -206,7 +206,7 @@ router.get('/users', async (req, res, next) => {
  * Update a specific user's link_limit
  * Body: { link_limit: number }
  */
-router.patch('/users/:id/limit', async (req, res, next) => {
+router.patch('/users/:id/limit', requireSuperAdmin, async (req, res, next) => {
   try {
     const { link_limit } = req.body;
 
@@ -252,7 +252,7 @@ router.patch('/users/:id/limit', async (req, res, next) => {
  * Toggle is_banned status for a user
  * Body: (optional) { ban: boolean } - if not provided, toggles current status
  */
-router.post('/users/:id/ban', async (req, res, next) => {
+router.post('/users/:id/ban', requireSuperAdmin, async (req, res, next) => {
   try {
     const { ban } = req.body;
     const userId = parseInt(req.params.id);
@@ -291,7 +291,7 @@ router.post('/users/:id/ban', async (req, res, next) => {
  * DELETE /api/admin/users/:id
  * Permanently delete a user and all related data so the email can be re-registered.
  */
-router.delete('/users/:id', async (req, res, next) => {
+router.delete('/users/:id', requireSuperAdmin, async (req, res, next) => {
   try {
     const userId = parseInt(req.params.id, 10);
     if (!Number.isFinite(userId) || userId <= 0) {
@@ -351,7 +351,7 @@ router.delete('/users/:id', async (req, res, next) => {
  * GET /api/admin/users/:id
  * Get single user with detailed stats
  */
-router.get('/users/:id', async (req, res, next) => {
+router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: { exclude: ['password_hash'] },
@@ -437,7 +437,7 @@ router.get('/users/:id', async (req, res, next) => {
  * POST /api/admin/users/:id/impersonate-token
  * Generate a short-lived JWT for target user so admin can log in as them
  */
-router.post('/users/:id/impersonate-token', async (req, res, next) => {
+router.post('/users/:id/impersonate-token', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: { exclude: ['password_hash'] }
@@ -478,7 +478,7 @@ router.post('/users/:id/impersonate-token', async (req, res, next) => {
  * GET /api/admin/users/:id/impersonate
  * Impersonate user (view their dashboard data)
  */
-router.get('/users/:id/impersonate', async (req, res, next) => {
+router.get('/users/:id/impersonate', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
       attributes: { exclude: ['password_hash'] }
@@ -597,7 +597,7 @@ router.get('/users/:id/impersonate', async (req, res, next) => {
  * PATCH /api/admin/links/:linkId/revenue-adjustment
  * Body: { revenue_adjustment: number } — додається до «сирої» суми з конверсій (від’ємне значення зменшує показаний дохід).
  */
-router.patch('/links/:linkId/revenue-adjustment', async (req, res, next) => {
+router.patch('/links/:linkId/revenue-adjustment', requireSuperAdmin, async (req, res, next) => {
   try {
     const linkId = parseInt(req.params.linkId, 10);
     if (!Number.isInteger(linkId) || linkId < 1) {
@@ -641,7 +641,7 @@ router.patch('/links/:linkId/revenue-adjustment', async (req, res, next) => {
  * GET /api/admin/conversions/export
  * Export conversions with timestamp and amount to CSV
  */
-router.get('/conversions/export', async (req, res, next) => {
+router.get('/conversions/export', requireSuperAdmin, async (req, res, next) => {
   try {
     const conversions = await Conversion.findAll({
       include: [
@@ -704,8 +704,8 @@ router.get('/conversions/export', async (req, res, next) => {
 
 /**
  * PATCH /api/admin/users/:id/affiliate
- * Set affiliate role and commission % (or revert to user).
- * Body: { role: 'affiliate' | 'user', commission_percent?: number }
+ * Set role: affiliate | user | admin (admin only by super_admin).
+ * Body: { role: 'affiliate' | 'user' | 'admin', commission_percent?: number }
  */
 router.patch('/users/:id/affiliate', async (req, res, next) => {
   try {
@@ -718,8 +718,15 @@ router.patch('/users/:id/affiliate', async (req, res, next) => {
     }
 
     const { role, commission_percent } = req.body;
-    if (role !== 'affiliate' && role !== 'user') {
-      return res.status(400).json({ error: 'role must be affiliate or user' });
+    if (role !== 'affiliate' && role !== 'user' && role !== 'admin') {
+      return res.status(400).json({ error: 'role must be affiliate, user, or admin' });
+    }
+
+    // Only super_admin can grant/revoke the admin role
+    if (role === 'admin' || user.role === 'admin') {
+      if (req.user.role !== 'super_admin') {
+        return res.status(403).json({ error: 'Only super admin can manage administrator role' });
+      }
     }
 
     if (role === 'affiliate') {
@@ -729,6 +736,9 @@ router.patch('/users/:id/affiliate', async (req, res, next) => {
       }
       user.role = 'affiliate';
       user.affiliate_commission_percent = percent;
+    } else if (role === 'admin') {
+      user.role = 'admin';
+      user.affiliate_commission_percent = null;
     } else {
       user.role = 'user';
       user.affiliate_commission_percent = null;

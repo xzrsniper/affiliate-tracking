@@ -338,6 +338,8 @@
     "linkShortener": "Link shortener",
     "settings": "Settings",
     "superAdmin": "Super Admin",
+    "administrator": "Administrator",
+    "affiliate": "Affiliate",
     "user": "User"
   },
   "utmBuilder": {

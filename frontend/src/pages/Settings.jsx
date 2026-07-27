@@ -279,7 +279,15 @@ export default function Settings() {
                   </label>
                   <input
                     type="text"
-                    value={user?.role === 'super_admin' ? t('layout.superAdmin') : t('layout.user')}
+                    value={
+                      user?.role === 'super_admin'
+                        ? t('layout.superAdmin')
+                        : user?.role === 'admin'
+                          ? t('layout.administrator')
+                          : user?.role === 'affiliate'
+                            ? t('layout.affiliate')
+                            : t('layout.user')
+                    }
                     disabled
                     className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600"
                   />

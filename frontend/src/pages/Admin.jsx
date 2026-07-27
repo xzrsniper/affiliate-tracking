@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import api from '../config/api.js';
-import { saveAdminSession, setAuthToken, setUser } from '../utils/auth.js';
+import { saveAdminSession, setAuthToken, setUser, getUser } from '../utils/auth.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { CONTENT_FIELDS_BY_PAGE } from '../config/siteContentFields.js';
 import { useSiteTextEdit } from '../context/SiteTextEditContext.jsx';
@@ -29,10 +29,20 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const contentFieldId = (section, key) => `${section}.${key}`;
 
+function initialAdminTab() {
+  try {
+    return getUser()?.role === 'admin' ? 'affiliates' : 'users';
+  } catch {
+    return 'users';
+  }
+}
+
 export default function Admin() {
   const { t, i18n } = useTranslation();
   const isUk = i18n.language === 'uk';
-  const { login } = useAuth();
+  const { login, user: currentUser } = useAuth();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isPlatformAdmin = currentUser?.role === 'admin';
   const navigate = useNavigate();
   const { startEdit } = useSiteTextEdit();
   const [siteTextModalOpen, setSiteTextModalOpen] = useState(false);
@@ -207,7 +217,7 @@ export default function Admin() {
     }
     return map[contentFieldId(section, key)] || '';
   };
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState(initialAdminTab);
   const [users, setUsers] = useState([]);
   const [usersSummary, setUsersSummary] = useState({ total: 0, active: 0, banned: 0, total_links: 0 });
   const [loading, setLoading] = useState(true);
@@ -252,8 +262,15 @@ export default function Admin() {
   );
 
   useEffect(() => {
-    fetchUsers();
-  }, [searchTerm]);
+    if (isPlatformAdmin) {
+      setActiveTab('affiliates');
+      setLoading(false);
+      return;
+    }
+    if (isSuperAdmin) {
+      fetchUsers();
+    }
+  }, [searchTerm, isPlatformAdmin, isSuperAdmin]);
 
   useEffect(() => {
     if (!viewingUser?.links?.length) {
@@ -269,9 +286,10 @@ export default function Admin() {
   }, [viewingUser]);
 
   useEffect(() => {
+    if (!isSuperAdmin) return;
     if (activeTab === 'blog') fetchBlogPosts();
     if (activeTab === 'content') fetchPageContent();
-  }, [activeTab, contentPage]);
+  }, [activeTab, contentPage, isSuperAdmin]);
 
   const fetchPageContent = async () => {
     setContentLoading(true);
@@ -461,6 +479,7 @@ export default function Admin() {
           Object.fromEntries((response.data.users || []).map((u) => [
             u.id,
             {
+              role: u.role === 'admin' || u.role === 'affiliate' ? u.role : 'user',
               isAffiliate: u.role === 'affiliate',
               percent: u.affiliate_commission_percent != null ? String(u.affiliate_commission_percent) : '10'
             }
@@ -493,8 +512,8 @@ export default function Admin() {
       if (err.response) {
         // Server responded with error
         errorMessage = err.response?.data?.error || `Server error: ${err.response.status}`;
-        // If 401 or 403, redirect to login
-        if (err.response.status === 401 || err.response.status === 403) {
+        // Only force re-login on auth expiry — never bounce platform admins on 403
+        if (err.response.status === 401) {
           setTimeout(() => {
             window.location.href = '/login';
           }, 2000);
@@ -579,6 +598,7 @@ export default function Admin() {
     setAffiliateEdits((prev) => ({
       ...prev,
       [user.id]: {
+        role: user.role === 'admin' || user.role === 'affiliate' ? user.role : 'user',
         isAffiliate: user.role === 'affiliate',
         percent: String(user.affiliate_commission_percent ?? 10)
       }
@@ -593,16 +613,17 @@ export default function Admin() {
   const handleSaveAffiliateRole = async (userId) => {
     const edit = affiliateEdits[userId];
     if (!edit) return;
+    const nextRole = edit.role || (edit.isAffiliate ? 'affiliate' : 'user');
     const percent = parseFloat(edit.percent);
-    if (edit.isAffiliate && (Number.isNaN(percent) || percent < 0 || percent > 100)) {
+    if (nextRole === 'affiliate' && (Number.isNaN(percent) || percent < 0 || percent > 100)) {
       setError('Вкажіть комісію від 0 до 100%');
       return;
     }
     setUpdating(true);
     try {
       await api.patch(`/api/admin/users/${userId}/affiliate`, {
-        role: edit.isAffiliate ? 'affiliate' : 'user',
-        commission_percent: edit.isAffiliate ? percent : undefined
+        role: nextRole,
+        commission_percent: nextRole === 'affiliate' ? percent : undefined
       });
       await fetchUsers();
     } catch (err) {
@@ -796,22 +817,26 @@ export default function Admin() {
             <p className="text-sm text-slate-600 dark:text-slate-400">{t('admin.subtitle')}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setSiteTextModalOpen(true)}
-              className="px-3 py-2 text-sm font-semibold rounded-lg border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 transition-colors dark:border-amber-600 dark:bg-amber-950/50 dark:text-amber-100 dark:hover:bg-amber-900/50"
-            >
-              {t('admin.siteTextEditOpen')}
-            </button>
-            <button
-              type="button"
-              onClick={handleExportConversionsCsv}
-              disabled={exportingCsv}
-              className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              {exportingCsv ? t('common.loading') : t('admin.exportCsv')}
-            </button>
-            <button className="px-3 py-2 text-sm font-semibold rounded-lg bg-violet-700 text-white hover:bg-violet-800 transition-colors">{t('admin.inviteUser')}</button>
+            {isSuperAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSiteTextModalOpen(true)}
+                  className="px-3 py-2 text-sm font-semibold rounded-lg border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100 transition-colors dark:border-amber-600 dark:bg-amber-950/50 dark:text-amber-100 dark:hover:bg-amber-900/50"
+                >
+                  {t('admin.siteTextEditOpen')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportConversionsCsv}
+                  disabled={exportingCsv}
+                  className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {exportingCsv ? t('common.loading') : t('admin.exportCsv')}
+                </button>
+                <button className="px-3 py-2 text-sm font-semibold rounded-lg bg-violet-700 text-white hover:bg-violet-800 transition-colors">{t('admin.inviteUser')}</button>
+              </>
+            )}
           </div>
         </div>
         {exportStatus && (
@@ -821,33 +846,37 @@ export default function Admin() {
         )}
 
         <div className="flex gap-2 mb-5 border-b border-slate-200 dark:border-slate-700">
-          <button
-            type="button"
-            onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'users' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <Users className="w-4 h-4 inline mr-1.5" /> {t('admin.users')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('blog')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'blog' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <FileText className="w-4 h-4 inline mr-1.5" /> {t('adminBlog.tab')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('content')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'content' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <FileText className="w-4 h-4 inline mr-1.5" /> {t('admin.siteContentTab')}
-          </button>
+          {isSuperAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('users')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'users' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                <Users className="w-4 h-4 inline mr-1.5" /> {t('admin.users')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('blog')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'blog' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                <FileText className="w-4 h-4 inline mr-1.5" /> {t('adminBlog.tab')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('content')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'content' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+              >
+                <FileText className="w-4 h-4 inline mr-1.5" /> {t('admin.siteContentTab')}
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab('affiliates')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'affiliates' ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-b-0 border-slate-200 dark:border-slate-700' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
           >
-            <Handshake className="w-4 h-4 inline mr-1.5" /> Афілейти
+            <Handshake className="w-4 h-4 inline mr-1.5" /> {t('layout.affiliates')}
           </button>
         </div>
 
@@ -1079,8 +1108,9 @@ export default function Admin() {
           >
             <option value="all">{t('admin.allRoles')}</option>
             <option value="super_admin">{t('layout.superAdmin')}</option>
-            <option value="user">User</option>
-            <option value="affiliate">Афілейт</option>
+            <option value="admin">{t('layout.administrator')}</option>
+            <option value="user">{t('layout.user')}</option>
+            <option value="affiliate">{t('layout.affiliate')}</option>
           </select>
 
           <select
@@ -1203,8 +1233,6 @@ export default function Admin() {
           </div>
         )}
 
-        {activeTab === 'affiliates' && <AffiliatesTab />}
-
         {loading ? (
           <div className="bg-white/90 backdrop-blur rounded-2xl border border-violet-100 p-10 text-center text-slate-500 text-sm">
             {t('admin.loadingUsers')}
@@ -1247,10 +1275,12 @@ export default function Admin() {
                       <td className="px-4 py-4">
                         {user.role === 'super_admin' ? (
                           <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-violet-100 text-violet-700 border border-violet-200">{t('layout.superAdmin')}</span>
+                        ) : user.role === 'admin' ? (
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-sky-100 text-sky-700 border border-sky-200">{t('layout.administrator')}</span>
                         ) : user.role === 'affiliate' ? (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Афілейт</span>
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">{t('layout.affiliate')}</span>
                         ) : (
-                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">User</span>
+                          <span className="inline-flex px-2.5 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200">{t('layout.user')}</span>
                         )}
                       </td>
                       <td className="px-4 py-4">
@@ -1548,22 +1578,28 @@ export default function Admin() {
                 <div className="mb-4 space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                   <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">{t('admin.role')}</label>
                   <select
-                    value={(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') ? 'affiliate' : 'user'}
+                    value={
+                      affiliateEdits[editingUser.id]?.role
+                      || (editingUser.role === 'admin' || editingUser.role === 'affiliate' ? editingUser.role : 'user')
+                    }
                     onChange={(e) => setAffiliateEdits((prev) => ({
                       ...prev,
                       [editingUser.id]: {
                         ...(prev[editingUser.id] || { percent: String(editingUser.affiliate_commission_percent ?? 10) }),
+                        role: e.target.value,
                         isAffiliate: e.target.value === 'affiliate',
                         percent: prev[editingUser.id]?.percent ?? String(editingUser.affiliate_commission_percent ?? 10)
                       }
                     }))}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   >
-                    <option value="user">User</option>
+                    <option value="user">{isUk ? 'Користувач' : 'User'}</option>
                     <option value="affiliate">{isUk ? 'Афілейт' : 'Affiliate'}</option>
+                    <option value="admin">{isUk ? 'Адміністратор' : 'Administrator'}</option>
                   </select>
 
-                  {(affiliateEdits[editingUser.id]?.isAffiliate ?? editingUser.role === 'affiliate') && (
+                  {(affiliateEdits[editingUser.id]?.role === 'affiliate'
+                    || (!(affiliateEdits[editingUser.id]?.role) && editingUser.role === 'affiliate')) && (
                     <>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -1577,7 +1613,10 @@ export default function Admin() {
                           value={affiliateEdits[editingUser.id]?.percent ?? ''}
                           onChange={(e) => setAffiliateEdits((prev) => ({
                             ...prev,
-                            [editingUser.id]: { ...(prev[editingUser.id] || { isAffiliate: true }), percent: e.target.value }
+                            [editingUser.id]: {
+                              ...(prev[editingUser.id] || { role: 'affiliate', isAffiliate: true }),
+                              percent: e.target.value
+                            }
                           }))}
                           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800"
                         />
@@ -1616,8 +1655,9 @@ export default function Admin() {
                     await handleUpdateLinkLimit(uid);
                     if (editingUser.role !== 'super_admin') {
                       await handleSaveAffiliateRole(uid);
-                      const isAff = affiliateEdits[uid]?.isAffiliate ?? editingUser.role === 'affiliate';
-                      if (isAff) {
+                      const nextRole = affiliateEdits[uid]?.role
+                        || (affiliateEdits[uid]?.isAffiliate || editingUser.role === 'affiliate' ? 'affiliate' : 'user');
+                      if (nextRole === 'affiliate') {
                         await handleSaveAffiliateBalance(uid);
                       }
                     }

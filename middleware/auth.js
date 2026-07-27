@@ -77,6 +77,27 @@ export const requireSuperAdmin = async (req, res, next) => {
   next();
 };
 
+/**
+ * Allows super_admin (with full owner checks) OR admin (role check only).
+ * Base guard for /api/admin. Super-admin-only routes add requireSuperAdmin inline.
+ * Admin must NOT go through ADMIN_EMAIL check — otherwise only the owner can work.
+ */
+export const requireAdminOrAbove = async (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (req.user.role === 'super_admin') {
+    return requireSuperAdmin(req, res, next);
+  }
+
+  if (req.user.role === 'admin') {
+    return next();
+  }
+
+  return res.status(403).json({ error: 'Access denied. Admin role required.' });
+};
+
 // Optional authentication (doesn't fail if no token)
 export const optionalAuth = async (req, res, next) => {
   try {

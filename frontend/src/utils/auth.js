@@ -38,6 +38,11 @@ export const isSuperAdmin = () => {
   return user?.role === 'super_admin';
 };
 
+export const isAdminOrAbove = () => {
+  const user = getUser();
+  return user?.role === 'super_admin' || user?.role === 'admin';
+};
+
 // Impersonation helpers
 export const saveAdminSession = () => {
   const token = getAuthToken();

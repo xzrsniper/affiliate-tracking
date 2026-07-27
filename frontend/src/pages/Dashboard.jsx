@@ -103,9 +103,11 @@ export default function Dashboard() {
   const [affiliateSummary, setAffiliateSummary] = useState(null);
   const [adminAffiliateBalanceTotal, setAdminAffiliateBalanceTotal] = useState(null);
   const isSuperAdmin = user?.role === 'super_admin';
+  const isPlatformAdmin = user?.role === 'admin';
+  const canSeeAffiliatesBalance = isSuperAdmin || isPlatformAdmin;
 
   const fetchAdminAffiliateBalance = async () => {
-    if (user?.role !== 'super_admin') return;
+    if (user?.role !== 'super_admin' && user?.role !== 'admin') return;
     try {
       const response = await api.get('/api/admin/affiliates/overview', { params: { range: 'all' } });
       const total = response.data?.summary?.balance_total;
@@ -754,26 +756,26 @@ export default function Dashboard() {
               <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
               <p className="text-sm text-slate-600">{currentDate}</p>
             </div>
-            {(isAffiliate || isSuperAdmin) && (
+            {(isAffiliate || canSeeAffiliatesBalance) && (
               <div className="flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2 dark:border-violet-800/60 dark:bg-violet-950/40">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/50">
                   <DollarSign className="h-4 w-4 text-violet-600 dark:text-violet-300" />
                 </div>
                 <div className="leading-tight">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-600/80 dark:text-violet-300/80">
-                    {isSuperAdmin
+                    {canSeeAffiliatesBalance
                       ? (isUk ? 'Баланс афілейтів' : 'Affiliates balance')
                       : (isUk ? 'Баланс' : 'Balance')}
                   </div>
                   <div className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    {(isSuperAdmin ? (adminAffiliateBalanceTotal ?? 0) : affiliateBalance).toLocaleString()} ₴
+                    {(canSeeAffiliatesBalance ? (adminAffiliateBalanceTotal ?? 0) : affiliateBalance).toLocaleString()} ₴
                   </div>
                   {isAffiliate && affiliateCommissionPercent != null && (
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
                       {isUk ? 'Комісія' : 'Commission'}: {affiliateCommissionPercent}%
                     </div>
                   )}
-                  {isSuperAdmin && (
+                  {canSeeAffiliatesBalance && (
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
                       {isUk ? 'Сума балансів усіх афілейтів' : 'Sum of all affiliate balances'}
                     </div>
