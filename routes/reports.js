@@ -9,6 +9,48 @@ const router = express.Router();
 
 const REPORT_SECRET = process.env.REPORT_SHARE_SECRET || process.env.JWT_SECRET || 'lehko-report-secret';
 
+/** Classify conversion by event_type (same rules as dashboard / links stats). */
+function classifyEventType(eventType) {
+  if (eventType === 'cart') return 'cart';
+  if (eventType === 'lead') return 'lead';
+  // 'sale' or null/undefined (legacy rows) → sale
+  return 'sale';
+}
+
+function aggregateConversionRow(r, buckets) {
+  const val = Number(r.order_value || 0);
+  const kind = classifyEventType(r.event_type);
+  if (kind === 'cart') {
+    buckets.cart_count += 1;
+    buckets.cart_revenue += val;
+  } else if (kind === 'lead') {
+    buckets.lead_count += 1;
+    buckets.lead_revenue += val;
+  } else {
+    buckets.sales_count += 1;
+    buckets.sales_revenue += val;
+  }
+  return {
+    id: r.id,
+    event_type: r.event_type || 'sale',
+    lead_status: r.lead_status,
+    amount: val,
+    order_id: r.order_id || null,
+    created_at: r.created_at
+  };
+}
+
+function emptyBuckets() {
+  return {
+    sales_count: 0,
+    sales_revenue: 0,
+    lead_count: 0,
+    lead_revenue: 0,
+    cart_count: 0,
+    cart_revenue: 0
+  };
+}
+
 function signPayload(payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = crypto.createHmac('sha256', REPORT_SECRET).update(body).digest('base64url');
@@ -55,23 +97,9 @@ async function getSingleLinkData(userId, linkId) {
   const c = clickRows[0] || {};
   const clicks = Number(c.clicks || 0);
   const uniqueClicks = Number(c.unique_clicks || 0);
-  let conversions = 0, salesCount = 0, salesRevenue = 0, leadCount = 0, leadRevenue = 0;
-  const conversionsList = convRows.map((r) => {
-    const val = Number(r.order_value || 0);
-    conversions += 1;
-    // Confirmed = direct sale (not rejected) OR lead manually approved
-    const isConfirmed = (r.event_type === 'sale' && r.lead_status !== 'rejected') ||
-      (r.event_type === 'lead' && r.lead_status === 'approved') ||
-      (r.event_type == null);
-    if (isConfirmed) {
-      salesCount += 1;
-      salesRevenue += val;
-    } else {
-      leadCount += 1;
-      leadRevenue += val;
-    }
-    return { id: r.id, event_type: r.event_type || 'sale', lead_status: r.lead_status, amount: val, order_id: r.order_id || null, created_at: r.created_at };
-  });
+  const buckets = emptyBuckets();
+  const conversionsList = convRows.map((r) => aggregateConversionRow(r, buckets));
+  const conversions = buckets.sales_count + buckets.lead_count;
 
   return {
     link: {
@@ -85,10 +113,12 @@ async function getSingleLinkData(userId, linkId) {
       clicks,
       unique_clicks: uniqueClicks,
       conversions,
-      sales_count: salesCount,
-      sales_revenue: Number(salesRevenue.toFixed(2)),
-      lead_count: leadCount,
-      lead_revenue: Number(leadRevenue.toFixed(2)),
+      sales_count: buckets.sales_count,
+      sales_revenue: Number(buckets.sales_revenue.toFixed(2)),
+      lead_count: buckets.lead_count,
+      lead_revenue: Number(buckets.lead_revenue.toFixed(2)),
+      cart_count: buckets.cart_count,
+      cart_revenue: Number(buckets.cart_revenue.toFixed(2)),
       conversion_rate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
     },
     conversions: conversionsList
@@ -128,31 +158,19 @@ async function getLinksCompareData(userId, linkIds) {
   const convListBy = new Map();
   convRows.forEach((r) => {
     const id = Number(r.link_id);
-    const curr = convBy.get(id) || { conversions: 0, sales_count: 0, sales_revenue: 0, lead_count: 0, lead_revenue: 0 };
-    const val = Number(r.order_value || 0);
-    curr.conversions += 1;
-    // Confirmed = direct sale (not rejected) OR lead manually approved
-    const isConfirmed = (r.event_type === 'sale' && r.lead_status !== 'rejected') ||
-      (r.event_type === 'lead' && r.lead_status === 'approved') ||
-      (r.event_type == null);
-    if (isConfirmed) {
-      curr.sales_count += 1;
-      curr.sales_revenue += val;
-    } else {
-      curr.lead_count += 1;
-      curr.lead_revenue += val;
-    }
+    const curr = convBy.get(id) || emptyBuckets();
+    const item = aggregateConversionRow(r, curr);
     convBy.set(id, curr);
     const list = convListBy.get(id) || [];
-    list.push({ id: r.id, event_type: r.event_type || 'sale', lead_status: r.lead_status, amount: val, order_id: r.order_id || null, created_at: r.created_at });
+    list.push(item);
     convListBy.set(id, list);
   });
 
   const items = links.map((l) => {
     const c = clickBy.get(Number(l.id)) || {};
-    const v = convBy.get(Number(l.id)) || {};
+    const v = convBy.get(Number(l.id)) || emptyBuckets();
     const clicks = Number(c.clicks || 0);
-    const conversions = Number(v.conversions || 0);
+    const conversions = v.sales_count + v.lead_count;
     return {
       id: l.id,
       name: l.name || l.unique_code,
@@ -160,10 +178,12 @@ async function getLinksCompareData(userId, linkIds) {
       clicks,
       unique_clicks: Number(c.unique_clicks || 0),
       conversions,
-      sales_count: Number(v.sales_count || 0),
-      sales_revenue: Number((v.sales_revenue || 0).toFixed(2)),
-      lead_count: Number(v.lead_count || 0),
-      lead_revenue: Number((v.lead_revenue || 0).toFixed(2)),
+      sales_count: v.sales_count,
+      sales_revenue: Number(v.sales_revenue.toFixed(2)),
+      lead_count: v.lead_count,
+      lead_revenue: Number(v.lead_revenue.toFixed(2)),
+      cart_count: v.cart_count,
+      cart_revenue: Number(v.cart_revenue.toFixed(2)),
       conversion_rate: clicks > 0 ? Number(((conversions / clicks) * 100).toFixed(2)) : 0,
       conversions_list: convListBy.get(Number(l.id)) || [],
     };
@@ -346,6 +366,8 @@ router.get('/public/:token/export', async (req, res, next) => {
         salesCount: 'Продажі',
         leadCount: 'Ліди',
         leadRevenue: 'Дохід з лідів',
+        carts: 'Кошик',
+        cartRevenue: 'Сума кошиків',
         affiliate: 'Афілейт',
         commission: 'Комісія %',
         balance: 'Баланс',
@@ -367,6 +389,8 @@ router.get('/public/:token/export', async (req, res, next) => {
         salesCount: 'Sales Count',
         leadCount: 'Lead Count',
         leadRevenue: 'Lead Revenue',
+        carts: 'Cart',
+        cartRevenue: 'Cart Revenue',
         affiliate: 'Affiliate',
         commission: 'Commission %',
         balance: 'Balance',
@@ -382,16 +406,16 @@ router.get('/public/:token/export', async (req, res, next) => {
       if (!data) return res.status(404).send('Link not found');
       const s = data.stats;
       const rows = [
-        [h.link, h.url, h.clicks, h.uniqueClicks, h.conversions, h.leads, h.cr, h.totalRevenue, h.salesRevenue],
-        [data.link.name, data.link.original_url, s.clicks, s.unique_clicks, s.conversions, s.lead_count, s.conversion_rate, s.total_revenue, s.sales_revenue]
+        [h.link, h.url, h.clicks, h.uniqueClicks, h.conversions, h.leads, h.carts, h.cr, h.salesRevenue, h.cartRevenue],
+        [data.link.name, data.link.original_url, s.clicks, s.unique_clicks, s.conversions, s.lead_count, s.cart_count, s.conversion_rate, s.sales_revenue, s.cart_revenue]
       ];
       res.setHeader('Content-Disposition', `attachment; filename="link-report-${data.link.unique_code}.csv"`);
       return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
-      const rows = [[h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue]];
-      data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.sales_count, i.sales_revenue, i.lead_count, i.lead_revenue]));
+      const rows = [[h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue, h.carts, h.cartRevenue]];
+      data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.sales_count, i.sales_revenue, i.lead_count, i.lead_revenue, i.cart_count, i.cart_revenue]));
       res.setHeader('Content-Disposition', 'attachment; filename="links-report.csv"');
       return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }

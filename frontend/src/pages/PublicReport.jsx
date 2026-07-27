@@ -34,6 +34,7 @@ const TRANSLATIONS = {
     unique: 'унікальних',
     sales: 'Продажі',
     leads: 'Ліди',
+    carts: 'Кошик',
     cr: 'CR',
     salesRevenue: 'Дохід з продажів',
     linkInfo: 'Інфо про посилання',
@@ -52,9 +53,10 @@ const TRANSLATIONS = {
     conversions: 'Конверсії',
     convByLink: 'Конверсії по посиланнях',
     // conversions list
-    conversionsTitle: 'Конверсії',
+    conversionsTitle: 'Події',
     salesLabel: 'Продажі',
     leadsLabel: 'Ліди',
+    cartsLabel: 'Кошик',
     time: 'Час',
     amount: 'Сума',
     orderId: 'ID замовлення',
@@ -87,6 +89,7 @@ const TRANSLATIONS = {
     unique: 'unique',
     sales: 'Sales',
     leads: 'Leads',
+    carts: 'Cart',
     cr: 'CR',
     salesRevenue: 'Sales revenue',
     linkInfo: 'Link info',
@@ -105,9 +108,10 @@ const TRANSLATIONS = {
     conversions: 'Conversions',
     convByLink: 'Conversions by link',
     // conversions list
-    conversionsTitle: 'Conversions',
+    conversionsTitle: 'Events',
     salesLabel: 'Sales',
     leadsLabel: 'Leads',
+    cartsLabel: 'Cart',
     time: 'Time',
     amount: 'Amount',
     orderId: 'Order ID',
@@ -161,8 +165,9 @@ function formatTime(dt, lang) {
 
 function ConversionsList({ conversions, currency, lang, t }) {
   const [open, setOpen] = useState(false);
-  const sales = conversions.filter((c) => c.event_type === 'sale');
+  const sales = conversions.filter((c) => c.event_type === 'sale' || !c.event_type);
   const leads = conversions.filter((c) => c.event_type === 'lead');
+  const carts = conversions.filter((c) => c.event_type === 'cart');
   const locale = lang === 'uk' ? 'uk-UA' : 'en-US';
 
   if (!conversions.length) return null;
@@ -173,7 +178,7 @@ function ConversionsList({ conversions, currency, lang, t }) {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
       >
-        <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+        <span className="text-sm font-semibold text-slate-700 flex items-center gap-2 flex-wrap">
           {t.conversionsTitle}
           {sales.length > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
@@ -187,6 +192,12 @@ function ConversionsList({ conversions, currency, lang, t }) {
               {leads.length} {t.leadsLabel.toLowerCase()}
             </span>
           )}
+          {carts.length > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block" />
+              {carts.length} {t.cartsLabel.toLowerCase()}
+            </span>
+          )}
         </span>
         <span className="text-slate-400 text-xs">{open ? t.hide : t.show}</span>
       </button>
@@ -196,6 +207,7 @@ function ConversionsList({ conversions, currency, lang, t }) {
           {[
             { label: t.salesLabel, items: sales, cls: 'text-emerald-700' },
             { label: t.leadsLabel, items: leads, cls: 'text-amber-600' },
+            { label: t.cartsLabel, items: carts, cls: 'text-orange-600' },
           ]
             .filter(({ items }) => items.length > 0)
             .map(({ label, items, cls }) => (
@@ -380,20 +392,27 @@ export default function PublicReport() {
           const salesRev = Number(s.sales_revenue || 0);
           const salesCount = Number(s.sales_count || 0);
           const leadCount = Number(s.lead_count || 0);
+          const cartCount = Number(s.cart_count || 0);
           const convList = report.conversions || [];
 
+          const salesSub = [
+            leadCount > 0 ? `+ ${leadCount} ${t.leads.toLowerCase()}` : null,
+            cartCount > 0 ? `${cartCount} ${t.carts.toLowerCase()}` : null,
+          ].filter(Boolean).join(' · ') || undefined;
+
           const perfData = [
-            { name: t.clicks,  value: Number(s.clicks || 0) },
-            { name: t.unique,  value: Number(s.unique_clicks || 0) },
-            { name: t.sales,   value: salesCount },
-            { name: t.leads,   value: leadCount },
+            { name: t.clicks, value: Number(s.clicks || 0) },
+            { name: t.unique, value: Number(s.unique_clicks || 0) },
+            { name: t.sales, value: salesCount },
+            { name: t.leads, value: leadCount },
+            ...(cartCount > 0 ? [{ name: t.carts, value: cartCount }] : []),
           ];
 
           return (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatCard label={t.clicks} value={Number(s.clicks || 0).toLocaleString(locale)} sub={`${Number(s.unique_clicks || 0).toLocaleString(locale)} ${t.unique}`} />
-                <StatCard label={t.sales} value={salesCount.toLocaleString(locale)} sub={leadCount > 0 ? `+ ${leadCount} ${t.leads.toLowerCase()}` : undefined} />
+                <StatCard label={t.sales} value={salesCount.toLocaleString(locale)} sub={salesSub} />
                 <StatCard label={t.cr} value={`${cr}%`} />
                 <StatCard label={t.salesRevenue} value={fmtMoney(salesRev)} />
               </div>
@@ -440,6 +459,9 @@ export default function PublicReport() {
                       ...(leadCount > 0 ? [
                         { label: t.leads, value: leadCount.toLocaleString(locale), color: 'text-amber-600 font-medium' },
                       ] : []),
+                      ...(cartCount > 0 ? [
+                        { label: t.carts, value: cartCount.toLocaleString(locale), color: 'text-orange-600 font-medium' },
+                      ] : []),
                     ].map(({ label, value, color }) => (
                       <tr key={label} className="border-t border-slate-100 hover:bg-slate-50">
                         <td className="px-4 py-3 text-slate-600">{label}</td>
@@ -460,8 +482,14 @@ export default function PublicReport() {
           const totalClicks   = items.reduce((s, i) => s + Number(i.clicks || 0), 0);
           const totalSales    = items.reduce((s, i) => s + Number(i.sales_count || 0), 0);
           const totalLeads    = items.reduce((s, i) => s + Number(i.lead_count || 0), 0);
+          const totalCarts    = items.reduce((s, i) => s + Number(i.cart_count || 0), 0);
           const totalSalesRev = items.reduce((s, i) => s + Number(i.sales_revenue || 0), 0);
           const bestCR        = items.reduce((best, i) => Math.max(best, Number(i.conversion_rate || 0)), 0);
+
+          const salesSub = [
+            totalLeads > 0 ? `+ ${totalLeads} ${t.leads.toLowerCase()}` : null,
+            totalCarts > 0 ? `${totalCarts} ${t.carts.toLowerCase()}` : null,
+          ].filter(Boolean).join(' · ') || undefined;
 
           const chartData = items.map((i, idx) => ({
             name:        (i.name || '').slice(0, 16) || `Link ${idx + 1}`,
@@ -471,6 +499,7 @@ export default function PublicReport() {
             revenue:     Number(i.sales_revenue || 0),
             sales:       Number(i.sales_count || 0),
             leads:       Number(i.lead_count || 0),
+            carts:       Number(i.cart_count || 0),
           }));
 
           const maxClicks  = Math.max(...chartData.map(d => d.clicks), 1);
@@ -481,7 +510,7 @@ export default function PublicReport() {
             <>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <StatCard label={t.totalClicks}  value={totalClicks.toLocaleString(locale)} />
-                <StatCard label={t.sales}        value={totalSales.toLocaleString(locale)} sub={`+ ${totalLeads} ${t.leads.toLowerCase()}`} />
+                <StatCard label={t.sales}        value={totalSales.toLocaleString(locale)} sub={salesSub} />
                 <StatCard label={t.bestCr}       value={`${bestCR}%`} />
                 <StatCard label={t.salesRevenue} value={fmtMoney(totalSalesRev)} />
               </div>
@@ -517,6 +546,12 @@ export default function PublicReport() {
                         <div className="flex items-center gap-1.5 pt-1">
                           <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
                           <span className="text-amber-700 font-medium">{d.leads} {t.leads.toLowerCase()}</span>
+                        </div>
+                      )}
+                      {d.carts > 0 && (
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                          <span className="text-orange-700 font-medium">{d.carts} {t.carts.toLowerCase()}</span>
                         </div>
                       )}
                     </div>
@@ -568,6 +603,7 @@ export default function PublicReport() {
                       <th className="text-right px-3 py-3">{t.sales}</th>
                       <th className="text-right px-3 py-3">{t.salesRevenue}</th>
                       <th className="text-right px-3 py-3">{t.leads}</th>
+                      <th className="text-right px-3 py-3">{t.carts}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -598,6 +634,11 @@ export default function PublicReport() {
                         <td className="px-3 py-3 text-right">
                           {Number(i.lead_count || 0) > 0
                             ? <span className="font-medium text-amber-600">{i.lead_count}</span>
+                            : <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          {Number(i.cart_count || 0) > 0
+                            ? <span className="font-medium text-orange-600">{i.cart_count}</span>
                             : <span className="text-slate-300">—</span>}
                         </td>
                       </tr>
