@@ -86,6 +86,100 @@ function parseDateOnly(value, endOfDay = false) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function toDateOnlyString(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  // Local calendar date (server timezone) for consistent day boundaries
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayDateOnly() {
+  return toDateOnlyString(new Date());
+}
+
+function formatPeriodLabel(from, to, { allTime = false, live = false } = {}) {
+  if (allTime && !from && !to) {
+    return {
+      uk: 'Період: весь час',
+      en: 'Period: all time'
+    };
+  }
+  if (from && to && from === to) {
+    return {
+      uk: `Період: ${from}`,
+      en: `Period: ${from}`
+    };
+  }
+  if (from && to) {
+    const liveNoteUk = live ? ' (актуально на день перегляду)' : '';
+    const liveNoteEn = live ? ' (as of view date)' : '';
+    return {
+      uk: `Період: ${from} — ${to}${liveNoteUk}`,
+      en: `Period: ${from} — ${to}${liveNoteEn}`
+    };
+  }
+  if (from) {
+    return {
+      uk: `Період: з ${from}`,
+      en: `Period: from ${from}`
+    };
+  }
+  if (to) {
+    return {
+      uk: `Період: до ${to}`,
+      en: `Period: until ${to}`
+    };
+  }
+  return {
+    uk: 'Період: весь час',
+    en: 'Period: all time'
+  };
+}
+
+function buildPeriod({ from = null, to = null, range = null, live = false, allTime = false } = {}) {
+  const labels = formatPeriodLabel(from, to, { allTime, live });
+  return {
+    from: from || null,
+    to: to || null,
+    range: range || null,
+    live: Boolean(live),
+    all_time: Boolean(allTime),
+    label: labels.uk,
+    labels
+  };
+}
+
+/** Freeze preset affiliate ranges into absolute calendar dates at share time. */
+function resolveAffiliateSharePeriod(rangeInput, fromInput, toInput) {
+  const from = parseDateOnly(fromInput) ? String(fromInput).slice(0, 10) : null;
+  const to = parseDateOnly(toInput) ? String(toInput).slice(0, 10) : null;
+  if (from || to) {
+    return { range: 'custom', from, to };
+  }
+  const range = ['1', '3', '7', '14', '30', 'all'].includes(String(rangeInput))
+    ? String(rangeInput)
+    : 'all';
+  if (['1', '3', '7', '14', '30'].includes(range)) {
+    const toDate = new Date();
+    toDate.setHours(0, 0, 0, 0);
+    const fromDate = new Date(toDate);
+    fromDate.setDate(fromDate.getDate() - (Number(range) - 1));
+    return {
+      range,
+      from: toDateOnlyString(fromDate),
+      to: toDateOnlyString(toDate)
+    };
+  }
+  return { range: 'all', from: null, to: null };
+}
+
 function buildAffiliatesDateFilter({ range = 'all', from = null, to = null } = {}) {
   const fromDate = parseDateOnly(from, false);
   const toDate = parseDateOnly(to, true);
@@ -93,10 +187,12 @@ function buildAffiliatesDateFilter({ range = 'all', from = null, to = null } = {
     const created_at = {};
     if (fromDate) created_at[Op.gte] = fromDate;
     if (toDate) created_at[Op.lte] = toDate;
+    const fromStr = fromDate ? toDateOnlyString(fromDate) : null;
+    const toStr = toDate ? toDateOnlyString(toDate) : null;
     return {
-      label: fromDate && toDate
-        ? `${fromDate.toISOString().slice(0, 10)}…${toDate.toISOString().slice(0, 10)}`
-        : (fromDate ? `from ${fromDate.toISOString().slice(0, 10)}` : `to ${toDate.toISOString().slice(0, 10)}`),
+      from: fromStr,
+      to: toStr,
+      range: fromStr || toStr ? 'custom' : String(range || 'all'),
       filter: { created_at }
     };
   }
@@ -105,10 +201,17 @@ function buildAffiliatesDateFilter({ range = 'all', from = null, to = null } = {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     d.setDate(d.getDate() - (Number(range) - 1));
-    return { label: String(range), filter: { created_at: { [Op.gte]: d } } };
+    const fromStr = toDateOnlyString(d);
+    const toStr = todayDateOnly();
+    return {
+      from: fromStr,
+      to: toStr,
+      range: String(range),
+      filter: { created_at: { [Op.gte]: d } }
+    };
   }
 
-  return { label: 'all', filter: {} };
+  return { from: null, to: null, range: 'all', filter: {} };
 }
 
 async function getSingleLinkData(userId, linkId) {
@@ -142,6 +245,8 @@ async function getSingleLinkData(userId, linkId) {
   const buckets = emptyBuckets();
   const conversionsList = convRows.map((r) => aggregateConversionRow(r, buckets));
   const conversions = buckets.sales_count + buckets.lead_count;
+  const periodFrom = toDateOnlyString(link.created_at);
+  const periodTo = todayDateOnly();
 
   return {
     link: {
@@ -151,6 +256,7 @@ async function getSingleLinkData(userId, linkId) {
       original_url: link.original_url,
       created_at: link.created_at
     },
+    period: buildPeriod({ from: periodFrom, to: periodTo, live: true }),
     stats: {
       clicks,
       unique_clicks: uniqueClicks,
@@ -217,6 +323,7 @@ async function getLinksCompareData(userId, linkIds) {
       id: l.id,
       name: l.name || l.unique_code,
       original_url: l.original_url,
+      created_at: l.created_at,
       clicks,
       unique_clicks: Number(c.unique_clicks || 0),
       conversions,
@@ -231,11 +338,22 @@ async function getLinksCompareData(userId, linkIds) {
     };
   });
 
-  return { items };
+  const createdDates = links
+    .map((l) => toDateOnlyString(l.created_at))
+    .filter(Boolean)
+    .sort();
+  const periodFrom = createdDates[0] || null;
+  const periodTo = todayDateOnly();
+
+  return {
+    items,
+    period: buildPeriod({ from: periodFrom, to: periodTo, live: true })
+  };
 }
 
 async function getAffiliatesOverview({ range = 'all', from = null, to = null } = {}) {
-  const { label, filter: dateFilter } = buildAffiliatesDateFilter({ range, from, to });
+  const { from: resolvedFrom, to: resolvedTo, range: resolvedRange, filter: dateFilter } =
+    buildAffiliatesDateFilter({ range, from, to });
 
   const affiliates = await User.findAll({
     where: { role: 'affiliate' },
@@ -309,9 +427,16 @@ async function getAffiliatesOverview({ range = 'all', from = null, to = null } =
   });
 
   return {
-    range: label,
-    from: from || null,
-    to: to || null,
+    range: resolvedRange,
+    from: resolvedFrom,
+    to: resolvedTo,
+    period: buildPeriod({
+      from: resolvedFrom,
+      to: resolvedTo,
+      range: resolvedRange,
+      live: false,
+      allTime: resolvedRange === 'all' && !resolvedFrom && !resolvedTo
+    }),
     items: Array.from(byAffiliate.values()).map((a) => ({
       ...a,
       approved_revenue: Number(a.approved_revenue.toFixed(2)),
@@ -339,10 +464,16 @@ router.post('/share', authenticate, async (req, res, next) => {
       if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Admin only report' });
       }
-      const range = ['1', '3', '7', '14', '30', 'all'].includes(String(req.body?.range)) ? String(req.body.range) : 'all';
-      const from = parseDateOnly(req.body?.from) ? String(req.body.from).slice(0, 10) : null;
-      const to = parseDateOnly(req.body?.to) ? String(req.body.to).slice(0, 10) : null;
-      payload = { v: 1, type, range, from, to, user_id: req.user.id, white_label: null };
+      const sharedPeriod = resolveAffiliateSharePeriod(req.body?.range, req.body?.from, req.body?.to);
+      payload = {
+        v: 1,
+        type,
+        range: sharedPeriod.range,
+        from: sharedPeriod.from,
+        to: sharedPeriod.to,
+        user_id: req.user.id,
+        white_label: null
+      };
     } else {
       return res.status(400).json({ error: 'Unsupported report type' });
     }
@@ -471,12 +602,16 @@ router.get('/public/:token/export', async (req, res, next) => {
       }
     };
     const h = csvHeaders[lang];
+    const periodHeader = lang === 'en' ? 'Period' : 'Період';
 
     if (payload.type === 'link_single') {
       const data = await getSingleLinkData(payload.user_id, payload.link_id);
       if (!data) return res.status(404).send('Link not found');
       const s = data.stats;
+      const periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
       const rows = [
+        [periodHeader, periodLabel],
+        [],
         [h.link, h.url, h.clicks, h.uniqueClicks, h.conversions, h.leads, h.carts, h.cr, h.salesRevenue, h.cartRevenue],
         [data.link.name, data.link.original_url, s.clicks, s.unique_clicks, s.conversions, s.lead_count, s.cart_count, s.conversion_rate, s.sales_revenue, s.cart_revenue]
       ];
@@ -485,7 +620,12 @@ router.get('/public/:token/export', async (req, res, next) => {
     }
     if (payload.type === 'links_compare') {
       const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
-      const rows = [[h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue, h.carts, h.cartRevenue]];
+      const periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+      const rows = [
+        [periodHeader, periodLabel],
+        [],
+        [h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue, h.carts, h.cartRevenue]
+      ];
       data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.sales_count, i.sales_revenue, i.lead_count, i.lead_revenue, i.cart_count, i.cart_revenue]));
       res.setHeader('Content-Disposition', 'attachment; filename="links-report.csv"');
       return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
@@ -496,7 +636,12 @@ router.get('/public/:token/export', async (req, res, next) => {
       from: payload.from || null,
       to: payload.to || null
     });
-    const rows = [[h.affiliate, h.commission, h.balance, h.conversions, h.pending, h.approvedRevenue, h.earnings]];
+    const periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
+    const rows = [
+      [periodHeader, periodLabel],
+      [],
+      [h.affiliate, h.commission, h.balance, h.conversions, h.pending, h.approvedRevenue, h.earnings]
+    ];
     data.items.forEach((i) => rows.push([i.email, i.commission_percent, i.affiliate_balance, i.conversions, i.pending_conversions, i.approved_revenue, i.affiliate_earnings]));
     res.setHeader('Content-Disposition', 'attachment; filename="affiliates-report.csv"');
     return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
