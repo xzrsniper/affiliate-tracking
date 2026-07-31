@@ -1154,7 +1154,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         ...affiliatePayoutEventWhere('all'),
         ...leadStatusWhere(status)
       },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 1000,
       raw: true
@@ -1180,6 +1180,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status || 'pending',
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent),
         commission_percent: percent
@@ -1259,7 +1260,7 @@ router.get('/affiliates/conversions', async (req, res, next) => {
 
     const convRows = await Conversion.findAll({
       where,
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit,
       raw: true
@@ -1285,6 +1286,7 @@ router.get('/affiliates/conversions', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status || 'pending',
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent),
         commission_percent: percent
@@ -1335,7 +1337,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
         ...affiliatePayoutEventWhere('all'),
         ...leadStatusWhere(status)
       },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 500
     });
@@ -1361,6 +1363,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status || 'pending',
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent),
         commission_percent: percent
@@ -1381,7 +1384,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
 });
 
 /** Shared approve/reject for affiliate lead or sale payouts. */
-async function moderateAffiliateConversion(conversionId, action) {
+async function moderateAffiliateConversion(conversionId, action, rejectionReason = null) {
   return sequelize.transaction(async (t) => {
     const conversion = await Conversion.findByPk(conversionId, { transaction: t, lock: t.LOCK.UPDATE });
     if (!conversion || !isAffiliatePayoutEvent(conversion.event_type)) {
@@ -1405,6 +1408,7 @@ async function moderateAffiliateConversion(conversionId, action) {
 
     if (action === 'reject') {
       conversion.lead_status = 'rejected';
+      conversion.rejection_reason = rejectionReason ? String(rejectionReason).slice(0, 500) : null;
       await conversion.save({ transaction: t });
       return { success: true, conversion_id: conversion.id, action: 'rejected' };
     }
@@ -1417,6 +1421,7 @@ async function moderateAffiliateConversion(conversionId, action) {
     const amount = commissionFromOrder(conversion.order_value, percent);
     // Approving a lead confirms it for payout (same as confirmed sale in reports)
     conversion.lead_status = 'approved';
+    conversion.rejection_reason = null;
     if (conversion.event_type === 'lead') {
       conversion.event_type = 'sale';
     }
@@ -1470,7 +1475,8 @@ router.post('/conversions/:id/reject-lead', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid conversion id' });
     }
 
-    const result = await moderateAffiliateConversion(conversionId, 'reject');
+    const rejectionReason = req.body?.rejection_reason || null;
+    const result = await moderateAffiliateConversion(conversionId, 'reject', rejectionReason);
     if (result.error) {
       return res.status(result.status).json({ error: result.error });
     }
