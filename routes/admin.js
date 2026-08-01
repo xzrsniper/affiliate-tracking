@@ -134,6 +134,19 @@ function leadStatusWhereAllOrFilter(statusRaw) {
 }
 
 /**
+ * Merge Sequelize where fragments with Op.and.
+ * Critical: multiple fragments can each use Symbol Op.or — object spread would
+ * overwrite one Op.or with another (e.g. event_type filter lost → carts appear
+ * in purchase moderation because cart.lead_status is null).
+ */
+function andWhere(...parts) {
+  const clauses = parts.filter((p) => p && typeof p === 'object' && Object.keys(p).length + Object.getOwnPropertySymbols(p).length > 0);
+  if (clauses.length === 0) return {};
+  if (clauses.length === 1) return clauses[0];
+  return { [Op.and]: clauses };
+}
+
+/**
  * GET /api/admin/users
  * List all users
  * Query params:
@@ -1149,18 +1162,20 @@ router.get('/affiliates/moderation', async (req, res, next) => {
     const websitesByUser = groupWebsitesByUserId(websiteRows);
 
     const convRows = await Conversion.findAll({
-      where: {
-        link_id: { [Op.in]: linkRows.map((l) => l.id) },
-        ...affiliatePayoutEventWhere('all'),
-        ...leadStatusWhere(status)
-      },
+      where: andWhere(
+        { link_id: { [Op.in]: linkRows.map((l) => l.id) } },
+        affiliatePayoutEventWhere('all'),
+        leadStatusWhere(status)
+      ),
       attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 1000,
       raw: true
     });
 
-    const items = convRows.map((row) => {
+    const items = convRows
+      .filter((row) => isAffiliatePayoutEvent(row.event_type))
+      .map((row) => {
       const link = linkById.get(Number(row.link_id));
       const affiliate = affiliateById.get(Number(link?.user_id));
       const percent = resolveCommissionPercentWithSites(
@@ -1251,12 +1266,12 @@ router.get('/affiliates/conversions', async (req, res, next) => {
     });
     const websitesByUser = groupWebsitesByUserId(websiteRows);
 
-    const where = {
-      link_id: { [Op.in]: linkRows.map((l) => l.id) },
-      ...affiliatePayoutEventWhere(eventRaw),
-      ...dateFilter,
-      ...leadStatusWhereAllOrFilter(statusRaw)
-    };
+    const where = andWhere(
+      { link_id: { [Op.in]: linkRows.map((l) => l.id) } },
+      affiliatePayoutEventWhere(eventRaw),
+      dateFilter,
+      leadStatusWhereAllOrFilter(statusRaw)
+    );
 
     const convRows = await Conversion.findAll({
       where,
@@ -1332,11 +1347,11 @@ router.get('/users/:id/leads', async (req, res, next) => {
     }
 
     const rows = await Conversion.findAll({
-      where: {
-        link_id: { [Op.in]: linkIds },
-        ...affiliatePayoutEventWhere('all'),
-        ...leadStatusWhere(status)
-      },
+      where: andWhere(
+        { link_id: { [Op.in]: linkIds } },
+        affiliatePayoutEventWhere('all'),
+        leadStatusWhere(status)
+      ),
       attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 500
