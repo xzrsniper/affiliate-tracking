@@ -396,7 +396,7 @@ export async function sendPublicReportEmail(opts) {
     <p style="margin:0 0 8px 0;font-size:13px;">
       <a href="${exportUrl}" style="color:#7c3aed;font-weight:600;text-decoration:none;">${t.downloadCsv}</a>
     </p>
-    <p style="margin:16px 0 0 0;font-size:12px;color:#94a3b8;">${t.footerNote}</p>
+    <p style="margin:16px 0 0 0;font-size:12px;color:#94a3b8;text-align:center;">${t.footerNote}</p>
   `;
 
   const textLines = [
