@@ -762,6 +762,8 @@ export default function Dashboard() {
         return link.stats?.avg_session_seconds || 0;
       case 'bounceRate':
         return link.stats?.bounce_rate || 0;
+      case 'trafficQuality':
+        return link.stats?.traffic_quality_score ?? -1;
       case 'avgCheck':
         return link.stats?.average_check || 0;
       case 'revenue':
@@ -1734,6 +1736,21 @@ export default function Dashboard() {
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
                           <button
                             type="button"
+                            onClick={() => handleSort('trafficQuality')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                            title={t('dashboard.tableTrafficQualityHint')}
+                          >
+                            <span>{t('dashboard.tableTrafficQuality')}</span>
+                            {sortColumn === 'trafficQuality' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
                             onClick={() => handleSort('avgCheck')}
                             className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                           >
@@ -1818,6 +1835,37 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-semibold text-slate-900">{carts.toLocaleString()}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatDuration(avgTime)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatPercent(bounceRate)}</td>
+                            <td className="px-4 py-4">
+                              {(() => {
+                                const score = link.stats?.traffic_quality_score;
+                                const band = link.stats?.traffic_quality_band || 'na';
+                                const reasons = link.stats?.traffic_quality_reasons || [];
+                                const title = reasons.length
+                                  ? reasons.join('\n')
+                                  : t('dashboard.tableTrafficQualityHint');
+                                if (score == null) {
+                                  return (
+                                    <span className="text-xs text-slate-400" title={title}>
+                                      {t('dashboard.trafficQualityNa')}
+                                    </span>
+                                  );
+                                }
+                                const cls =
+                                  band === 'good'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : band === 'mixed'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-red-100 text-red-700';
+                                return (
+                                  <span
+                                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold tabular-nums ${cls}`}
+                                    title={title}
+                                  >
+                                    {score}
+                                  </span>
+                                );
+                              })()}
+                            </td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{averageCheck.toLocaleString()} {isUk ? '₴' : '$'}</td>
                             <td className="px-4 py-4 tabular-nums">
                               <div className="flex flex-col gap-1.5">

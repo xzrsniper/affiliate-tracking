@@ -16,6 +16,7 @@ import {
 import { conversionSql, isCartEvent, isLeadEvent, isSaleEvent } from '../utils/statsAggregation.js';
 import { randomExplorationLimit, getSplitStatsForLink } from '../utils/splitTest.js';
 import LinkVariant from '../models/LinkVariant.js';
+import { buildTopIpShareByLink, computeTrafficQualityScore } from '../utils/trafficQuality.js';
 
 const router = express.Router();
 
@@ -508,7 +509,7 @@ router.get('/my-links', async (req, res, next) => {
         GROUP BY link_id
       `;
 
-    const [clickStatsRows, conversionStatsRows] = await Promise.all([
+    const [clickStatsRows, conversionStatsRows, ipShareRows] = await Promise.all([
       sequelize.query(clickStatsSql, {
         replacements: [linkIds, ...snapshotReplacements],
         type: QueryTypes.SELECT
@@ -534,11 +535,26 @@ router.get('/my-links', async (req, res, next) => {
       `, {
         replacements: [linkIds, ...snapshotReplacements],
         type: QueryTypes.SELECT
+      }),
+      sequelize.query(`
+        SELECT link_id, ip_address, COUNT(*) as cnt
+        FROM clicks
+        WHERE link_id IN (?)${snapshotCondition}
+          AND ip_address IS NOT NULL
+          AND ip_address <> ''
+        GROUP BY link_id, ip_address
+      `, {
+        replacements: [linkIds, ...snapshotReplacements],
+        type: QueryTypes.SELECT
       })
     ]);
 
     const clickStatsByLinkId = new Map(clickStatsRows.map((row) => [Number(row.link_id), row]));
     const conversionStatsByLinkId = new Map(conversionStatsRows.map((row) => [Number(row.link_id), row]));
+    const clickTotalsByLink = new Map(
+      clickStatsRows.map((row) => [Number(row.link_id), parseInt(row.total_clicks || 0, 10)])
+    );
+    const topIpShareByLink = buildTopIpShareByLink(ipShareRows, clickTotalsByLink);
 
     const candidateDomains = Array.from(new Set(
       links.map((link) => normalizeDomain(extractDomain(link.original_url))).filter(Boolean)
@@ -609,6 +625,17 @@ router.get('/my-links', async (req, res, next) => {
       const avgSessionSeconds = parseFloat(clickStats?.avg_session_seconds || 0);
       const bounces = parseInt(clickStats?.bounces || 0);
       const bounceRate = measuredSessions > 0 ? (bounces / measuredSessions) * 100 : 0;
+      const trafficQuality = computeTrafficQualityScore({
+        totalClicks,
+        uniqueClicks,
+        measuredSessions,
+        avgSessionSeconds,
+        bounceRate,
+        carts: totalCarts,
+        leads: totalLeads,
+        sales: totalSales,
+        topIpShare: topIpShareByLink.get(Number(link.id)) || 0
+      });
       const adj = parseFloat(link.revenue_adjustment || 0);
       const adjusted = applyRevenueAdjustment(rawTotalRevenue, rawSalesRevenue, rawLeadRevenue, adj, totalSales);
       const totalRevenue = adjusted.total_revenue;
@@ -672,7 +699,10 @@ router.get('/my-links', async (req, res, next) => {
           avg_session_seconds: parseFloat(avgSessionSeconds.toFixed(2)),
           bounce_rate: parseFloat(bounceRate.toFixed(2)),
           average_check: averageCheck,
-          measured_sessions: measuredSessions
+          measured_sessions: measuredSessions,
+          traffic_quality_score: trafficQuality.score,
+          traffic_quality_band: trafficQuality.band,
+          traffic_quality_reasons: trafficQuality.reasons
         }
       };
     });
