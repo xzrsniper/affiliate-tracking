@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
+import { applyClientSeo } from '../utils/seo.js';
 import { Eye, Clock, Sun, Moon } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -70,6 +71,16 @@ export default function BlogPost() {
     })();
     return () => { cancelled = true; };
   }, [slug, t]);
+
+  useEffect(() => {
+    if (!post) return;
+    applyClientSeo({
+      title: `${post.title} | lehko.space`,
+      description: (post.excerpt || post.title || '').replace(/\s+/g, ' ').trim(),
+      pathName: `/blog/${post.slug}`,
+      image: post.featured_image || null
+    });
+  }, [post]);
 
   const imageSrc = (url) => {
     if (!url) return null;
