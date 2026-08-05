@@ -24,6 +24,7 @@ import googleSheetsRoutes from './routes/googleSheets.js';
 import reportRoutes from './routes/reports.js';
 import { BlogPost, PageContent } from './models/index.js';
 import { Op, fn, col } from 'sequelize';
+import { applySeoToHtml, loadSpaIndexHtml } from './utils/seoShell.js';
 
 dotenv.config();
 
@@ -44,6 +45,14 @@ function escapeXml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function absoluteAssetUrl(maybeRelative) {
+  if (!maybeRelative) return null;
+  const raw = String(maybeRelative).trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `${SITE_URL}${raw.startsWith('/') ? raw : `/${raw}`}`;
 }
 
 // Middleware
@@ -130,24 +139,25 @@ app.get('/yunit-ekonomika-rozrahunok-prybutku-marketing', (req, res) => {
 app.get('/sitemap.xml', async (req, res, next) => {
   try {
     const urls = [];
-    const pushUrl = (pathName, lastmod, priority) => {
+    const pushUrl = (pathName, lastmod, priority, changefreq = 'weekly') => {
       urls.push({
         loc: `${SITE_URL}${pathName === '/' ? '' : pathName}`,
         lastmod: toIsoDate(lastmod),
+        changefreq,
         priority: priority.toFixed(1)
       });
     };
 
     const staticPublicPages = [
-      { path: '/', priority: 1.0 },
-      { path: '/guide', priority: 0.7 },
-      { path: '/blog', priority: 0.8 },
-      { path: '/terms', priority: 0.5 },
-      { path: '/privacy', priority: 0.5 },
-      { path: '/refund', priority: 0.5 }
+      { path: '/', priority: 1.0, changefreq: 'daily' },
+      { path: '/guide', priority: 0.7, changefreq: 'monthly' },
+      { path: '/blog', priority: 0.9, changefreq: 'daily' },
+      { path: '/terms', priority: 0.4, changefreq: 'yearly' },
+      { path: '/privacy', priority: 0.4, changefreq: 'yearly' },
+      { path: '/refund', priority: 0.4, changefreq: 'yearly' }
     ];
 
-    staticPublicPages.forEach((page) => pushUrl(page.path, new Date(), page.priority));
+    staticPublicPages.forEach((page) => pushUrl(page.path, new Date(), page.priority, page.changefreq));
 
     const pageRows = await PageContent.findAll({
       attributes: ['page', [fn('MAX', col('updated_at')), 'lastmod']],
@@ -159,7 +169,10 @@ app.get('/sitemap.xml', async (req, res, next) => {
       raw: true
     });
 
-    const reservedPages = new Set(['dashboard', 'admin', 'settings', 'setup', 'login', 'register', 'console-code']);
+    const reservedPages = new Set([
+      'dashboard', 'admin', 'settings', 'setup', 'login', 'register',
+      'console-code', 'success', 'report', 'utm-builder', 'link-shortener'
+    ]);
     const existingPaths = new Set(staticPublicPages.map((p) => p.path));
 
     for (const row of pageRows) {
@@ -168,21 +181,23 @@ app.get('/sitemap.xml', async (req, res, next) => {
       const pathName = pageName === 'home' ? '/' : `/${pageName}`;
       if (existingPaths.has(pathName)) continue;
       existingPaths.add(pathName);
-      pushUrl(pathName, row.lastmod, 0.6);
+      pushUrl(pathName, row.lastmod, 0.6, 'weekly');
     }
 
     const blogPosts = await BlogPost.findAll({
       attributes: ['slug', 'updated_at', 'published_at'],
       where: {
-        published_at: { [Op.ne]: null }
+        published_at: { [Op.ne]: null },
+        slug: { [Op.ne]: null }
       },
       order: [['published_at', 'DESC']],
       raw: true
     });
 
     for (const post of blogPosts) {
-      if (!post.slug) continue;
-      pushUrl(`/blog/${post.slug}`, post.updated_at || post.published_at, 0.7);
+      const slug = String(post.slug || '').trim();
+      if (!slug) continue;
+      pushUrl(`/blog/${slug}`, post.updated_at || post.published_at, 0.8, 'weekly');
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -190,11 +205,14 @@ app.get('/sitemap.xml', async (req, res, next) => {
 ${urls.map((url) => `  <url>
     <loc>${escapeXml(url.loc)}</loc>
     <lastmod>${url.lastmod}</lastmod>
+    <changefreq>${url.changefreq}</changefreq>
     <priority>${url.priority}</priority>
   </url>`).join('\n')}
 </urlset>`;
 
+    // Keep sitemap fresh so newly published posts appear quickly for crawlers.
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
     res.send(xml);
   } catch (error) {
     next(error);
@@ -328,6 +346,85 @@ if (process.env.NODE_ENV === 'production') {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
+
+  function sendSeoShell(res, seo) {
+    noCacheHeaders(res);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const html = applySeoToHtml(loadSpaIndexHtml(frontendPath), {
+      siteUrl: SITE_URL,
+      ...seo
+    });
+    res.status(200).send(html);
+  }
+
+  // Blog index + posts: inject correct title/description/canonical for crawlers.
+  // Nginx must proxy /blog to Node for this to take effect.
+  app.get('/blog', async (req, res, next) => {
+    try {
+      sendSeoShell(res, {
+        title: 'Блог | lehko.space',
+        description: 'Статті про трекінг реклами, ROI, Telegram/Instagram аналітику та атрибуцію продажів.',
+        canonicalPath: '/blog',
+        jsonLd: {
+          '@context': 'https://schema.org',
+          '@type': 'Blog',
+          name: 'Блог lehko.space',
+          url: `${SITE_URL}/blog`
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/blog/:slug', async (req, res, next) => {
+    try {
+      const slug = String(req.params.slug || '').trim();
+      if (!slug) return next();
+
+      const post = await BlogPost.findOne({
+        where: {
+          slug,
+          published_at: { [Op.ne]: null }
+        },
+        attributes: ['title', 'slug', 'excerpt', 'featured_image', 'published_at', 'updated_at', 'author_name'],
+        raw: true
+      });
+
+      if (!post) {
+        // Keep SPA 404 behavior, but avoid homepage canonical on missing posts.
+        return sendSeoShell(res, {
+          title: 'Статтю не знайдено | lehko.space',
+          description: 'Запитувану статтю блогу не знайдено.',
+          canonicalPath: `/blog/${encodeURIComponent(slug)}`
+        });
+      }
+
+      const description = (post.excerpt || post.title || '').replace(/\s+/g, ' ').trim();
+      sendSeoShell(res, {
+        title: `${post.title} | lehko.space`,
+        description,
+        canonicalPath: `/blog/${post.slug}`,
+        image: post.featured_image,
+        jsonLd: {
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: post.title,
+          description,
+          datePublished: post.published_at,
+          dateModified: post.updated_at || post.published_at,
+          author: {
+            '@type': 'Person',
+            name: post.author_name || 'lehko.space'
+          },
+          mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
+          image: absoluteAssetUrl(post.featured_image) || undefined
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   // Головна та index.html — завжди без кешу, щоб браузер підхоплював нові assets
   app.get('/', (req, res) => {

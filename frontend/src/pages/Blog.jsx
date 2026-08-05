@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
 import SiteEditableText from '../components/SiteEditableText.jsx';
+import { applyClientSeo } from '../utils/seo.js';
 import { MessageCircle, Eye, Clock, ArrowRight, Sun, Moon } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -60,9 +61,11 @@ export default function Blog() {
   useEffect(() => {
     const seoTitle = contentText('seo', 'title', t('blog.title'));
     const seoDescription = contentText('seo', 'description', t('blog.ctaText'));
-    document.title = seoTitle;
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) metaDescription.setAttribute('content', seoDescription);
+    applyClientSeo({
+      title: seoTitle,
+      description: seoDescription,
+      pathName: '/blog'
+    });
   }, [pageContent, t]);
 
   useEffect(() => {
