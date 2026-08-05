@@ -15,6 +15,15 @@ import {
   resolveCommissionPercentWithSites,
   groupWebsitesByUserId
 } from '../utils/affiliate.js';
+import {
+  conversionSql,
+  isApprovedModerationStatus,
+  isCartEvent,
+  isConversionEvent,
+  isLeadEvent,
+  isPendingModerationStatus,
+  isSaleEvent
+} from '../utils/statsAggregation.js';
 
 const router = express.Router();
 
@@ -90,6 +99,20 @@ function createdAtFilter({ fromDate, toDate }) {
   return {};
 }
 
+/** lead/sale (+ legacy null sale) — excludes cart */
+function affiliatePayoutEventWhere(eventRaw = 'all') {
+  if (eventRaw === 'lead') return { event_type: 'lead' };
+  if (eventRaw === 'sale') {
+    return { [Op.or]: [{ event_type: 'sale' }, { event_type: null }] };
+  }
+  return {
+    [Op.or]: [
+      { event_type: { [Op.in]: ['lead', 'sale'] } },
+      { event_type: null }
+    ]
+  };
+}
+
 function leadStatusWhere(status) {
   // Older conversions may have NULL instead of 'pending'
   if (status === 'pending') {
@@ -108,6 +131,19 @@ function leadStatusWhereAllOrFilter(statusRaw) {
     };
   }
   return leadStatusWhere(statusRaw);
+}
+
+/**
+ * Merge Sequelize where fragments with Op.and.
+ * Critical: multiple fragments can each use Symbol Op.or — object spread would
+ * overwrite one Op.or with another (e.g. event_type filter lost → carts appear
+ * in purchase moderation because cart.lead_status is null).
+ */
+function andWhere(...parts) {
+  const clauses = parts.filter((p) => p && typeof p === 'object' && Object.keys(p).length + Object.getOwnPropertySymbols(p).length > 0);
+  if (clauses.length === 0) return {};
+  if (clauses.length === 1) return clauses[0];
+  return { [Op.and]: clauses };
 }
 
 /**
@@ -382,12 +418,16 @@ router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Calculate aggregated stats
+    // Calculate aggregated stats — cart is funnel-only
     const links = user.links || [];
     let totalClicks = 0;
     let uniqueClicks = 0;
     let totalConversions = 0;
     let totalRevenue = 0;
+    let totalSalesRevenue = 0;
+    let totalLeadRevenue = 0;
+    let totalCarts = 0;
+    let totalCartRevenue = 0;
     const uniqueFingerprints = new Set();
 
     links.forEach((link) => {
@@ -404,11 +444,17 @@ router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
       let rawLead = 0;
       let salesCount = 0;
       conversions.forEach((conv) => {
-        totalConversions++;
         const v = parseFloat(conv.order_value || 0);
+        if (isCartEvent(conv.event_type)) {
+          totalCarts += 1;
+          totalCartRevenue += v;
+          return;
+        }
+        if (!isConversionEvent(conv.event_type)) return;
+        totalConversions++;
         rawTotal += v;
-        if (conv.event_type === 'lead') rawLead += v;
-        else if (conv.event_type === 'sale' || conv.event_type === undefined || conv.event_type === null) {
+        if (isLeadEvent(conv.event_type)) rawLead += v;
+        else if (isSaleEvent(conv.event_type)) {
           rawSales += v;
           salesCount += 1;
         }
@@ -416,6 +462,8 @@ router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
       const adj = parseFloat(link.revenue_adjustment || 0);
       const adjusted = applyRevenueAdjustment(rawTotal, rawSales, rawLead, adj, salesCount);
       totalRevenue += adjusted.total_revenue;
+      totalSalesRevenue += adjusted.sales_revenue;
+      totalLeadRevenue += adjusted.lead_revenue;
     });
 
     uniqueClicks = uniqueFingerprints.size;
@@ -428,7 +476,11 @@ router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
         total_clicks: totalClicks,
         unique_clicks: uniqueClicks,
         total_conversions: totalConversions,
-        total_revenue: parseFloat(totalRevenue.toFixed(2))
+        total_revenue: parseFloat(totalRevenue.toFixed(2)),
+        sales_revenue: parseFloat(totalSalesRevenue.toFixed(2)),
+        lead_revenue: parseFloat(totalLeadRevenue.toFixed(2)),
+        carts: totalCarts,
+        cart_revenue: parseFloat(totalCartRevenue.toFixed(2))
       }
     });
   } catch (error) {
@@ -531,11 +583,14 @@ router.get('/users/:id/impersonate', requireSuperAdmin, async (req, res, next) =
       sequelize.query(`
         SELECT
           link_id,
-          COUNT(*) AS conversions,
-          COALESCE(SUM(order_value), 0) AS total_revenue,
-          COALESCE(SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN order_value ELSE 0 END), 0) AS sales_revenue,
-          COALESCE(SUM(CASE WHEN event_type = 'lead' THEN order_value ELSE 0 END), 0) AS lead_revenue,
-          SUM(CASE WHEN event_type = 'sale' OR event_type IS NULL THEN 1 ELSE 0 END) AS sales
+          ${conversionSql.conversionsCount} AS conversions,
+          ${conversionSql.conversionRevenue} AS total_revenue,
+          ${conversionSql.salesRevenue} AS sales_revenue,
+          ${conversionSql.leadRevenue} AS lead_revenue,
+          ${conversionSql.cartCount} AS carts,
+          ${conversionSql.cartRevenue} AS cart_revenue,
+          ${conversionSql.salesCount} AS sales,
+          ${conversionSql.leadCount} AS leads
         FROM conversions
         WHERE link_id IN (?)
         GROUP BY link_id
@@ -569,9 +624,13 @@ router.get('/users/:id/impersonate', requireSuperAdmin, async (req, res, next) =
           unique_clicks: uniqueClicks,
           total_clicks: totalClicks,
           conversions: parseInt(convStats.conversions || 0, 10),
+          leads: parseInt(convStats.leads || 0, 10),
+          sales: salesCount,
+          carts: parseInt(convStats.carts || 0, 10),
           total_revenue: adjusted.total_revenue,
           sales_revenue: adjusted.sales_revenue,
           lead_revenue: adjusted.lead_revenue,
+          cart_revenue: parseFloat(Number(convStats.cart_revenue || 0).toFixed(2)),
           raw_total_revenue: parseFloat(rawTotal.toFixed(2)),
           revenue_adjustment: adj
         }
@@ -911,11 +970,21 @@ router.get('/affiliates/overview', async (req, res, next) => {
     const affiliateIds = affiliates.map((a) => Number(a.id));
     const links = await Link.findAll({
       where: { user_id: { [Op.in]: affiliateIds } },
-      attributes: ['id', 'user_id'],
+      attributes: ['id', 'user_id', 'original_url'],
       raw: true
     });
     const linkIds = links.map((l) => Number(l.id));
+    const linkById = new Map(links.map((l) => [Number(l.id), l]));
     const linkOwnerById = new Map(links.map((l) => [Number(l.id), Number(l.user_id)]));
+
+    const websiteRows = affiliateIds.length
+      ? await Website.findAll({
+          where: { user_id: { [Op.in]: affiliateIds } },
+          attributes: ['user_id', 'domain', 'commission_percent'],
+          raw: true
+        })
+      : [];
+    const websitesByUser = groupWebsitesByUserId(websiteRows);
 
     const clickWhere = linkIds.length
       ? {
@@ -926,7 +995,10 @@ router.get('/affiliates/overview', async (req, res, next) => {
     const convWhere = linkIds.length
       ? {
           link_id: { [Op.in]: linkIds },
-          event_type: { [Op.in]: ['lead', 'sale'] },
+          [Op.or]: [
+            { event_type: { [Op.in]: ['lead', 'sale'] } },
+            { event_type: null }
+          ],
           ...dateFilter
         }
       : null;
@@ -947,7 +1019,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
       convWhere
         ? Conversion.findAll({
             where: convWhere,
-            attributes: ['link_id', 'lead_status', 'order_value'],
+            attributes: ['link_id', 'lead_status', 'order_value', 'event_type'],
             raw: true
           })
         : []
@@ -971,6 +1043,7 @@ router.get('/affiliates/overview', async (req, res, next) => {
         }
       ])
     );
+    const affiliateById = new Map(affiliates.map((a) => [Number(a.id), a]));
 
     links.forEach((l) => {
       const agg = byAffiliate.get(Number(l.user_id));
@@ -989,12 +1062,19 @@ router.get('/affiliates/overview', async (req, res, next) => {
       const ownerId = linkOwnerById.get(Number(c.link_id));
       const agg = byAffiliate.get(ownerId);
       if (!agg) return;
+      if (!isConversionEvent(c.event_type)) return;
       agg.conversions += 1;
-      if (c.lead_status === 'pending' || c.lead_status == null) agg.pending_conversions += 1;
-      if (c.lead_status === 'approved') {
+      if (isPendingModerationStatus(c.lead_status)) agg.pending_conversions += 1;
+      if (isApprovedModerationStatus(c.lead_status)) {
         const orderValue = parseFloat(c.order_value || 0);
+        const link = linkById.get(Number(c.link_id));
+        const percent = resolveCommissionPercentWithSites(
+          affiliateById.get(ownerId),
+          link,
+          websitesByUser.get(ownerId) || []
+        ) ?? agg.commission_percent;
         agg.approved_revenue += orderValue;
-        agg.affiliate_earnings += commissionFromOrder(orderValue, agg.commission_percent);
+        agg.affiliate_earnings += commissionFromOrder(orderValue, percent);
       }
     });
 
@@ -1082,18 +1162,20 @@ router.get('/affiliates/moderation', async (req, res, next) => {
     const websitesByUser = groupWebsitesByUserId(websiteRows);
 
     const convRows = await Conversion.findAll({
-      where: {
-        link_id: { [Op.in]: linkRows.map((l) => l.id) },
-        event_type: { [Op.in]: ['lead', 'sale'] },
-        ...leadStatusWhere(status)
-      },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      where: andWhere(
+        { link_id: { [Op.in]: linkRows.map((l) => l.id) } },
+        affiliatePayoutEventWhere('all'),
+        leadStatusWhere(status)
+      ),
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 1000,
       raw: true
     });
 
-    const items = convRows.map((row) => {
+    const items = convRows
+      .filter((row) => isAffiliatePayoutEvent(row.event_type))
+      .map((row) => {
       const link = linkById.get(Number(row.link_id));
       const affiliate = affiliateById.get(Number(link?.user_id));
       const percent = resolveCommissionPercentWithSites(
@@ -1113,6 +1195,7 @@ router.get('/affiliates/moderation', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status || 'pending',
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent),
         commission_percent: percent
@@ -1183,16 +1266,16 @@ router.get('/affiliates/conversions', async (req, res, next) => {
     });
     const websitesByUser = groupWebsitesByUserId(websiteRows);
 
-    const where = {
-      link_id: { [Op.in]: linkRows.map((l) => l.id) },
-      event_type: eventRaw === 'all' ? { [Op.in]: ['lead', 'sale'] } : eventRaw,
-      ...dateFilter,
-      ...leadStatusWhereAllOrFilter(statusRaw)
-    };
+    const where = andWhere(
+      { link_id: { [Op.in]: linkRows.map((l) => l.id) } },
+      affiliatePayoutEventWhere(eventRaw),
+      dateFilter,
+      leadStatusWhereAllOrFilter(statusRaw)
+    );
 
     const convRows = await Conversion.findAll({
       where,
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit,
       raw: true
@@ -1218,6 +1301,7 @@ router.get('/affiliates/conversions', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status || 'pending',
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent),
         commission_percent: percent
@@ -1263,12 +1347,12 @@ router.get('/users/:id/leads', async (req, res, next) => {
     }
 
     const rows = await Conversion.findAll({
-      where: {
-        link_id: { [Op.in]: linkIds },
-        event_type: { [Op.in]: ['lead', 'sale'] },
-        ...leadStatusWhere(status)
-      },
-      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'created_at'],
+      where: andWhere(
+        { link_id: { [Op.in]: linkIds } },
+        affiliatePayoutEventWhere('all'),
+        leadStatusWhere(status)
+      ),
+      attributes: ['id', 'link_id', 'order_value', 'order_id', 'event_type', 'lead_status', 'rejection_reason', 'created_at'],
       order: [['created_at', 'DESC']],
       limit: 500
     });
@@ -1294,6 +1378,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
         order_value: parseFloat(row.order_value || 0),
         order_id: row.order_id,
         lead_status: row.lead_status || 'pending',
+        rejection_reason: row.rejection_reason || null,
         created_at: row.created_at,
         commission_amount: commissionFromOrder(row.order_value, percent),
         commission_percent: percent
@@ -1314,7 +1399,7 @@ router.get('/users/:id/leads', async (req, res, next) => {
 });
 
 /** Shared approve/reject for affiliate lead or sale payouts. */
-async function moderateAffiliateConversion(conversionId, action) {
+async function moderateAffiliateConversion(conversionId, action, rejectionReason = null) {
   return sequelize.transaction(async (t) => {
     const conversion = await Conversion.findByPk(conversionId, { transaction: t, lock: t.LOCK.UPDATE });
     if (!conversion || !isAffiliatePayoutEvent(conversion.event_type)) {
@@ -1338,6 +1423,7 @@ async function moderateAffiliateConversion(conversionId, action) {
 
     if (action === 'reject') {
       conversion.lead_status = 'rejected';
+      conversion.rejection_reason = rejectionReason ? String(rejectionReason).slice(0, 500) : null;
       await conversion.save({ transaction: t });
       return { success: true, conversion_id: conversion.id, action: 'rejected' };
     }
@@ -1350,6 +1436,7 @@ async function moderateAffiliateConversion(conversionId, action) {
     const amount = commissionFromOrder(conversion.order_value, percent);
     // Approving a lead confirms it for payout (same as confirmed sale in reports)
     conversion.lead_status = 'approved';
+    conversion.rejection_reason = null;
     if (conversion.event_type === 'lead') {
       conversion.event_type = 'sale';
     }
@@ -1403,7 +1490,8 @@ router.post('/conversions/:id/reject-lead', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid conversion id' });
     }
 
-    const result = await moderateAffiliateConversion(conversionId, 'reject');
+    const rejectionReason = req.body?.rejection_reason || null;
+    const result = await moderateAffiliateConversion(conversionId, 'reject', rejectionReason);
     if (result.error) {
       return res.status(result.status).json({ error: result.error });
     }
