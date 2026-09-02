@@ -834,7 +834,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <div>
-              <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
               <p className="text-sm text-slate-600">{currentDate}</p>
             </div>
             {(isAffiliate || canSeeAffiliatesBalance) && (
@@ -865,7 +865,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => {
                 fetchLinks(true, activeSnapshot, timeRange);
@@ -873,15 +873,15 @@ export default function Dashboard() {
                 fetchAdminAffiliateBalance();
               }}
               disabled={loading}
-              className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+              className="px-3 sm:px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>{t('common.refresh')}</span>
+              <span className="hidden sm:inline">{t('common.refresh')}</span>
             </button>
             {canCreateMoreLinks && (
               <button
-                onClick={() => setShowCreateForm(!showCreateForm)}
-                className="bg-violet-700 text-white font-semibold px-4 py-2 rounded-lg hover:bg-violet-800 transition-colors flex items-center gap-2"
+                onClick={() => setShowCreateForm(true)}
+                className="hidden sm:flex bg-violet-700 text-white font-semibold px-4 py-2 rounded-lg hover:bg-violet-800 transition-colors items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 <span>{t('dashboard.createLink')}</span>
@@ -1201,11 +1201,34 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Create Link Form */}
+      {/* Create Link Form — full-screen sheet on mobile, modal on desktop */}
       {showCreateForm && canCreateMoreLinks && (
-        <div className="mb-6 bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">{t('dashboard.createLinkTitle')}</h2>
-          <form onSubmit={handleCreateLink} className="space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+          onClick={() => {
+            setShowCreateForm(false);
+            setNewLink({ ...EMPTY_NEW_LINK });
+          }}
+        >
+          <div
+            className="bg-white w-full sm:max-w-2xl sm:rounded-2xl shadow-xl border border-slate-200 max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-4 sm:px-6 py-4">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800">{t('dashboard.createLinkTitle')}</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setNewLink({ ...EMPTY_NEW_LINK });
+                }}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                aria-label={t('common.cancel')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateLink} className="space-y-4 p-4 sm:p-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 {t('dashboard.linkNameLabel')} <span className="text-slate-400">{t('dashboard.linkNameOptional')}</span>
@@ -1378,26 +1401,27 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2 pb-[env(safe-area-inset-bottom,0px)]">
               <button
                 type="button"
                 onClick={() => {
                   setShowCreateForm(false);
                   setNewLink({ ...EMPTY_NEW_LINK });
                 }}
-                className="px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-all"
+                className="w-full sm:w-auto px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-all"
               >
                 {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={creating}
-                className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50"
               >
                 {creating ? t('dashboard.creating') : t('dashboard.createLinkBtn')}
               </button>
             </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 
@@ -1427,13 +1451,13 @@ export default function Dashboard() {
             <label className="block text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
               {t('dashboard.trackingUrlLabel')}
             </label>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <code className="flex-1 px-4 py-3 bg-white rounded-lg text-sm font-mono text-slate-800 break-all border border-slate-200">
                 {createdLink.tracking_url}
               </code>
               <button
                 onClick={() => copyToClipboard(createdLink.tracking_url)}
-                className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center space-x-2 ${
+                className={`w-full sm:w-auto px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   copied
                     ? 'bg-green-100 text-green-700 border-2 border-green-300'
                     : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-violet-500/25'
@@ -1608,13 +1632,13 @@ export default function Dashboard() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder={t('common.search')}
-                        className="pl-9 pr-3 py-2 w-52 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400"
+                        className="pl-9 pr-3 py-2 w-full min-w-0 sm:w-52 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400"
                       />
                     </div>
                     {canCreateMoreLinks && (
                       <button
-                        onClick={() => setShowCreateForm(!showCreateForm)}
-                        className="px-4 py-2 bg-violet-700 text-white rounded-lg font-semibold hover:bg-violet-800 transition-colors"
+                        onClick={() => setShowCreateForm(true)}
+                        className="px-4 py-2 bg-violet-700 text-white rounded-lg font-semibold hover:bg-violet-800 transition-colors whitespace-nowrap"
                       >
                         + {t('dashboard.newLinkShort')}
                       </button>
@@ -1622,7 +1646,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-100 border-b border-slate-200">
@@ -1950,7 +1974,116 @@ export default function Dashboard() {
                   </table>
                 </div>
 
-                <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between text-sm text-slate-500">
+                {/* Mobile link cards */}
+                <div className="lg:hidden divide-y divide-slate-100">
+                  {sortedFilteredLinks.map((link) => {
+                    const clicks = link.stats?.total_clicks || 0;
+                    const unique = link.stats?.unique_clicks || 0;
+                    const saleEvents = link.stats?.sales ?? 0;
+                    const revenue = link.stats?.sales_revenue ?? 0;
+                    const leadEvents = link.stats?.leads ?? 0;
+                    const score = link.stats?.traffic_quality_score;
+                    const cardUk = i18n.language === 'uk';
+                    return (
+                      <div key={link.id} className="p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedLinkIds.includes(link.id)}
+                            onChange={() => toggleLinkSelection(link.id)}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+                              {link.name || link.unique_code}
+                              {link.split_enabled && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold uppercase">
+                                  <Shuffle className="w-3 h-3" /> A/B
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-violet-600 text-xs break-all mt-0.5">{link.tracking_url}</div>
+                            {link.source_type && (
+                              <span className={`inline-flex mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getSourceBadge(link.source_type)}`}>
+                                {getSourceTypeLabel(link.source_type)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableClicks')}</div>
+                            <div className="font-bold text-slate-900">{clicks.toLocaleString()}</div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableUnique')}</div>
+                            <div className="font-bold text-slate-900">{unique.toLocaleString()}</div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.sales')}</div>
+                            <div className="font-bold text-emerald-700">{saleEvents.toLocaleString()}</div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableTrafficQuality')}</div>
+                            <div className="font-bold text-slate-900">{score != null ? score : '—'}</div>
+                          </div>
+                        </div>
+
+                        {(saleEvents > 0 || leadEvents > 0) && (
+                          <div className="text-sm text-slate-700">
+                            {saleEvents > 0 && (
+                              <span className="font-semibold text-emerald-700">
+                                {formatCountMoney(saleEvents, revenue, cardUk)}
+                              </span>
+                            )}
+                            {leadEvents > 0 && (
+                              <span className="ml-2 text-amber-700">{leadEvents} {t('dashboard.leadsShort')}</span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              copyToClipboard(link.tracking_url);
+                              setCopiedLinkId(link.id);
+                              setTimeout(() => setCopiedLinkId(null), 2000);
+                            }}
+                            className="px-3 py-2.5 rounded-lg border border-violet-300 text-violet-700 text-sm font-medium"
+                          >
+                            {copiedLinkId === link.id ? t('common.copied') : t('common.copy')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleShareLink(link)}
+                            disabled={shareLinkLoading === link.id}
+                            className="px-3 py-2.5 rounded-lg border border-indigo-300 text-indigo-700 text-sm font-medium disabled:opacity-50"
+                          >
+                            {shareLinkLoading === link.id ? '…' : (cardUk ? 'Звіт' : 'Share')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openPurchaseModal(link)}
+                            className="px-3 py-2.5 rounded-lg border border-emerald-300 text-emerald-700 text-sm font-medium"
+                          >
+                            {t('dashboard.purchasesBtn')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEditLink(link)}
+                            className="px-3 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium"
+                          >
+                            {t('common.edit')}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="px-4 sm:px-5 py-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-slate-500">
                   <div className="flex items-center gap-4">
                     <span>{t('dashboard.showingLinks', { shown: filteredLinks.length, total: sourceFilteredLinks.length })}</span>
                     {selectedLinkIds.length > 0 && <span>{t('dashboard.selectedCount', { count: selectedLinkIds.length })}</span>}
@@ -1964,6 +2097,18 @@ export default function Dashboard() {
                 </div>
           </>
         </div>
+      )}
+
+      {/* Mobile FAB — create link */}
+      {canCreateMoreLinks && !showCreateForm && (
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(true)}
+          className="sm:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-violet-700 text-white shadow-lg shadow-violet-500/30 hover:bg-violet-800 active:scale-95 transition-all"
+          aria-label={t('dashboard.createLink')}
+        >
+          <Plus className="w-6 h-6" />
+        </button>
       )}
 
       {shareLinkModal && (

@@ -11,11 +11,17 @@ const LANG_STORAGE_KEY = 'lehko_lang';
 
 function getInitialReportLang() {
   try {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const fromUrl = params.get('lang');
+    if (fromUrl === 'uk' || fromUrl === 'en') return fromUrl;
+  } catch (_) { /* ignore */ }
+
+  try {
     const saved = localStorage.getItem(LANG_STORAGE_KEY);
     if (saved === 'uk' || saved === 'en') return saved;
   } catch (_) { /* ignore */ }
-  const bl = (typeof navigator !== 'undefined' ? navigator.language : '') || '';
-  return bl.toLowerCase().startsWith('en') ? 'en' : 'uk';
+
+  return 'uk';
 }
 
 // ── Translation dictionary ──────────────────────────────────────────────────
