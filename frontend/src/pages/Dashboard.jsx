@@ -38,6 +38,7 @@ import {
   Shuffle,
   PlusCircle,
   Share2,
+  Mail,
   Link as LinkIcon
 } from 'lucide-react';
 
@@ -80,11 +81,14 @@ export default function Dashboard() {
   const [purchaseModalLink, setPurchaseModalLink] = useState(null);
   const [purchaseModalItems, setPurchaseModalItems] = useState([]);
   const [purchaseModalLoading, setPurchaseModalLoading] = useState(false);
+  const [leadActionId, setLeadActionId] = useState(null);
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareLinkModal, setShareLinkModal] = useState(null);
   const [shareLinkLoading, setShareLinkLoading] = useState(null);
+  const [emailReportLoading, setEmailReportLoading] = useState(null); // linkId | 'compare' | null
+  const [emailReportSentTo, setEmailReportSentTo] = useState('');
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -102,6 +106,9 @@ export default function Dashboard() {
   const [timeRange, setTimeRange] = useState('today');
   const [affiliateSummary, setAffiliateSummary] = useState(null);
   const [adminAffiliateBalanceTotal, setAdminAffiliateBalanceTotal] = useState(null);
+  const [myOrders, setMyOrders] = useState(null);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [myOrdersFilter, setMyOrdersFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
   const isSuperAdmin = user?.role === 'super_admin';
   const isPlatformAdmin = user?.role === 'admin';
   const canSeeAffiliatesBalance = isSuperAdmin || isPlatformAdmin;
@@ -159,6 +166,18 @@ export default function Dashboard() {
   useEffect(() => {
     setSelectedLinkIds((prev) => prev.filter((id) => links.some((link) => link.id === id)));
   }, [links]);
+
+  const fetchMyOrders = async () => {
+    setMyOrdersLoading(true);
+    try {
+      const res = await api.get('/api/links/my-orders');
+      setMyOrders(res.data.orders || []);
+    } catch {
+      setMyOrders([]);
+    } finally {
+      setMyOrdersLoading(false);
+    }
+  };
 
   const fetchChartData = async (lang, snapshot = '', selectedSource = '', range = timeRange) => {
     try {
@@ -645,6 +664,30 @@ export default function Dashboard() {
     }
   };
 
+  const handleEmailCompare = async () => {
+    if (selectedLinkIds.length < 1) return;
+    setEmailReportLoading('compare');
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'links_compare',
+        link_ids: selectedLinkIds,
+        currency: i18n.language === 'uk' ? '₴' : '$',
+        lang: i18n.language === 'uk' ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setSuccessMessage(
+        i18n.language === 'uk'
+          ? `Звіт надіслано на ${res.data?.to || user?.email || 'email'}`
+          : `Report emailed to ${res.data?.to || user?.email || 'email'}`
+      );
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || (isUk ? 'Не вдалося надіслати звіт на пошту' : 'Failed to email report'));
+    } finally {
+      setEmailReportLoading(null);
+    }
+  };
+
   const handleShareLink = async (link) => {
     setShareLinkLoading(link.id);
     try {
@@ -655,12 +698,41 @@ export default function Dashboard() {
       });
       const url = res.data.url;
       await navigator.clipboard.writeText(url).catch(() => {});
-      setShareLinkModal({ link, url, copied: true });
+      setShareLinkModal({ link, url, copied: true, emailed: false });
       setTimeout(() => setShareLinkModal((prev) => (prev ? { ...prev, copied: false } : prev)), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create share link');
     } finally {
       setShareLinkLoading(null);
+    }
+  };
+
+  const handleEmailLinkReport = async (link) => {
+    if (!link?.id) return;
+    setEmailReportLoading(link.id);
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'link_single',
+        link_id: link.id,
+        currency: i18n.language === 'uk' ? '₴' : '$',
+        lang: i18n.language === 'uk' ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setShareLinkModal((prev) => (
+        prev && prev.link?.id === link.id
+          ? { ...prev, emailed: true, emailedTo: res.data?.to || user?.email || '' }
+          : prev
+      ));
+      setSuccessMessage(
+        i18n.language === 'uk'
+          ? `Звіт надіслано на ${res.data?.to || user?.email || 'email'}`
+          : `Report emailed to ${res.data?.to || user?.email || 'email'}`
+      );
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || (isUk ? 'Не вдалося надіслати звіт на пошту' : 'Failed to email report'));
+    } finally {
+      setEmailReportLoading(null);
     }
   };
 
@@ -724,6 +796,13 @@ export default function Dashboard() {
   const isAffiliate = user?.role === 'affiliate';
   const affiliateCommissionPercent = affiliateSummary?.commission_percent ?? user?.affiliate_commission_percent;
   const affiliateBalance = parseFloat(affiliateSummary?.balance ?? user?.affiliate_balance ?? 0);
+
+  useEffect(() => {
+    if (isAffiliate && myOrders === null) {
+      fetchMyOrders();
+    }
+  }, [isAffiliate]);
+
   const totalAffiliateEarnings = sourceFilteredLinks.reduce(
     (sum, link) => sum + (link.stats?.affiliate_earnings ?? 0),
     0
@@ -1897,6 +1976,28 @@ export default function Dashboard() {
               </a>
             </div>
 
+            <button
+              type="button"
+              disabled={emailReportLoading === shareLinkModal.link.id}
+              onClick={() => handleEmailLinkReport(shareLinkModal.link)}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 ${
+                shareLinkModal.emailed
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              {emailReportLoading === shareLinkModal.link.id
+                ? (isUk ? 'Надсилаємо...' : 'Sending...')
+                : shareLinkModal.emailed
+                  ? (isUk
+                    ? `Надіслано на ${shareLinkModal.emailedTo || emailReportSentTo || user?.email || 'email'}`
+                    : `Sent to ${shareLinkModal.emailedTo || emailReportSentTo || user?.email || 'email'}`)
+                  : (isUk
+                    ? `Надіслати на пошту (${user?.email || 'email'})`
+                    : `Email report (${user?.email || 'email'})`)}
+            </button>
+
             <p className="text-xs text-slate-400 text-center">
               {isUk ? 'Посилання автоматично скопійовано в буфер' : 'Link was auto-copied to clipboard'}
             </p>
@@ -1916,6 +2017,16 @@ export default function Dashboard() {
                 <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50">
                   {shareLoading ? (i18n.language === 'uk' ? 'Створення...' : 'Creating...') : (i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report')}
                 </button>
+                <button
+                  onClick={handleEmailCompare}
+                  disabled={emailReportLoading === 'compare' || selectedLinksForCompare.length < 1}
+                  className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  {emailReportLoading === 'compare'
+                    ? (i18n.language === 'uk' ? 'Надсилаємо...' : 'Sending...')
+                    : (i18n.language === 'uk' ? 'На пошту' : 'Email')}
+                </button>
                 <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
                   <X className="w-5 h-5" />
                 </button>
@@ -1928,7 +2039,7 @@ export default function Dashboard() {
                 const COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2'];
                 const compareItems = selectedLinksForCompare.map((link, idx) => {
                   const clicks = Number(link.stats?.total_clicks || 0);
-                  const conversions = Number(link.stats?.conversions || 0);
+                  const conversions = Number(link.stats?.sales || 0) + Number(link.stats?.leads || 0);
                   const cr = clicks > 0 ? parseFloat(((conversions / clicks) * 100).toFixed(2)) : 0;
                   const revenue = Number(link.stats?.sales_revenue || 0);
                   const label = (link.name || link.unique_code || '').slice(0, 18);
@@ -2117,14 +2228,51 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Edit Link Modal */}
+      {/* Conversions Modal */}
       {purchaseModalLink && (() => {
         const modalSales = purchaseModalItems.filter((c) => c.event_type === 'sale' || !c.event_type);
         const modalLeads = purchaseModalItems.filter((c) => c.event_type === 'lead');
+        const canConfirm = user?.role !== 'affiliate';
+        const canManageLeads = true;
 
-        const ConvTable = ({ items, emptyKey, amountClass }) => (
+        const refreshAfterLeadChange = async () => {
+          await fetchLinks(false, activeSnapshot, timeRange);
+          fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
+        };
+
+        const handleConfirmLead = async (convId) => {
+          try {
+            setLeadActionId(convId);
+            await api.post(`/api/links/${purchaseModalLink.id}/conversions/${convId}/confirm`);
+            setPurchaseModalItems((prev) =>
+              prev.map((c) => (c.id === convId ? { ...c, event_type: 'sale' } : c))
+            );
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.confirmLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const handleDeleteLead = async (convId) => {
+          const ok = window.confirm(t('dashboard.deleteLeadConfirm'));
+          if (!ok) return;
+          try {
+            setLeadActionId(convId);
+            await api.delete(`/api/links/${purchaseModalLink.id}/conversions/${convId}`);
+            setPurchaseModalItems((prev) => prev.filter((c) => c.id !== convId));
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.deleteLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const SalesTable = ({ items }) => (
           items.length === 0 ? (
-            <p className="text-sm text-slate-400 py-3 px-1">{t(emptyKey)}</p>
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoSales')}</p>
           ) : (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
               <table className="w-full text-sm">
@@ -2139,8 +2287,66 @@ export default function Dashboard() {
                   {items.map((item) => (
                     <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
-                      <td className={`px-4 py-3 font-semibold ${amountClass}`}>{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(item.amount)}</td>
                       <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        );
+
+        const LeadsTable = ({ items }) => (
+          items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoLeads')}</p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+                    {canManageLeads && (
+                      <th className="px-4 py-3 text-right text-xs uppercase tracking-wide text-slate-500">
+                        {t('dashboard.leadActions')}
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
+                      <td className="px-4 py-3 font-semibold text-amber-700">{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                      {canManageLeads && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            {canConfirm && (
+                              <button
+                                type="button"
+                                disabled={leadActionId === item.id}
+                                onClick={() => handleConfirmLead(item.id)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                {t('dashboard.confirmLeadAsSale')}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={leadActionId === item.id}
+                              onClick={() => handleDeleteLead(item.id)}
+                              className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {t('dashboard.deleteLead')}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -2180,22 +2386,25 @@ export default function Dashboard() {
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convSaleNote')}</span>
                     </div>
-                    <ConvTable items={modalSales} emptyKey="dashboard.convNoSales" amountClass="text-emerald-700" />
+                    <SalesTable items={modalSales} />
                   </div>
 
                   <div className="border-t border-slate-100" />
 
                   {/* --- Purchase-intent leads --- */}
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
                         {t('dashboard.convSectionLeads')}
                         <span className="ml-1 font-normal text-amber-700">({modalLeads.length})</span>
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convLeadNote')}</span>
+                      {modalLeads.length > 0 && (
+                        <span className="text-xs text-slate-400 italic">{t('dashboard.leadActionsHint')}</span>
+                      )}
                     </div>
-                    <ConvTable items={modalLeads} emptyKey="dashboard.convNoLeads" amountClass="text-amber-700" />
+                    <LeadsTable items={modalLeads} />
                   </div>
                 </div>
               )}
@@ -2446,6 +2655,108 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── My Orders (affiliate only) ──────────────────────────────────── */}
+      {isAffiliate && (
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden mt-5">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-bold text-slate-900 text-lg">Мої замовлення</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Всі конверсії по ваших посиланнях з поточним статусом</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { v: 'all', label: 'Всі' },
+                { v: 'pending', label: 'Очікують' },
+                { v: 'approved', label: 'Підтверджені' },
+                { v: 'rejected', label: 'Відхилені' },
+              ].map(({ v, label }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setMyOrdersFilter(v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    myOrdersFilter === v
+                      ? 'bg-violet-600 text-white border-violet-600'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-violet-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <button type="button" onClick={fetchMyOrders} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" title="Оновити">
+                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              </button>
+            </div>
+          </div>
+
+          {myOrdersLoading ? (
+            <p className="px-5 py-8 text-sm text-slate-400 text-center">Завантаження…</p>
+          ) : (() => {
+            const filtered = (myOrders || []).filter((o) =>
+              myOrdersFilter === 'all' ? true : o.lead_status === myOrdersFilter
+            );
+            if (!filtered.length) {
+              return <p className="px-5 py-8 text-sm text-slate-400 text-center">Немає замовлень</p>;
+            }
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                      <th className="text-left px-4 py-3">Дата</th>
+                      <th className="text-left px-4 py-3">Посилання</th>
+                      <th className="text-left px-4 py-3">Тип</th>
+                      <th className="text-right px-4 py-3">Сума</th>
+                      <th className="text-left px-4 py-3">ID замовлення</th>
+                      <th className="text-left px-4 py-3">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filtered.map((o) => {
+                      const statusCfg = {
+                        approved: { label: 'Підтверджено', cls: 'bg-emerald-100 text-emerald-700' },
+                        pending: { label: 'Очікує', cls: 'bg-amber-100 text-amber-700' },
+                        rejected: { label: 'Відхилено', cls: 'bg-red-100 text-red-700' },
+                      }[o.lead_status] || { label: '—', cls: 'bg-slate-100 text-slate-500' };
+
+                      return (
+                        <tr key={o.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
+                            {new Date(o.created_at).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 font-medium max-w-[160px] truncate" title={o.link_name}>
+                            {o.link_name || o.link_code || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {o.event_type === 'sale' ? 'Покупка' : 'Лід'}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                            {o.amount > 0 ? `${o.amount.toLocaleString('uk-UA')} ₴` : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-400">
+                            {o.order_id || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-0.5">
+                              <span className={`inline-flex w-fit px-2 py-0.5 rounded-full text-xs font-semibold ${statusCfg.cls}`}>
+                                {statusCfg.label}
+                              </span>
+                              {o.lead_status === 'rejected' && o.rejection_reason && (
+                                <span className="text-xs text-red-500 max-w-[200px]">{o.rejection_reason}</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
         </div>
       )}
     </Layout>
