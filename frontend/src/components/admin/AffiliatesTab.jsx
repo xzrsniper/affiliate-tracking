@@ -1,7 +1,81 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, RefreshCw, X, Globe, Percent } from 'lucide-react';
+import { Check, RefreshCw, X, Globe, Percent, AlertCircle } from 'lucide-react';
 import api from '../../config/api.js';
+
+const PRESET_REASONS = [
+  { value: 'no_payment', label: 'Немає оплати' },
+  { value: 'duplicate', label: 'Дубль замовлення' },
+  { value: 'not_picked_up', label: 'Не забрали з пошти' },
+  { value: 'cancelled', label: 'Замовлення скасовано' },
+  { value: 'custom', label: 'Інша причина…' },
+];
+
+function RejectModal({ item, onConfirm, onCancel }) {
+  const [selected, setSelected] = useState('no_payment');
+  const [custom, setCustom] = useState('');
+  const reason = selected === 'custom'
+    ? custom.trim()
+    : (PRESET_REASONS.find((r) => r.value === selected)?.label || '');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <h2 className="font-bold text-slate-800">Причина відхилення</h2>
+        </div>
+        {item && (
+          <p className="text-sm text-slate-500">
+            Замовлення #{item.order_id || item.id} · {Number(item.order_value || 0).toLocaleString('uk-UA')} ₴
+          </p>
+        )}
+        <div className="space-y-2">
+          {PRESET_REASONS.map((r) => (
+            <label key={r.value} className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="radio"
+                name="reject_reason"
+                value={r.value}
+                checked={selected === r.value}
+                onChange={() => setSelected(r.value)}
+                className="accent-red-600"
+              />
+              <span className="text-sm text-slate-700">{r.label}</span>
+            </label>
+          ))}
+        </div>
+        {selected === 'custom' && (
+          <input
+            autoFocus
+            type="text"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            placeholder="Введіть причину…"
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+          />
+        )}
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            disabled={selected === 'custom' && !custom.trim()}
+            onClick={() => onConfirm(reason || null)}
+            className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+          >
+            Відхилити
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+          >
+            Скасувати
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const RANGE_OPTIONS = [
   { value: '1', label: '1d' },
@@ -170,6 +244,7 @@ export default function AffiliatesTab() {
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
   const [siteCommAffiliate, setSiteCommAffiliate] = useState(null);
+  const [rejectTarget, setRejectTarget] = useState(null);
 
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
 
@@ -326,10 +401,14 @@ export default function AffiliatesTab() {
     }
   };
 
-  const handleModeration = async (id, action) => {
+  const handleModeration = async (id, action, rejectionReason = null) => {
     setUpdating(true);
     try {
-      await api.post(`/api/admin/conversions/${id}/${action === 'approve' ? 'approve-lead' : 'reject-lead'}`);
+      const endpoint = action === 'approve' ? 'approve-lead' : 'reject-lead';
+      await api.post(
+        `/api/admin/conversions/${id}/${endpoint}`,
+        action === 'reject' ? { rejection_reason: rejectionReason } : undefined
+      );
       await Promise.all([
         fetchModeration(),
         fetchHistory(),
@@ -576,8 +655,8 @@ export default function AffiliatesTab() {
                   <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="inline-flex gap-2">
-                      <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white"><Check className="w-4 h-4" /></button>
-                      <button onClick={() => handleModeration(item.id, 'reject')} disabled={updating} className="p-1.5 rounded bg-red-600 text-white"><X className="w-4 h-4" /></button>
+                      <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white" title="Підтвердити"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => setRejectTarget(item)} disabled={updating} className="p-1.5 rounded bg-red-600 text-white" title="Відхилити"><X className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -650,6 +729,9 @@ export default function AffiliatesTab() {
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass(item.lead_status)}`}>
                       {statusLabel(item.lead_status)}
                     </span>
+                    {item.lead_status === 'rejected' && item.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-0.5 max-w-[180px]">{item.rejection_reason}</p>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -695,6 +777,9 @@ export default function AffiliatesTab() {
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${item.lead_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {item.lead_status === 'approved' ? 'Підтверджено' : 'Відхилено'}
                     </span>
+                    {item.lead_status === 'rejected' && item.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-0.5 max-w-[180px]">{item.rejection_reason}</p>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -712,6 +797,18 @@ export default function AffiliatesTab() {
         <SiteCommissionsModal
           affiliate={siteCommAffiliate}
           onClose={() => setSiteCommAffiliate(null)}
+        />
+      )}
+
+      {rejectTarget && (
+        <RejectModal
+          item={rejectTarget}
+          onConfirm={async (reason) => {
+            const id = rejectTarget.id;
+            setRejectTarget(null);
+            await handleModeration(id, 'reject', reason);
+          }}
+          onCancel={() => setRejectTarget(null)}
         />
       )}
     </div>

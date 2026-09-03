@@ -287,6 +287,146 @@ export async function sendPasswordResetEmail(to, token, lang = 'uk') {
 }
 
 /**
+ * Send a public link / comparison report email (branded summary + CTAs + optional CSV).
+ *
+ * @param {object} opts
+ * @param {string} opts.to
+ * @param {'uk'|'en'} [opts.lang]
+ * @param {'link_single'|'links_compare'} opts.type
+ * @param {string} opts.title
+ * @param {string} [opts.periodLabel]
+ * @param {string} opts.reportUrl
+ * @param {string} opts.exportUrl
+ * @param {Array<{label:string,value:string}>} opts.stats
+ * @param {Array<Array<string|number>>} [opts.tableRows] - optional small HTML table rows [name, clicks, conv, revenue]
+ * @param {{ filename: string, content: string, contentType?: string }|null} [opts.attachment]
+ */
+export async function sendPublicReportEmail(opts) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.error('Cannot send report email: SMTP not configured');
+    return { ok: false, error: 'Email not configured' };
+  }
+
+  const {
+    to,
+    lang = 'uk',
+    type,
+    title,
+    periodLabel = '',
+    reportUrl,
+    exportUrl,
+    stats = [],
+    tableRows = [],
+    attachment = null
+  } = opts;
+
+  const isUk = lang !== 'en';
+  const typeLabel = type === 'links_compare'
+    ? (isUk ? 'Порівняння посилань' : 'Links comparison')
+    : (isUk ? 'Звіт по посиланню' : 'Link report');
+
+  const texts = {
+    uk: {
+      subject: `${title} — Lehko`,
+      intro: `Ваш ${typeLabel.toLowerCase()} готовий.`,
+      period: 'Період',
+      openReport: 'Відкрити звіт',
+      downloadCsv: 'Завантажити CSV',
+      tableTitle: 'Короткий огляд',
+      footerNote: 'Лист надіслано з вашого акаунта lehko.space.'
+    },
+    en: {
+      subject: `${title} — Lehko`,
+      intro: `Your ${typeLabel.toLowerCase()} is ready.`,
+      period: 'Period',
+      openReport: 'Open report',
+      downloadCsv: 'Download CSV',
+      tableTitle: 'Quick overview',
+      footerNote: 'This email was sent from your lehko.space account.'
+    }
+  };
+  const t = texts[isUk ? 'uk' : 'en'];
+
+  const statCards = stats.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0 8px 0;">
+        ${stats.reduce((html, s, idx) => {
+          const cell = `<td width="50%" style="padding:6px;vertical-align:top;">
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
+              <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">${s.label}</div>
+              <div style="font-size:20px;font-weight:800;color:#1e293b;">${s.value}</div>
+            </div>
+          </td>`;
+          if (idx % 2 === 0) return `${html}<tr>${cell}`;
+          return `${html}${cell}</tr>`;
+        }, '')}${stats.length % 2 === 1 ? '<td width="50%" style="padding:6px;"></td></tr>' : ''}
+      </table>`
+    : '';
+
+  const tableBlock = tableRows.length
+    ? `<div style="margin:16px 0 8px 0;">
+        <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">${t.tableTitle}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+          <tr style="background:#f8fafc;">
+            <th align="left" style="padding:10px 12px;font-size:11px;color:#64748b;text-transform:uppercase;">${isUk ? 'Посилання' : 'Link'}</th>
+            <th align="right" style="padding:10px 12px;font-size:11px;color:#64748b;text-transform:uppercase;">${isUk ? 'Кліки' : 'Clicks'}</th>
+            <th align="right" style="padding:10px 12px;font-size:11px;color:#64748b;text-transform:uppercase;">${isUk ? 'Конверсії' : 'Conv.'}</th>
+            <th align="right" style="padding:10px 12px;font-size:11px;color:#64748b;text-transform:uppercase;">${isUk ? 'Дохід' : 'Revenue'}</th>
+          </tr>
+          ${tableRows.map((r) => `<tr>
+            <td style="padding:10px 12px;border-top:1px solid #e2e8f0;font-size:13px;color:#1e293b;">${r[0]}</td>
+            <td align="right" style="padding:10px 12px;border-top:1px solid #e2e8f0;font-size:13px;color:#334155;">${r[1]}</td>
+            <td align="right" style="padding:10px 12px;border-top:1px solid #e2e8f0;font-size:13px;color:#334155;">${r[2]}</td>
+            <td align="right" style="padding:10px 12px;border-top:1px solid #e2e8f0;font-size:13px;font-weight:700;color:#059669;">${r[3]}</td>
+          </tr>`).join('')}
+        </table>
+      </div>`
+    : '';
+
+  const body = `
+    <p style="margin:0 0 12px 0;">${t.intro}</p>
+    ${periodLabel ? `<p style="margin:0 0 16px 0;font-size:13px;color:#64748b;"><strong>${t.period}:</strong> ${periodLabel}</p>` : ''}
+    ${statCards}
+    ${tableBlock}
+    ${ctaButton(reportUrl, `${t.openReport} →`)}
+    <p style="margin:0 0 8px 0;font-size:13px;">
+      <a href="${exportUrl}" style="color:#7c3aed;font-weight:600;text-decoration:none;">${t.downloadCsv}</a>
+    </p>
+    <p style="margin:16px 0 0 0;font-size:12px;color:#94a3b8;">${t.footerNote}</p>
+  `;
+
+  const textLines = [
+    title,
+    periodLabel ? `${t.period}: ${periodLabel}` : '',
+    ...stats.map((s) => `${s.label}: ${s.value}`),
+    '',
+    `${t.openReport}: ${reportUrl}`,
+    `${t.downloadCsv}: ${exportUrl}`
+  ].filter(Boolean);
+
+  try {
+    await transporter.sendMail({
+      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+      to,
+      subject: t.subject,
+      text: textLines.join('\n'),
+      html: brandedHtml({ title, body, lang: isUk ? 'uk' : 'en' }),
+      attachments: attachment
+        ? [{
+            filename: attachment.filename,
+            content: attachment.content,
+            contentType: attachment.contentType || 'text/csv; charset=utf-8'
+          }]
+        : undefined
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('Send report email error:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * Add subscriber to SendPulse address book via API.
  * Uses SendPulse REST API v2: https://sendpulse.com/integrations/api
  * Requires SENDPULSE_API_USER_ID and SENDPULSE_API_SECRET env vars.
