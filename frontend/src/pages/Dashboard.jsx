@@ -38,6 +38,7 @@ import {
   Shuffle,
   PlusCircle,
   Share2,
+  Mail,
   Link as LinkIcon
 } from 'lucide-react';
 
@@ -80,11 +81,14 @@ export default function Dashboard() {
   const [purchaseModalLink, setPurchaseModalLink] = useState(null);
   const [purchaseModalItems, setPurchaseModalItems] = useState([]);
   const [purchaseModalLoading, setPurchaseModalLoading] = useState(false);
+  const [leadActionId, setLeadActionId] = useState(null);
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareLinkModal, setShareLinkModal] = useState(null);
   const [shareLinkLoading, setShareLinkLoading] = useState(null);
+  const [emailReportLoading, setEmailReportLoading] = useState(null); // linkId | 'compare' | null
+  const [emailReportSentTo, setEmailReportSentTo] = useState('');
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -645,6 +649,30 @@ export default function Dashboard() {
     }
   };
 
+  const handleEmailCompare = async () => {
+    if (selectedLinkIds.length < 1) return;
+    setEmailReportLoading('compare');
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'links_compare',
+        link_ids: selectedLinkIds,
+        currency: i18n.language === 'uk' ? '₴' : '$',
+        lang: i18n.language === 'uk' ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setSuccessMessage(
+        i18n.language === 'uk'
+          ? `Звіт надіслано на ${res.data?.to || user?.email || 'email'}`
+          : `Report emailed to ${res.data?.to || user?.email || 'email'}`
+      );
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || (isUk ? 'Не вдалося надіслати звіт на пошту' : 'Failed to email report'));
+    } finally {
+      setEmailReportLoading(null);
+    }
+  };
+
   const handleShareLink = async (link) => {
     setShareLinkLoading(link.id);
     try {
@@ -655,12 +683,41 @@ export default function Dashboard() {
       });
       const url = res.data.url;
       await navigator.clipboard.writeText(url).catch(() => {});
-      setShareLinkModal({ link, url, copied: true });
+      setShareLinkModal({ link, url, copied: true, emailed: false });
       setTimeout(() => setShareLinkModal((prev) => (prev ? { ...prev, copied: false } : prev)), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create share link');
     } finally {
       setShareLinkLoading(null);
+    }
+  };
+
+  const handleEmailLinkReport = async (link) => {
+    if (!link?.id) return;
+    setEmailReportLoading(link.id);
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'link_single',
+        link_id: link.id,
+        currency: i18n.language === 'uk' ? '₴' : '$',
+        lang: i18n.language === 'uk' ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setShareLinkModal((prev) => (
+        prev && prev.link?.id === link.id
+          ? { ...prev, emailed: true, emailedTo: res.data?.to || user?.email || '' }
+          : prev
+      ));
+      setSuccessMessage(
+        i18n.language === 'uk'
+          ? `Звіт надіслано на ${res.data?.to || user?.email || 'email'}`
+          : `Report emailed to ${res.data?.to || user?.email || 'email'}`
+      );
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || (isUk ? 'Не вдалося надіслати звіт на пошту' : 'Failed to email report'));
+    } finally {
+      setEmailReportLoading(null);
     }
   };
 
@@ -1897,6 +1954,28 @@ export default function Dashboard() {
               </a>
             </div>
 
+            <button
+              type="button"
+              disabled={emailReportLoading === shareLinkModal.link.id}
+              onClick={() => handleEmailLinkReport(shareLinkModal.link)}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 ${
+                shareLinkModal.emailed
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              {emailReportLoading === shareLinkModal.link.id
+                ? (isUk ? 'Надсилаємо...' : 'Sending...')
+                : shareLinkModal.emailed
+                  ? (isUk
+                    ? `Надіслано на ${shareLinkModal.emailedTo || emailReportSentTo || user?.email || 'email'}`
+                    : `Sent to ${shareLinkModal.emailedTo || emailReportSentTo || user?.email || 'email'}`)
+                  : (isUk
+                    ? `Надіслати на пошту (${user?.email || 'email'})`
+                    : `Email report (${user?.email || 'email'})`)}
+            </button>
+
             <p className="text-xs text-slate-400 text-center">
               {isUk ? 'Посилання автоматично скопійовано в буфер' : 'Link was auto-copied to clipboard'}
             </p>
@@ -1916,6 +1995,16 @@ export default function Dashboard() {
                 <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50">
                   {shareLoading ? (i18n.language === 'uk' ? 'Створення...' : 'Creating...') : (i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report')}
                 </button>
+                <button
+                  onClick={handleEmailCompare}
+                  disabled={emailReportLoading === 'compare' || selectedLinksForCompare.length < 1}
+                  className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  {emailReportLoading === 'compare'
+                    ? (i18n.language === 'uk' ? 'Надсилаємо...' : 'Sending...')
+                    : (i18n.language === 'uk' ? 'На пошту' : 'Email')}
+                </button>
                 <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
                   <X className="w-5 h-5" />
                 </button>
@@ -1928,7 +2017,7 @@ export default function Dashboard() {
                 const COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2'];
                 const compareItems = selectedLinksForCompare.map((link, idx) => {
                   const clicks = Number(link.stats?.total_clicks || 0);
-                  const conversions = Number(link.stats?.conversions || 0);
+                  const conversions = Number(link.stats?.sales || 0) + Number(link.stats?.leads || 0);
                   const cr = clicks > 0 ? parseFloat(((conversions / clicks) * 100).toFixed(2)) : 0;
                   const revenue = Number(link.stats?.sales_revenue || 0);
                   const label = (link.name || link.unique_code || '').slice(0, 18);
@@ -2117,14 +2206,51 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Edit Link Modal */}
+      {/* Conversions Modal */}
       {purchaseModalLink && (() => {
         const modalSales = purchaseModalItems.filter((c) => c.event_type === 'sale' || !c.event_type);
         const modalLeads = purchaseModalItems.filter((c) => c.event_type === 'lead');
+        const canConfirm = user?.role !== 'affiliate';
+        const canManageLeads = true;
 
-        const ConvTable = ({ items, emptyKey, amountClass }) => (
+        const refreshAfterLeadChange = async () => {
+          await fetchLinks(false, activeSnapshot, timeRange);
+          fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
+        };
+
+        const handleConfirmLead = async (convId) => {
+          try {
+            setLeadActionId(convId);
+            await api.post(`/api/links/${purchaseModalLink.id}/conversions/${convId}/confirm`);
+            setPurchaseModalItems((prev) =>
+              prev.map((c) => (c.id === convId ? { ...c, event_type: 'sale' } : c))
+            );
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.confirmLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const handleDeleteLead = async (convId) => {
+          const ok = window.confirm(t('dashboard.deleteLeadConfirm'));
+          if (!ok) return;
+          try {
+            setLeadActionId(convId);
+            await api.delete(`/api/links/${purchaseModalLink.id}/conversions/${convId}`);
+            setPurchaseModalItems((prev) => prev.filter((c) => c.id !== convId));
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.deleteLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const SalesTable = ({ items }) => (
           items.length === 0 ? (
-            <p className="text-sm text-slate-400 py-3 px-1">{t(emptyKey)}</p>
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoSales')}</p>
           ) : (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
               <table className="w-full text-sm">
@@ -2139,8 +2265,66 @@ export default function Dashboard() {
                   {items.map((item) => (
                     <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
-                      <td className={`px-4 py-3 font-semibold ${amountClass}`}>{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(item.amount)}</td>
                       <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        );
+
+        const LeadsTable = ({ items }) => (
+          items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoLeads')}</p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+                    {canManageLeads && (
+                      <th className="px-4 py-3 text-right text-xs uppercase tracking-wide text-slate-500">
+                        {t('dashboard.leadActions')}
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
+                      <td className="px-4 py-3 font-semibold text-amber-700">{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                      {canManageLeads && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            {canConfirm && (
+                              <button
+                                type="button"
+                                disabled={leadActionId === item.id}
+                                onClick={() => handleConfirmLead(item.id)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                {t('dashboard.confirmLeadAsSale')}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={leadActionId === item.id}
+                              onClick={() => handleDeleteLead(item.id)}
+                              className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {t('dashboard.deleteLead')}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -2180,22 +2364,25 @@ export default function Dashboard() {
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convSaleNote')}</span>
                     </div>
-                    <ConvTable items={modalSales} emptyKey="dashboard.convNoSales" amountClass="text-emerald-700" />
+                    <SalesTable items={modalSales} />
                   </div>
 
                   <div className="border-t border-slate-100" />
 
                   {/* --- Purchase-intent leads --- */}
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
                         {t('dashboard.convSectionLeads')}
                         <span className="ml-1 font-normal text-amber-700">({modalLeads.length})</span>
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convLeadNote')}</span>
+                      {modalLeads.length > 0 && (
+                        <span className="text-xs text-slate-400 italic">{t('dashboard.leadActionsHint')}</span>
+                      )}
                     </div>
-                    <ConvTable items={modalLeads} emptyKey="dashboard.convNoLeads" amountClass="text-amber-700" />
+                    <LeadsTable items={modalLeads} />
                   </div>
                 </div>
               )}
