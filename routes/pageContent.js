@@ -51,7 +51,7 @@ const upload = multer({
 router.get('/:page', optionalAuth, async (req, res, next) => {
   try {
     const { page } = req.params;
-    const { section } = req.query;
+    const { section, lang } = req.query;
 
     const where = {
       page,
@@ -60,6 +60,10 @@ router.get('/:page', optionalAuth, async (req, res, next) => {
 
     if (section) {
       where.section = section;
+    }
+
+    if (lang === 'en' || lang === 'uk') {
+      where.lang = lang;
     }
 
     const contents = await PageContent.findAll({
@@ -135,16 +139,19 @@ router.get('/:page/all', authenticate, requireSuperAdmin, async (req, res, next)
  */
 router.post('/', authenticate, requireSuperAdmin, async (req, res, next) => {
   try {
-    const { page, section, key, content, content_type, order, is_active } = req.body;
+    const { page, section, key, content, content_type, order, is_active, lang } = req.body;
 
     if (!page || !section || !key) {
       return res.status(400).json({ error: 'page, section, та key обов\'язкові' });
     }
 
+    const contentLang = lang === 'en' ? 'en' : 'uk';
+
     const [pageContent, created] = await PageContent.upsert({
       page,
       section,
       key,
+      lang: contentLang,
       content: content || '',
       content_type: content_type || 'text',
       order: order || 0,

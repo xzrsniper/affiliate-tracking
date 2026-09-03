@@ -30,6 +30,7 @@
     "db:add-blog-posts": "node scripts/add-blog-posts-table.js",
     "db:add-blog-unique-views": "node scripts/add-blog-post-unique-views.js",
     "db:add-page-content": "node scripts/create-page-content-table.js",
+    "db:add-page-content-lang": "node scripts/add-page-content-lang.js",
     "db:add-google-sheets": "node scripts/add-google-sheets-fields.js",
     "db:add-revenue-adjustment": "node scripts/add-revenue-adjustment-field.js",
     "db:lookup-user": "node scripts/lookup-user-email.js",

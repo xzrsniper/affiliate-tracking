@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
 import SiteEditableText from '../components/SiteEditableText.jsx';
+import { cmsOrI18n, normalizeLang } from '../utils/cmsText.js';
 import { MessageCircle, Eye, Clock, ArrowRight, Sun, Moon } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -28,6 +29,7 @@ export default function Blog() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const isUk = i18n.language === 'uk';
+  const lang = normalizeLang(i18n.language);
   const [sort, setSort] = useState('latest');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,12 +38,12 @@ export default function Blog() {
 
   const loadPageContent = useCallback(async () => {
     try {
-      const res = await api.get('/api/page-content/blog');
+      const res = await api.get('/api/page-content/blog', { params: { lang } });
       if (res.data?.content) setPageContent(res.data.content);
     } catch {
       setPageContent({});
     }
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     loadPageContent();
@@ -55,7 +57,7 @@ export default function Blog() {
     return () => window.removeEventListener('lehko-page-content-refresh', handler);
   }, [loadPageContent]);
 
-  const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
+  const contentText = (section, key, fallback) => cmsOrI18n(pageContent?.[section]?.[key]?.content, fallback, lang);
 
   useEffect(() => {
     const seoTitle = contentText('seo', 'title', t('blog.title'));

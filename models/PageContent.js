@@ -34,6 +34,12 @@ const PageContent = sequelize.define('PageContent', {
     allowNull: true,
     comment: 'Вміст (текст, HTML, URL зображення, JSON)'
   },
+  lang: {
+    type: DataTypes.STRING(8),
+    allowNull: false,
+    defaultValue: 'uk',
+    comment: 'Мова контенту: uk або en'
+  },
   order: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -59,7 +65,8 @@ const PageContent = sequelize.define('PageContent', {
   indexes: [
     {
       unique: true,
-      fields: ['page', 'section', 'key']
+      name: 'page_contents_page_section_key_lang',
+      fields: ['page', 'section', 'key', 'lang']
     },
     {
       fields: ['page', 'section']

@@ -21,7 +21,7 @@ export default function SiteEditableText({
   as: Tag = 'span',
   children
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { isEditingThisPage, pageBeingEdited } = useSiteTextEdit();
   const [open, setOpen] = useState(false);
@@ -66,7 +66,8 @@ export default function SiteEditableText({
         content: draft,
         content_type: 'text',
         order,
-        is_active: true
+        is_active: true,
+        lang: i18n.language === 'en' ? 'en' : 'uk'
       });
       window.dispatchEvent(new CustomEvent('lehko-page-content-refresh', { detail: { page } }));
       setOpen(false);

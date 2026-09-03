@@ -5,24 +5,26 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
 import SiteEditableText from '../components/SiteEditableText.jsx';
+import { cmsOrI18n, normalizeLang } from '../utils/cmsText.js';
 
 export default function Home() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const isUk = i18n.language === 'uk';
+  const lang = normalizeLang(i18n.language);
   const [faqOpen, setFaqOpen] = useState(0);
   const [pageContent, setPageContent] = useState({});
 
   const loadPageContent = useCallback(async () => {
     try {
-      const res = await api.get('/api/page-content/home');
+      const res = await api.get('/api/page-content/home', { params: { lang } });
       if (res.data?.content) {
         setPageContent(res.data.content);
       }
     } catch {
       setPageContent({});
     }
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     loadPageContent();
@@ -37,7 +39,7 @@ export default function Home() {
   }, [loadPageContent]);
 
   const contentText = (section, key, fallback) => {
-    return pageContent?.[section]?.[key]?.content || fallback;
+    return cmsOrI18n(pageContent?.[section]?.[key]?.content, fallback, lang);
   };
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function Home() {
       contentText('budget', 'item4', t('home.budget4')),
       contentText('budget', 'item5', t('home.budget5'))
     ],
-    [pageContent, t]
+    [pageContent, t, lang]
   );
 
   const whyPoints = useMemo(
@@ -81,7 +83,7 @@ export default function Home() {
       contentText('why', 'item5', t('home.benefit5')),
       contentText('why', 'item6', t('home.benefit6'))
     ],
-    [pageContent, t]
+    [pageContent, t, lang]
   );
 
   const faqItems = useMemo(
@@ -90,7 +92,7 @@ export default function Home() {
         q: contentText('faq', `q${n}`, t(`home.faqQ${n}`)),
         a: contentText('faq', `a${n}`, t(`home.faqA${n}`))
       })),
-    [pageContent, t]
+    [pageContent, t, lang]
   );
 
   const channelRows = useMemo(
@@ -112,7 +114,7 @@ export default function Home() {
         money: contentText('channels', vk, def[2])
       };
     }),
-    [pageContent, t]
+    [pageContent, t, lang]
   );
 
   return (

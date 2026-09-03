@@ -5,24 +5,26 @@ import { Settings, FileCode, MessageCircle, ArrowLeft, ExternalLink, Check } fro
 import Logo from '../components/Logo.jsx';
 import SiteEditableText from '../components/SiteEditableText.jsx';
 import api from '../config/api.js';
+import { cmsOrI18n, normalizeLang } from '../utils/cmsText.js';
 
 const TELEGRAM_URL = import.meta.env.VITE_TELEGRAM_USERNAME
   ? `https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME}`
   : 'https://t.me/hodunkooo';
 
 export default function Guide() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = normalizeLang(i18n.language);
   const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
   const [pageContent, setPageContent] = useState({});
 
   const loadPageContent = useCallback(async () => {
     try {
-      const res = await api.get('/api/page-content/guide');
+      const res = await api.get('/api/page-content/guide', { params: { lang } });
       if (res.data?.content) setPageContent(res.data.content);
     } catch {
       setPageContent({});
     }
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     loadPageContent();
@@ -36,7 +38,7 @@ export default function Guide() {
     return () => window.removeEventListener('lehko-page-content-refresh', handler);
   }, [loadPageContent]);
 
-  const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
+  const contentText = (section, key, fallback) => cmsOrI18n(pageContent?.[section]?.[key]?.content, fallback, lang);
 
   useEffect(() => {
     const seoTitle = contentText('seo', 'title', t('guide.guideTitle'));

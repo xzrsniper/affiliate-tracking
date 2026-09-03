@@ -289,14 +289,16 @@ export default function Admin() {
     if (!isSuperAdmin) return;
     if (activeTab === 'blog') fetchBlogPosts();
     if (activeTab === 'content') fetchPageContent();
-  }, [activeTab, contentPage, isSuperAdmin]);
+  }, [activeTab, contentPage, isSuperAdmin, i18n.language]);
 
   const fetchPageContent = async () => {
     setContentLoading(true);
     setContentSuccess('');
     try {
       // Use public active content to mirror exactly what users see on site now.
-      const res = await api.get(`/api/page-content/${contentPage}`);
+      const res = await api.get(`/api/page-content/${contentPage}`, {
+        params: { lang: i18n.language === 'en' ? 'en' : 'uk' }
+      });
       const groupedContent = res.data?.content || {};
       const nextForm = Object.fromEntries(
         currentContentFields.map((field) => [
@@ -334,7 +336,8 @@ export default function Admin() {
             content: contentForm[contentFieldId(field.section, field.key)] || '',
             content_type: 'text',
             order: index + 1,
-            is_active: true
+            is_active: true,
+            lang: i18n.language === 'en' ? 'en' : 'uk'
           })
         )
       );

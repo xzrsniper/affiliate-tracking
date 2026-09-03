@@ -3,21 +3,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../config/api.js';
 import SiteEditableText from '../components/SiteEditableText.jsx';
+import { cmsOrI18n, normalizeLang } from '../utils/cmsText.js';
 
 export default function Refund() {
   const { i18n } = useTranslation();
   const isUk = i18n.language === 'uk';
   const [pageContent, setPageContent] = useState({});
-  const lang = isUk ? 'uk' : 'en';
+  const lang = normalizeLang(i18n.language);
 
   const loadPageContent = useCallback(async () => {
     try {
-      const res = await api.get('/api/page-content/refund');
+      const res = await api.get('/api/page-content/refund', { params: { lang } });
       if (res.data?.content) setPageContent(res.data.content);
     } catch {
       setPageContent({});
     }
-  }, []);
+  }, [lang]);
 
   useEffect(() => {
     loadPageContent();
@@ -31,7 +32,7 @@ export default function Refund() {
     return () => window.removeEventListener('lehko-page-content-refresh', handler);
   }, [loadPageContent]);
 
-  const contentText = (section, key, fallback) => pageContent?.[section]?.[key]?.content || fallback;
+  const contentText = (section, key, fallback) => cmsOrI18n(pageContent?.[section]?.[key]?.content, fallback, lang);
 
   useEffect(() => {
     const seoTitle = contentText('seo', 'title', isUk ? 'Політика повернення коштів (Refund Policy)' : 'Refund Policy');
