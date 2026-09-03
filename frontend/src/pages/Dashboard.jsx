@@ -819,6 +819,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
+      <div className="sm:pb-0 pb-20">
       {/* Header */}
       <div className="mb-5 rounded-xl border border-slate-200 bg-white/80 dark:bg-slate-900/70 px-5 py-4 backdrop-blur">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1635,7 +1636,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="hidden lg:block overflow-x-auto">
+                <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-100 border-b border-slate-200">
@@ -1963,115 +1964,6 @@ export default function Dashboard() {
                   </table>
                 </div>
 
-                {/* Mobile link cards */}
-                <div className="lg:hidden divide-y divide-slate-100">
-                  {sortedFilteredLinks.map((link) => {
-                    const clicks = link.stats?.total_clicks || 0;
-                    const unique = link.stats?.unique_clicks || 0;
-                    const saleEvents = link.stats?.sales ?? 0;
-                    const revenue = link.stats?.sales_revenue ?? 0;
-                    const leadEvents = link.stats?.leads ?? 0;
-                    const score = link.stats?.traffic_quality_score;
-                    const cardUk = (i18n.language || '').startsWith('uk');
-                    return (
-                      <div key={link.id} className="p-4 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedLinkIds.includes(link.id)}
-                            onChange={() => toggleLinkSelection(link.id)}
-                            className="mt-1 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
-                              {link.name || link.unique_code}
-                              {link.split_enabled && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold uppercase">
-                                  <Shuffle className="w-3 h-3" /> A/B
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-violet-600 text-xs break-all mt-0.5">{link.tracking_url}</div>
-                            {link.source_type && (
-                              <span className={`inline-flex mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getSourceBadge(link.source_type)}`}>
-                                {getSourceTypeLabel(link.source_type)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableClicks')}</div>
-                            <div className="font-bold text-slate-900">{clicks.toLocaleString()}</div>
-                          </div>
-                          <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableUnique')}</div>
-                            <div className="font-bold text-slate-900">{unique.toLocaleString()}</div>
-                          </div>
-                          <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.sales')}</div>
-                            <div className="font-bold text-emerald-700">{saleEvents.toLocaleString()}</div>
-                          </div>
-                          <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableTrafficQuality')}</div>
-                            <div className="font-bold text-slate-900">{score != null ? score : '—'}</div>
-                          </div>
-                        </div>
-
-                        {(saleEvents > 0 || leadEvents > 0) && (
-                          <div className="text-sm text-slate-700">
-                            {saleEvents > 0 && (
-                              <span className="font-semibold text-emerald-700">
-                                {formatCountMoney(saleEvents, revenue, cardUk)}
-                              </span>
-                            )}
-                            {leadEvents > 0 && (
-                              <span className="ml-2 text-amber-700">{leadEvents} {t('dashboard.leadsShort')}</span>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              copyToClipboard(link.tracking_url);
-                              setCopiedLinkId(link.id);
-                              setTimeout(() => setCopiedLinkId(null), 2000);
-                            }}
-                            className="px-3 py-2.5 rounded-lg border border-violet-300 text-violet-700 text-sm font-medium"
-                          >
-                            {copiedLinkId === link.id ? t('common.copied') : t('common.copy')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleShareLink(link)}
-                            disabled={shareLinkLoading === link.id}
-                            className="px-3 py-2.5 rounded-lg border border-indigo-300 text-indigo-700 text-sm font-medium disabled:opacity-50"
-                          >
-                            {shareLinkLoading === link.id ? '…' : t('dashboard.shareShort')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openPurchaseModal(link)}
-                            className="px-3 py-2.5 rounded-lg border border-emerald-300 text-emerald-700 text-sm font-medium"
-                          >
-                            {t('dashboard.purchasesBtn')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEditLink(link)}
-                            className="px-3 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium"
-                          >
-                            {t('common.edit')}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
                 <div className="px-4 sm:px-5 py-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-slate-500">
                   <div className="flex items-center gap-4">
                     <span>{t('dashboard.showingLinks', { shown: filteredLinks.length, total: sourceFilteredLinks.length })}</span>
@@ -2088,12 +1980,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Mobile FAB — create link */}
+      {/* Mobile FAB — create link at the bottom of the screen */}
       {canCreateMoreLinks && !showCreateForm && (
         <button
           type="button"
           onClick={() => setShowCreateForm(true)}
-          className="sm:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-violet-700 text-white shadow-lg shadow-violet-500/30 hover:bg-violet-800 active:scale-95 transition-all"
+          className="sm:hidden fixed bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-violet-700 text-white shadow-lg shadow-violet-500/40 hover:bg-violet-800 active:scale-95 transition-all"
           aria-label={t('dashboard.createLink')}
         >
           <Plus className="w-6 h-6" />
@@ -2936,6 +2828,7 @@ export default function Dashboard() {
           })()}
         </div>
       )}
+      </div>
     </Layout>
   );
 }
