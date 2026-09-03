@@ -325,7 +325,13 @@
     "siteTextEditSaveError": "Не вдалося зберегти",
     "siteTextEditModalHeading": "Редагування на сторінці",
     "siteTextEditModalDesc": "Вас перенаправить на обрану сторінку. Тексти з жовтою рамкою можна змінювати; після «Зберегти» вони одразу для всіх відвідувачів.",
-    "siteTextEditGo": "Перейти"
+    "siteTextEditGo": "Перейти",
+    "userReport": "Звіт",
+    "userReportHint": "Публічне посилання з усіма посиланнями цього користувача. Нові посилання з’являться в звіті автоматично.",
+    "creatingUserReport": "Створення…",
+    "copyReportLink": "Копіювати лінк",
+    "openReport": "Відкрити",
+    "errorCreateUserReport": "Не вдалося створити звіт по користувачу"
   },
   "layout": {
     "menu": "Меню",

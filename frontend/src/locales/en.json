@@ -325,7 +325,13 @@
     "siteTextEditSaveError": "Could not save",
     "siteTextEditModalHeading": "Edit on page",
     "siteTextEditModalDesc": "You will be taken to the selected page. Text with an amber outline is editable; after Save it applies for all visitors.",
-    "siteTextEditGo": "Go to page"
+    "siteTextEditGo": "Go to page",
+    "userReport": "Report",
+    "userReportHint": "A public link with all of this user’s tracking links. New links will appear in the report automatically.",
+    "creatingUserReport": "Creating…",
+    "copyReportLink": "Copy link",
+    "openReport": "Open",
+    "errorCreateUserReport": "Failed to create user report"
   },
   "layout": {
     "menu": "Menu",

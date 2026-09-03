@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, RefreshCw, X, Globe, Percent } from 'lucide-react';
+import { Check, RefreshCw, X, Globe, Percent, Share2 } from 'lucide-react';
 import api from '../../config/api.js';
 
 const RANGE_OPTIONS = [
@@ -167,6 +167,7 @@ export default function AffiliatesTab() {
   const [convEventFilter, setConvEventFilter] = useState('all');
   const [affiliateSearch, setAffiliateSearch] = useState('');
   const [sharing, setSharing] = useState(false);
+  const [sharingUserId, setSharingUserId] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
   const [siteCommAffiliate, setSiteCommAffiliate] = useState(null);
@@ -340,6 +341,26 @@ export default function AffiliatesTab() {
       setError(err.response?.data?.error || 'Failed to update conversion status');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleShareUserReport = async (affiliate) => {
+    setSharingUserId(affiliate.user_id);
+    try {
+      const res = await api.post('/api/reports/share', {
+        type: 'user_links',
+        target_user_id: affiliate.user_id,
+        currency: isUk ? '₴' : '$'
+      });
+      await navigator.clipboard.writeText(res.data.url);
+      setError('');
+      alert(isUk
+        ? `Публічне посилання на звіт ${affiliate.email} скопійовано`
+        : `Public report link for ${affiliate.email} copied`);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create public report link');
+    } finally {
+      setSharingUserId(null);
     }
   };
 
@@ -519,6 +540,16 @@ export default function AffiliatesTab() {
                   <td className="px-3 py-2 text-right">
                     <div className="inline-flex items-center gap-1.5">
                       <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                      <button
+                        type="button"
+                        onClick={() => handleShareUserReport(a)}
+                        disabled={sharingUserId === a.user_id}
+                        className="px-2.5 py-1.5 text-xs rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 flex items-center gap-1 disabled:opacity-50"
+                        title={isUk ? 'Публічний звіт по всіх посиланнях' : 'Public report for all links'}
+                      >
+                        <Share2 className="w-3 h-3" />
+                        {sharingUserId === a.user_id ? (isUk ? '…' : '…') : (isUk ? 'Звіт' : 'Report')}
+                      </button>
                       <button
                         type="button"
                         onClick={() => setSiteCommAffiliate(a)}
