@@ -39,7 +39,7 @@ function initialAdminTab() {
 
 export default function Admin() {
   const { t, i18n } = useTranslation();
-  const isUk = i18n.language === 'uk';
+  const isUk = (i18n.language || '').startsWith('uk');
   const { login, user: currentUser } = useAuth();
   const isSuperAdmin = currentUser?.role === 'super_admin';
   const isPlatformAdmin = currentUser?.role === 'admin';
@@ -616,7 +616,7 @@ export default function Admin() {
     const nextRole = edit.role || (edit.isAffiliate ? 'affiliate' : 'user');
     const percent = parseFloat(edit.percent);
     if (nextRole === 'affiliate' && (Number.isNaN(percent) || percent < 0 || percent > 100)) {
-      setError('Вкажіть комісію від 0 до 100%');
+      setError(t('admin.invalidCommission'));
       return;
     }
     setUpdating(true);
@@ -637,7 +637,7 @@ export default function Admin() {
     const raw = balanceEdits[userId];
     const balance = parseFloat(raw);
     if (Number.isNaN(balance) || balance < 0) {
-      setError('Баланс має бути невід\'ємним числом');
+      setError(t('admin.invalidBalance'));
       return;
     }
     setUpdating(true);
@@ -661,7 +661,7 @@ export default function Admin() {
       const response = await api.get(`/api/admin/users/${userId}/leads`, { params: { status } });
       setAffiliateLeads(response.data.items || response.data.leads || []);
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося завантажити покупки');
+      setError(err.response?.data?.error || t('admin.errorLoadPurchases'));
       setAffiliateLeads([]);
     } finally {
       setLeadsLoading(false);
@@ -675,7 +675,7 @@ export default function Admin() {
       if (leadsUserId) await fetchAffiliateLeads(leadsUserId);
       await fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося підтвердити');
+      setError(err.response?.data?.error || t('admin.errorApprove'));
     } finally {
       setUpdating(false);
     }
@@ -687,7 +687,7 @@ export default function Admin() {
       await api.post(`/api/admin/conversions/${conversionId}/reject-lead`);
       if (leadsUserId) await fetchAffiliateLeads(leadsUserId);
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося відхилити лід');
+      setError(err.response?.data?.error || t('admin.errorRejectLead'));
     } finally {
       setUpdating(false);
     }
@@ -695,7 +695,7 @@ export default function Admin() {
 
   const formatAdminMoney = (amount) => {
     const n = Number(amount) || 0;
-    const isUk = i18n.language === 'uk';
+    const isUk = (i18n.language || '').startsWith('uk');
     return isUk
       ? `${n.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ₴`
       : `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -1126,11 +1126,11 @@ export default function Admin() {
         </div>
 
         <div className="hidden mb-6 bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="text-lg font-bold text-slate-900 mb-1">Модерація покупок (афілейти)</h3>
-          <p className="text-sm text-slate-500 mb-4">Підтвердіть або відхиліть ліди та продажі — комісія зараховується на баланс лише після підтвердження.</p>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">{t('admin.moderationTitleShort')}</h3>
+          <p className="text-sm text-slate-500 mb-4">{t('admin.moderationDescAdmin')}</p>
           <div className="flex flex-wrap items-end gap-3 mb-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Афілейт</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">{t('admin.affiliateCol')}</label>
               <select
                 value={leadsUserId}
                 onChange={(e) => {
@@ -1140,14 +1140,14 @@ export default function Admin() {
                 }}
                 className="min-w-[240px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
               >
-                <option value="">— оберіть афілейта —</option>
+                <option value="">{t('admin.selectAffiliate')}</option>
                 {users.filter((u) => u.role === 'affiliate').map((u) => (
                   <option key={u.id} value={String(u.id)}>{getDisplayName(u)} ({u.email})</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Статус</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">{t('admin.statusCol')}</label>
               <select
                 value={leadsStatusFilter}
                 onChange={(e) => {
@@ -1157,9 +1157,9 @@ export default function Admin() {
                 }}
                 className="min-w-[160px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
               >
-                <option value="pending">Очікують</option>
-                <option value="approved">Підтверджені</option>
-                <option value="rejected">Відхилені</option>
+                <option value="pending">{t('dashboard.ordersFilterPending')}</option>
+                <option value="approved">{t('dashboard.ordersFilterApproved')}</option>
+                <option value="rejected">{t('dashboard.ordersFilterRejected')}</option>
               </select>
             </div>
             {leadsUserId && (
@@ -1169,28 +1169,28 @@ export default function Admin() {
                 disabled={leadsLoading}
                 className="px-4 py-2 bg-violet-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
               >
-                Оновити
+                {t('common.refresh')}
               </button>
             )}
           </div>
           {leadsLoading ? (
-            <p className="text-sm text-slate-500">Завантаження…</p>
+            <p className="text-sm text-slate-500">{t('common.loading')}</p>
           ) : leadsUserId && affiliateLeads.length === 0 ? (
             <p className="text-sm text-slate-500">
-              {leadsStatusFilter === 'pending' ? 'Немає покупок на підтвердження.' : 'Записів немає.'}
+              {leadsStatusFilter === 'pending' ? t('admin.noPurchasesPending') : t('admin.noRecords')}
             </p>
           ) : leadsUserId ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600">
-                    <th className="text-left px-3 py-2">Дата</th>
-                    <th className="text-left px-3 py-2">Тип</th>
-                    <th className="text-left px-3 py-2">Лінк</th>
+                    <th className="text-left px-3 py-2">{t('admin.dateCol')}</th>
+                    <th className="text-left px-3 py-2">{t('admin.typeCol')}</th>
+                    <th className="text-left px-3 py-2">{t('admin.linkCol')}</th>
                     <th className="text-left px-3 py-2">Order ID</th>
-                    <th className="text-left px-3 py-2">Сума</th>
-                    <th className="text-left px-3 py-2">Комісія</th>
-                    <th className="text-left px-3 py-2">Дії</th>
+                    <th className="text-left px-3 py-2">{t('admin.amountCol')}</th>
+                    <th className="text-left px-3 py-2">{t('admin.commissionCol')}</th>
+                    <th className="text-left px-3 py-2">{t('admin.actionsCol')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1199,7 +1199,7 @@ export default function Admin() {
                       <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString('uk-UA')}</td>
                       <td className="px-3 py-2">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${item.event_type === 'sale' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                          {item.event_type === 'sale' ? 'Покупка' : 'Лід'}
+                          {item.event_type === 'sale' ? t('admin.purchase') : t('admin.lead')}
                         </span>
                       </td>
                       <td className="px-3 py-2 max-w-[200px] truncate" title={item.link_url || item.link_name || item.link_code}>
@@ -1211,8 +1211,8 @@ export default function Admin() {
                       <td className="px-3 py-2">
                         {leadsStatusFilter === 'pending' ? (
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => handleApproveLead(item.id)} disabled={updating} className="px-3 py-1 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-50">Підтвердити</button>
-                            <button type="button" onClick={() => handleRejectLead(item.id)} disabled={updating} className="px-3 py-1 bg-red-600 text-white rounded text-xs font-semibold disabled:opacity-50">Відхилити</button>
+                            <button type="button" onClick={() => handleApproveLead(item.id)} disabled={updating} className="px-3 py-1 bg-green-600 text-white rounded text-xs font-semibold disabled:opacity-50">{t('admin.approve')}</button>
+                            <button type="button" onClick={() => handleRejectLead(item.id)} disabled={updating} className="px-3 py-1 bg-red-600 text-white rounded text-xs font-semibold disabled:opacity-50">{t('admin.reject')}</button>
                           </div>
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
@@ -1348,7 +1348,7 @@ export default function Admin() {
                               disabled={updating}
                               className="px-2 py-1 bg-violet-700 text-white rounded text-xs font-semibold disabled:opacity-50"
                             >
-                              Зберегти роль
+                              {t('admin.saveRole')}
                             </button>
                           </div>
                         )}
@@ -1593,9 +1593,9 @@ export default function Admin() {
                     }))}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   >
-                    <option value="user">{isUk ? 'Користувач' : 'User'}</option>
-                    <option value="affiliate">{isUk ? 'Афілейт' : 'Affiliate'}</option>
-                    <option value="admin">{isUk ? 'Адміністратор' : 'Administrator'}</option>
+                    <option value="user">{t('admin.roleUser')}</option>
+                    <option value="affiliate">{t('admin.roleAffiliate')}</option>
+                    <option value="admin">{t('admin.roleAdministrator')}</option>
                   </select>
 
                   {(affiliateEdits[editingUser.id]?.role === 'affiliate'
@@ -1603,7 +1603,7 @@ export default function Admin() {
                     <>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                          {isUk ? 'Комісія %' : 'Commission %'}
+                          {t('admin.commissionPercent')}
                         </label>
                         <input
                           type="number"
@@ -1623,7 +1623,7 @@ export default function Admin() {
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                          {isUk ? 'Баланс' : 'Balance'}
+                          {t('admin.balance')}
                         </label>
                         <input
                           type="number"

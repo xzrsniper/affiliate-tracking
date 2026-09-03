@@ -52,7 +52,7 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isUk = i18n.language === 'uk';
+  const isUk = (i18n.language || '').startsWith('uk');
   const impersonating = isImpersonating();
   const adminUser = impersonating ? getAdminUser() : null;
 
@@ -268,9 +268,7 @@ export default function Layout({ children }) {
               <div className="flex items-center gap-2 text-sm font-medium min-w-0">
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span className="truncate">
-                  {isUk
-                    ? `Перегляд: ${user?.email}`
-                    : `Viewing: ${user?.email}`}
+                  {t('layout.viewingAccount', { email: user?.email })}
                 </span>
               </div>
               <button
@@ -279,7 +277,7 @@ export default function Layout({ children }) {
                 className="shrink-0 flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1 text-sm font-semibold hover:bg-white/30 transition-colors self-start sm:self-auto"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                {isUk ? 'Вийти' : 'Exit'}
+                {t('layout.exitViewMode')}
               </button>
             </div>
           )}

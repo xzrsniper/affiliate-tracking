@@ -29,7 +29,7 @@ export default function LegalPageShell({ title, updatedAt, children }) {
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
             <Link to="/" className="rounded-[10px] bg-[#6d5cf6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5d4af0]">
-              На головну
+              {t('common.home')}
             </Link>
           </div>
         </div>

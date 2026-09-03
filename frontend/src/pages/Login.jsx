@@ -632,7 +632,11 @@ export default function Login() {
                     required={isRegister}
                   />
                   <span className="ml-2 text-xs text-slate-600">
-                    Я погоджуюся з <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">Угодою користувача</a>, <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">Політикою конфіденційності</a> та <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline">Політикою повернення коштів</a>
+                    {t('login.agreePrefix')}{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">{t('login.agreeTerms')}</a>,{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">{t('login.agreePrivacy')}</a>{' '}
+                    {t('login.agreeAnd')}{' '}
+                    <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline">{t('login.agreeRefund')}</a>
                   </span>
                 </label>
               </>

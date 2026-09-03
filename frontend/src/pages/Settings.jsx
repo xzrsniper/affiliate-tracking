@@ -44,7 +44,7 @@ export default function Settings() {
       // Hide any previous connection error
       setGoogleConnected(true);
     } else if (googleConnectedParam === '0') {
-      setGoogleError(i18n.language === 'uk' ? 'Google підключення не вдалося.' : 'Google connection failed.');
+      setGoogleError(t('settings.googleConnectFailed'));
     }
 
     api.get('/api/google-sheets/status')
@@ -174,11 +174,9 @@ export default function Settings() {
       if (!authUrl) throw new Error('Missing auth url');
       window.location.href = authUrl;
     } catch (err) {
-      const msg = i18n.language === 'uk'
-        ? (err.response?.data?.error === 'GOOGLE_SHEETS_OAUTH_NOT_CONFIGURED'
-          ? 'Google OAuth не налаштовано на сервері.'
-          : 'Не вдалося запустити підключення Google. Спробуйте пізніше.')
-        : 'Failed to start Google connection. Try again later.';
+      const msg = err.response?.data?.error === 'GOOGLE_SHEETS_OAUTH_NOT_CONFIGURED'
+        ? t('settings.googleOAuthNotConfigured')
+        : t('settings.googleConnectStartFailed');
       setGoogleError(msg);
     } finally {
       setGoogleLoading(false);
@@ -193,10 +191,7 @@ export default function Settings() {
       setGoogleConnected(false);
       setGoogleEmail('');
     } catch (err) {
-      const msg = i18n.language === 'uk'
-        ? 'Не вдалося відключити Google. Спробуйте пізніше.'
-        : 'Failed to disconnect Google. Try again later.';
-      setGoogleError(msg);
+      setGoogleError(t('settings.googleDisconnectFailed'));
     } finally {
       setGoogleLoading(false);
     }
@@ -464,12 +459,10 @@ export default function Settings() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {i18n.language === 'uk' ? 'Підключення Google Drive' : 'Google Drive connection'}
+                    {t('settings.googleDriveTitle')}
                   </h2>
                   <p className="text-slate-500 dark:text-slate-400">
-                    {i18n.language === 'uk'
-                      ? 'Експорт звітів створюватиме таблиці у вашому акаунті Google.'
-                      : 'Reports export will create spreadsheets in your Google account.'}
+                    {t('settings.googleDriveDesc')}
                   </p>
                 </div>
               </div>
@@ -486,8 +479,8 @@ export default function Settings() {
                   <div>
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                       {googleConnected
-                        ? (i18n.language === 'uk' ? 'Підключено' : 'Connected')
-                        : (i18n.language === 'uk' ? 'Не підключено' : 'Not connected')}
+                        ? t('settings.googleConnected')
+                        : t('settings.googleNotConnected')}
                     </p>
                     {googleConnected && (
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -505,7 +498,7 @@ export default function Settings() {
                         className="flex items-center space-x-2 rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition-all hover:bg-violet-700 disabled:opacity-50"
                       >
                         <FileSpreadsheet className="h-5 w-5" />
-                        <span>{googleLoading ? (i18n.language === 'uk' ? 'Підключення...' : 'Connecting...') : (i18n.language === 'uk' ? 'Підключити Google' : 'Connect Google')}</span>
+                        <span>{googleLoading ? t('settings.googleConnecting') : t('settings.googleConnect')}</span>
                       </button>
                     ) : (
                       <button
@@ -515,7 +508,7 @@ export default function Settings() {
                         className="flex items-center space-x-2 rounded-xl border border-violet-300 bg-violet-50 px-5 py-3 font-semibold text-violet-700 transition-all hover:bg-violet-100 disabled:opacity-50"
                       >
                         <RotateCcw className="h-5 w-5" />
-                        <span>{googleLoading ? (i18n.language === 'uk' ? 'Зупиняю...' : 'Disconnecting...') : (i18n.language === 'uk' ? 'Відключити' : 'Disconnect')}</span>
+                        <span>{googleLoading ? t('settings.googleDisconnecting') : t('settings.googleDisconnect')}</span>
                       </button>
                     )}
                   </div>
