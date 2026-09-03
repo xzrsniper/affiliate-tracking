@@ -413,8 +413,12 @@ export default function Login() {
         <div className="bg-white rounded-[20px] border border-slate-300 p-10 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
           {!showCheckEmail && !showForgotPassword && (
             <div className="mb-6">
-              <h2 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">{t('login.welcomeBack')}</h2>
-              <p className="text-slate-500 mt-1 text-sm">{t('login.signInTrackFlow')}</p>
+              <h2 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
+                {isRegister ? t('login.createYourAccount') : t('login.welcomeBack')}
+              </h2>
+              <p className="text-slate-500 mt-1 text-sm">
+                {isRegister ? t('login.signUpLehko') : t('login.signInTrackFlow')}
+              </p>
               <div className="mt-5 rounded-[10px] bg-slate-100 p-[3px] grid grid-cols-2 gap-1">
                 <button
                   type="button"
