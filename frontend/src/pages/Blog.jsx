@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { changeUserLanguage } from '../i18n.js';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
 import SiteEditableText from '../components/SiteEditableText.jsx';
+import { applyClientSeo } from '../utils/seo.js';
 import { MessageCircle, Eye, Clock, ArrowRight, Sun, Moon } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -60,9 +62,11 @@ export default function Blog() {
   useEffect(() => {
     const seoTitle = contentText('seo', 'title', t('blog.title'));
     const seoDescription = contentText('seo', 'description', t('blog.ctaText'));
-    document.title = seoTitle;
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) metaDescription.setAttribute('content', seoDescription);
+    applyClientSeo({
+      title: seoTitle,
+      description: seoDescription,
+      pathName: '/blog'
+    });
   }, [pageContent, t]);
 
   useEffect(() => {
@@ -97,7 +101,7 @@ export default function Blog() {
         <div className="mx-auto flex h-[68px] w-full max-w-[1240px] items-center justify-between px-4 sm:px-8">
           <Link to="/"><Logo size="md" showText={true} /></Link>
           <div className="flex items-center gap-2">
-            <button onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')} className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+            <button onClick={() => changeUserLanguage(isUk ? 'en' : 'uk')} className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">
               {isUk ? 'EN' : 'УКР'}
             </button>
             <button onClick={toggleTheme} className="rounded-lg p-2 text-slate-600 dark:text-slate-300" title={theme === 'dark' ? t('common.lightTheme') : t('common.darkTheme')}>

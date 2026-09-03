@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { changeUserLanguage } from '../i18n.js';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
+import { applyClientSeo } from '../utils/seo.js';
 import { Eye, Clock, Sun, Moon } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -71,6 +73,16 @@ export default function BlogPost() {
     return () => { cancelled = true; };
   }, [slug, t]);
 
+  useEffect(() => {
+    if (!post) return;
+    applyClientSeo({
+      title: `${post.title} | lehko.space`,
+      description: (post.excerpt || post.title || '').replace(/\s+/g, ' ').trim(),
+      pathName: `/blog/${post.slug}`,
+      image: post.featured_image || null
+    });
+  }, [post]);
+
   const imageSrc = (url) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
@@ -103,7 +115,7 @@ export default function BlogPost() {
         <div className="mx-auto flex h-[68px] w-full max-w-[1240px] items-center justify-between px-4 sm:px-8">
           <Link to="/"><Logo size="md" showText={true} /></Link>
           <div className="flex items-center gap-2">
-            <button onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')} className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">{isUk ? 'EN' : 'УКР'}</button>
+            <button onClick={() => changeUserLanguage(isUk ? 'en' : 'uk')} className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">{isUk ? 'EN' : 'УКР'}</button>
             <button onClick={toggleTheme} className="rounded-lg p-2 text-slate-600 dark:text-slate-300">
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>

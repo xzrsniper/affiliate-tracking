@@ -1,7 +1,83 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, RefreshCw, X, Globe, Percent } from 'lucide-react';
+import { Check, RefreshCw, X, Globe, Percent, AlertCircle } from 'lucide-react';
 import api from '../../config/api.js';
+
+const PRESET_REASON_KEYS = [
+  { value: 'no_payment', labelKey: 'admin.rejectReasonNoPayment' },
+  { value: 'duplicate', labelKey: 'admin.rejectReasonDuplicate' },
+  { value: 'not_picked_up', labelKey: 'admin.rejectReasonNotPickedUp' },
+  { value: 'cancelled', labelKey: 'admin.rejectReasonCancelled' },
+  { value: 'custom', labelKey: 'admin.rejectReasonCustom' },
+];
+
+function RejectModal({ item, onConfirm, onCancel }) {
+  const { t, i18n } = useTranslation();
+  const isUk = (i18n.language || '').startsWith('uk');
+  const [selected, setSelected] = useState('no_payment');
+  const [custom, setCustom] = useState('');
+  const reason = selected === 'custom'
+    ? custom.trim()
+    : t(PRESET_REASON_KEYS.find((r) => r.value === selected)?.labelKey || 'admin.rejectReasonCustom');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <h2 className="font-bold text-slate-800">{t('admin.rejectReasonTitle')}</h2>
+        </div>
+        {item && (
+          <p className="text-sm text-slate-500">
+            {t('admin.orderLabel')} #{item.order_id || item.id} · {Number(item.order_value || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ₴
+          </p>
+        )}
+        <div className="space-y-2">
+          {PRESET_REASON_KEYS.map((r) => (
+            <label key={r.value} className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="radio"
+                name="reject_reason"
+                value={r.value}
+                checked={selected === r.value}
+                onChange={() => setSelected(r.value)}
+                className="accent-red-600"
+              />
+              <span className="text-sm text-slate-700">{t(r.labelKey)}</span>
+            </label>
+          ))}
+        </div>
+        {selected === 'custom' && (
+          <input
+            autoFocus
+            type="text"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            placeholder={t('admin.rejectReasonPlaceholder')}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+          />
+        )}
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            disabled={selected === 'custom' && !custom.trim()}
+            onClick={() => onConfirm(reason || null)}
+            className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+          >
+            {t('admin.reject')}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const RANGE_OPTIONS = [
   { value: '1', label: '1d' },
@@ -17,6 +93,7 @@ function todayISO() {
 }
 
 function SiteCommissionsModal({ affiliate, onClose }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,7 +146,7 @@ function SiteCommissionsModal({ affiliate, onClose }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5 text-violet-500" />
-            <h2 className="font-bold text-slate-800">Комісія по сайтах</h2>
+            <h2 className="font-bold text-slate-800">{t('admin.siteCommissionTitle')}</h2>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-4 h-4" />
@@ -78,19 +155,19 @@ function SiteCommissionsModal({ affiliate, onClose }) {
 
         <p className="text-sm text-slate-500">
           <span className="font-medium text-slate-700">{affiliate.email}</span>
-          {' · '}Глобальна комісія:{' '}
+          {' · '}{t('admin.globalCommission')}:{' '}
           <span className="font-semibold text-violet-700">{data?.global_commission ?? '?'}%</span>
         </p>
-        <p className="text-xs text-slate-400">Порожнє поле = використовується глобальний %. Override тільки для цього сайту.</p>
+        <p className="text-xs text-slate-400">{t('admin.emptyUsesGlobal')}</p>
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
         )}
 
         {loading ? (
-          <p className="text-sm text-slate-400 py-4 text-center">Завантаження…</p>
+          <p className="text-sm text-slate-400 py-4 text-center">{t('common.loading')}</p>
         ) : (data?.websites || []).length === 0 ? (
-          <p className="text-sm text-slate-400 py-4 text-center">Немає сайтів у цього афілейта</p>
+          <p className="text-sm text-slate-400 py-4 text-center">{t('admin.noSitesForAffiliate')}</p>
         ) : (
           <div className="space-y-3 max-h-[50vh] overflow-y-auto">
             {(data?.websites || []).map((w) => (
@@ -117,7 +194,7 @@ function SiteCommissionsModal({ affiliate, onClose }) {
                     <Percent className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
                   </div>
                   {edits[w.id] === '' && (
-                    <span className="text-xs text-slate-400 whitespace-nowrap">= global</span>
+                    <span className="text-xs text-slate-400 whitespace-nowrap">{t('admin.equalsGlobal')}</span>
                   )}
                 </div>
               </div>
@@ -132,14 +209,14 @@ function SiteCommissionsModal({ affiliate, onClose }) {
             disabled={saving || loading || (data?.websites || []).length === 0}
             className="flex-1 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 disabled:opacity-50"
           >
-            {saved ? '✓ Збережено' : saving ? 'Збереження…' : 'Зберегти'}
+            {saved ? t('admin.saved') : saving ? t('admin.saving') : t('common.save')}
           </button>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
           >
-            Закрити
+            {t('common.close')}
           </button>
         </div>
       </div>
@@ -148,8 +225,8 @@ function SiteCommissionsModal({ affiliate, onClose }) {
 }
 
 export default function AffiliatesTab() {
-  const { i18n } = useTranslation();
-  const isUk = i18n.language === 'uk';
+  const { t, i18n } = useTranslation();
+  const isUk = (i18n.language || '').startsWith('uk');
   const [range, setRange] = useState('7');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -170,6 +247,7 @@ export default function AffiliatesTab() {
   const [updating, setUpdating] = useState(false);
   const [edits, setEdits] = useState({});
   const [siteCommAffiliate, setSiteCommAffiliate] = useState(null);
+  const [rejectTarget, setRejectTarget] = useState(null);
 
   const money = (v) => `${Number(v || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US')} ${isUk ? '₴' : '$'}`;
 
@@ -191,9 +269,9 @@ export default function AffiliatesTab() {
   }, [customActive, dateFrom, dateTo, range]);
 
   const statusLabel = (status) => {
-    if (status === 'approved') return isUk ? 'Підтверджено' : 'Approved';
-    if (status === 'rejected') return isUk ? 'Відхилено' : 'Rejected';
-    if (status === 'pending') return 'Pending';
+    if (status === 'approved') return t('admin.approved');
+    if (status === 'rejected') return t('admin.rejected');
+    if (status === 'pending') return t('admin.pending');
     return status || '—';
   };
 
@@ -326,10 +404,14 @@ export default function AffiliatesTab() {
     }
   };
 
-  const handleModeration = async (id, action) => {
+  const handleModeration = async (id, action, rejectionReason = null) => {
     setUpdating(true);
     try {
-      await api.post(`/api/admin/conversions/${id}/${action === 'approve' ? 'approve-lead' : 'reject-lead'}`);
+      const endpoint = action === 'approve' ? 'approve-lead' : 'reject-lead';
+      await api.post(
+        `/api/admin/conversions/${id}/${endpoint}`,
+        action === 'reject' ? { rejection_reason: rejectionReason } : undefined
+      );
       await Promise.all([
         fetchModeration(),
         fetchHistory(),
@@ -353,7 +435,7 @@ export default function AffiliatesTab() {
       });
       await navigator.clipboard.writeText(res.data.url);
       setError('');
-      alert('Публічне посилання на звіт скопійовано');
+      alert(t('admin.publicReportCopied'));
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create public report link');
     } finally {
@@ -364,15 +446,15 @@ export default function AffiliatesTab() {
   const statsCards = useMemo(() => {
     const s = overview?.summary || {};
     return [
-      { label: 'Афілейти', value: s.affiliates || 0 },
-      { label: 'Кліки', value: (s.clicks || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
-      { label: 'Конверсії', value: (s.conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
-      { label: 'Pending', value: (s.pending_conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
-      { label: 'Підтв. дохід', value: money(s.approved_revenue) },
-      { label: 'Заробіток афілейтів', value: money(s.affiliate_earnings) },
-      { label: 'Баланс сумарно', value: money(s.balance_total) }
+      { label: t('admin.statAffiliates'), value: s.affiliates || 0 },
+      { label: t('dashboard.clicksShort'), value: (s.clicks || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
+      { label: t('dashboard.conversionsShort'), value: (s.conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
+      { label: t('admin.pending'), value: (s.pending_conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
+      { label: t('admin.statApprovedRevenue'), value: money(s.approved_revenue) },
+      { label: t('admin.statAffiliateEarnings'), value: money(s.affiliate_earnings) },
+      { label: t('admin.statBalanceTotal'), value: money(s.balance_total) }
     ];
-  }, [overview, i18n.language]);
+  }, [overview, i18n.language, t, isUk]);
 
   const searchTerm = affiliateSearch.trim().toLowerCase();
   const filteredPending = moderationItems.filter((item) => {
@@ -396,11 +478,11 @@ export default function AffiliatesTab() {
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Афілейти</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{t('admin.affiliatesPanelTitle')}</h1>
             <p className="text-sm text-slate-500">
-              {isUk ? 'Статистика, баланс і модерація в одному табі.' : 'Stats, balance and moderation in one tab.'}
+              t('admin.tabHint')
               <span className="ml-2 text-violet-700 font-medium">
-                {isUk ? 'Період:' : 'Period:'} {periodLabel}
+                t('admin.periodLabel') {periodLabel}
               </span>
             </p>
           </div>
@@ -423,14 +505,14 @@ export default function AffiliatesTab() {
               <RefreshCw className="w-4 h-4" />
             </button>
             <button onClick={handleShareOverview} disabled={sharing} className="px-3 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 text-sm font-semibold disabled:opacity-50">
-              {sharing ? (isUk ? 'Створення...' : 'Creating...') : (isUk ? 'Поділитись звітом' : 'Share report')}
+              sharing ? t('admin.creating') : t('admin.shareReport')
             </button>
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">{isUk ? 'Від' : 'From'}</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">t('admin.from')</label>
             <input
               type="date"
               value={dateFrom}
@@ -440,7 +522,7 @@ export default function AffiliatesTab() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">{isUk ? 'До' : 'To'}</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">t('admin.to')</label>
             <input
               type="date"
               value={dateTo}
@@ -482,23 +564,23 @@ export default function AffiliatesTab() {
 
       <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
         <div className="px-5 py-4 border-b border-slate-200">
-          <h2 className="font-bold text-slate-900">Список афілейтів</h2>
+          <h2 className="font-bold text-slate-900">{t('admin.affiliatesList')}</h2>
         </div>
         {loading ? (
-          <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+          <p className="p-5 text-sm text-slate-500">{t('common.loading')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-600">
                 <th className="text-left px-3 py-2">Email</th>
-                <th className="text-right px-3 py-2">Лінки</th>
-                <th className="text-right px-3 py-2">Кліки</th>
-                <th className="text-right px-3 py-2">Конверсії</th>
+                <th className="text-right px-3 py-2">{t('admin.linksCol')}</th>
+                <th className="text-right px-3 py-2">{t('dashboard.clicksShort')}</th>
+                <th className="text-right px-3 py-2">{t('dashboard.conversionsShort')}</th>
                 <th className="text-right px-3 py-2">Pending</th>
-                <th className="text-right px-3 py-2">Підтв. дохід</th>
-                <th className="text-right px-3 py-2">Комісія %</th>
-                <th className="text-right px-3 py-2">Баланс</th>
-                <th className="text-right px-3 py-2">Дії</th>
+                <th className="text-right px-3 py-2">{t('admin.statApprovedRevenue')}</th>
+                <th className="text-right px-3 py-2">{t('admin.commissionPercent')}</th>
+                <th className="text-right px-3 py-2">{t('admin.balance')}</th>
+                <th className="text-right px-3 py-2">{t('admin.actionsCol')}</th>
               </tr>
             </thead>
             <tbody>
@@ -523,10 +605,10 @@ export default function AffiliatesTab() {
                         type="button"
                         onClick={() => setSiteCommAffiliate(a)}
                         className="px-2.5 py-1.5 text-xs rounded-lg border border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100 flex items-center gap-1"
-                        title="Комісія по сайтах"
+                        title={t('admin.siteCommissionTitle')}
                       >
                         <Globe className="w-3 h-3" />
-                        Сайти %
+                        {t('admin.sitesPercent')}
                       </button>
                     </div>
                   </td>
@@ -540,29 +622,29 @@ export default function AffiliatesTab() {
       <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-slate-900">Модерація покупок (усі афілейти)</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Черга на підтвердження + історія рішень</p>
+            <h2 className="font-bold text-slate-900">{t('admin.moderationTitle')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('admin.moderationDesc')}</p>
           </div>
           <input
             value={affiliateSearch}
             onChange={(e) => setAffiliateSearch(e.target.value)}
-            placeholder="Пошук по email афілейта..."
+            placeholder={t('admin.searchAffiliateEmail')}
             className="w-64 max-w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
           />
         </div>
         {modLoading ? (
-          <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+          <p className="p-5 text-sm text-slate-500">{t('common.loading')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-600">
-                <th className="text-left px-3 py-2">Дата</th>
-                <th className="text-left px-3 py-2">Афілейт</th>
-                <th className="text-left px-3 py-2">Тип</th>
-                <th className="text-left px-3 py-2">Лінк</th>
-                <th className="text-right px-3 py-2">Сума</th>
-                <th className="text-right px-3 py-2">Комісія</th>
-                <th className="text-right px-3 py-2">Дії</th>
+                <th className="text-left px-3 py-2">{t('admin.dateCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.affiliateCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.typeCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.linkCol')}</th>
+                <th className="text-right px-3 py-2">{t('admin.amountCol')}</th>
+                <th className="text-right px-3 py-2">{t('admin.commissionCol')}</th>
+                <th className="text-right px-3 py-2">{t('admin.actionsCol')}</th>
               </tr>
             </thead>
             <tbody>
@@ -570,21 +652,21 @@ export default function AffiliatesTab() {
                 <tr key={item.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
                   <td className="px-3 py-2">{item.affiliate_email}</td>
-                  <td className="px-3 py-2">{item.event_type === 'sale' ? 'Покупка' : 'Лід'}</td>
+                  <td className="px-3 py-2">{item.event_type === 'sale' ? t('admin.purchase') : t('admin.lead')}</td>
                   <td className="px-3 py-2">{item.link_name || item.link_code}</td>
                   <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
                   <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="inline-flex gap-2">
-                      <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white"><Check className="w-4 h-4" /></button>
-                      <button onClick={() => handleModeration(item.id, 'reject')} disabled={updating} className="p-1.5 rounded bg-red-600 text-white"><X className="w-4 h-4" /></button>
+                      <button onClick={() => handleModeration(item.id, 'approve')} disabled={updating} className="p-1.5 rounded bg-green-600 text-white" title={t('admin.approve')}><Check className="w-4 h-4" /></button>
+                      <button onClick={() => setRejectTarget(item)} disabled={updating} className="p-1.5 rounded bg-red-600 text-white" title={t('admin.reject')}><X className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
               ))}
               {!filteredPending.length && (
                 <tr>
-                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>Немає записів</td>
+                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>{t('admin.noEntries')}</td>
                 </tr>
               )}
             </tbody>
@@ -595,8 +677,8 @@ export default function AffiliatesTab() {
       <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
         <div className="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-bold text-slate-900">Історія лідів / покупок</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Повний лог конверсій по всіх афілейтах</p>
+            <h2 className="font-bold text-slate-900">{t('admin.historyTitle')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('admin.historyDesc')}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
@@ -604,7 +686,7 @@ export default function AffiliatesTab() {
               onChange={(e) => setConvEventFilter(e.target.value)}
               className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
             >
-              <option value="all">Усі типи</option>
+              <option value="all">{t('admin.allTypes')}</option>
               <option value="sale">Покупки</option>
               <option value="lead">Ліди</option>
             </select>
@@ -615,24 +697,24 @@ export default function AffiliatesTab() {
             >
               <option value="all">Усі статуси</option>
               <option value="pending">Pending</option>
-              <option value="approved">Підтверджено</option>
+              <option value="approved">{t('admin.approved')}</option>
               <option value="rejected">Відхилено</option>
             </select>
           </div>
         </div>
         {conversionsLoading ? (
-          <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+          <p className="p-5 text-sm text-slate-500">{t('common.loading')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-600">
-                <th className="text-left px-3 py-2">Дата</th>
-                <th className="text-left px-3 py-2">Афілейт</th>
-                <th className="text-left px-3 py-2">Тип</th>
-                <th className="text-left px-3 py-2">Лінк</th>
+                <th className="text-left px-3 py-2">{t('admin.dateCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.affiliateCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.typeCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.linkCol')}</th>
                 <th className="text-left px-3 py-2">Order ID</th>
-                <th className="text-right px-3 py-2">Сума</th>
-                <th className="text-right px-3 py-2">Комісія</th>
+                <th className="text-right px-3 py-2">{t('admin.amountCol')}</th>
+                <th className="text-right px-3 py-2">{t('admin.commissionCol')}</th>
                 <th className="text-left px-3 py-2">Статус</th>
               </tr>
             </thead>
@@ -650,6 +732,9 @@ export default function AffiliatesTab() {
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${statusClass(item.lead_status)}`}>
                       {statusLabel(item.lead_status)}
                     </span>
+                    {item.lead_status === 'rejected' && item.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-0.5 max-w-[180px]">{item.rejection_reason}</p>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -668,17 +753,17 @@ export default function AffiliatesTab() {
           <h2 className="font-bold text-slate-900">Історія підтверджень / відхилень</h2>
         </div>
         {historyLoading ? (
-          <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+          <p className="p-5 text-sm text-slate-500">{t('common.loading')}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-600">
-                <th className="text-left px-3 py-2">Дата</th>
-                <th className="text-left px-3 py-2">Афілейт</th>
-                <th className="text-left px-3 py-2">Тип</th>
-                <th className="text-left px-3 py-2">Лінк</th>
-                <th className="text-right px-3 py-2">Сума</th>
-                <th className="text-right px-3 py-2">Комісія</th>
+                <th className="text-left px-3 py-2">{t('admin.dateCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.affiliateCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.typeCol')}</th>
+                <th className="text-left px-3 py-2">{t('admin.linkCol')}</th>
+                <th className="text-right px-3 py-2">{t('admin.amountCol')}</th>
+                <th className="text-right px-3 py-2">{t('admin.commissionCol')}</th>
                 <th className="text-left px-3 py-2">Статус</th>
               </tr>
             </thead>
@@ -687,14 +772,17 @@ export default function AffiliatesTab() {
                 <tr key={`${item.id}-${item.lead_status}`} className="border-t border-slate-100">
                   <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
                   <td className="px-3 py-2">{item.affiliate_email}</td>
-                  <td className="px-3 py-2">{item.event_type === 'sale' ? 'Покупка' : 'Лід'}</td>
+                  <td className="px-3 py-2">{item.event_type === 'sale' ? t('admin.purchase') : t('admin.lead')}</td>
                   <td className="px-3 py-2">{item.link_name || item.link_code}</td>
                   <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
                   <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${item.lead_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {item.lead_status === 'approved' ? 'Підтверджено' : 'Відхилено'}
+                      {item.lead_status === 'approved' ? t('admin.approved') : t('admin.rejected')}
                     </span>
+                    {item.lead_status === 'rejected' && item.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-0.5 max-w-[180px]">{item.rejection_reason}</p>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -712,6 +800,18 @@ export default function AffiliatesTab() {
         <SiteCommissionsModal
           affiliate={siteCommAffiliate}
           onClose={() => setSiteCommAffiliate(null)}
+        />
+      )}
+
+      {rejectTarget && (
+        <RejectModal
+          item={rejectTarget}
+          onConfirm={async (reason) => {
+            const id = rejectTarget.id;
+            setRejectTarget(null);
+            await handleModeration(id, 'reject', reason);
+          }}
+          onCancel={() => setRejectTarget(null)}
         />
       )}
     </div>

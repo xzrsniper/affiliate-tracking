@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { changeUserLanguage } from '../i18n.js';
 import { useTheme } from '../context/ThemeContext.jsx';
 import { Moon, Sun } from 'lucide-react';
 import Logo from './Logo.jsx';
@@ -16,7 +17,7 @@ export default function LegalPageShell({ title, updatedAt, children }) {
           <Link to="/"><Logo size="md" showText={true} /></Link>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')}
+              onClick={() => changeUserLanguage(isUk ? 'en' : 'uk')}
               className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300"
             >
               {isUk ? 'EN' : 'УКР'}
@@ -28,7 +29,7 @@ export default function LegalPageShell({ title, updatedAt, children }) {
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
             <Link to="/" className="rounded-[10px] bg-[#6d5cf6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5d4af0]">
-              На головну
+              {t('common.home')}
             </Link>
           </div>
         </div>

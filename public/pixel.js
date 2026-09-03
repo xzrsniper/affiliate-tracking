@@ -1,6 +1,6 @@
 /**
- * LehkoTrack Pixel v5.1 — lead sum from checkout «Всього» / sibling of form (not only inside button scope)
- * (v5.0 — cross-subdomain cookies; v4.3 — GTM/dataLayer, JSON-LD)
+ * LehkoTrack Pixel v5.2 — active engagement time (visible + activity ≤30s); heartbeat 12s
+ * (v5.1 — lead sum from checkout «Всього» / sibling of form; v5.0 — cross-subdomain cookies)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
  *
@@ -132,6 +132,20 @@
   var SESSION_START_KEY = 'lehko_session_started_at';
   var SESSION_CLICK_ID_KEY = 'lehko_session_click_id';
   var SESSION_ENGAGED_KEY = 'lehko_session_engaged';
+  var SESSION_ACTIVE_SECONDS_KEY = 'lehko_session_active_seconds';
+  var SESSION_LAST_ACTIVITY_KEY = 'lehko_session_last_activity';
+  var SESSION_LAST_TICK_KEY = 'lehko_session_last_tick';
+  var ACTIVE_IDLE_MS = 30000; // stop counting after 30s without user activity
+  var HEARTBEAT_MS = 12000;   // send session heartbeat every 12s
+
+  function resetSessionCounters(now) {
+    var ts = String(now || Date.now());
+    ss(SESSION_START_KEY, ts);
+    ss(SESSION_ENGAGED_KEY, '0');
+    ss(SESSION_ACTIVE_SECONDS_KEY, '0');
+    ss(SESSION_LAST_ACTIVITY_KEY, '0');
+    ss(SESSION_LAST_TICK_KEY, ts);
+  }
 
   /** Потрібен лише click_id (з URL/cookie). ref не обов'язковий — інакше сесія не стартувала. */
   function ensureSessionTracking() {
@@ -140,16 +154,19 @@
 
     var currentClickId = String(clickId);
     var savedClickId = ss(SESSION_CLICK_ID_KEY);
+    var now = Date.now();
 
     if (savedClickId !== currentClickId) {
       ss(SESSION_CLICK_ID_KEY, currentClickId);
-      ss(SESSION_START_KEY, String(Date.now()));
-      ss(SESSION_ENGAGED_KEY, '0');
+      resetSessionCounters(now);
       return;
     }
 
     if (!ss(SESSION_START_KEY)) {
-      ss(SESSION_START_KEY, String(Date.now()));
+      resetSessionCounters(now);
+    }
+    if (!ss(SESSION_LAST_TICK_KEY)) {
+      ss(SESSION_LAST_TICK_KEY, String(now));
     }
   }
 
@@ -158,12 +175,60 @@
     ss(SESSION_ENGAGED_KEY, '1');
   }
 
+  function noteUserActivity() {
+    if (!getClickId()) return;
+    ensureSessionTracking();
+    markEngagement();
+    var now = Date.now();
+    var prevActivity = parseInt(ss(SESSION_LAST_ACTIVITY_KEY) || '0', 10);
+    // If we were idle, jump the tick cursor forward so idle gap is not counted.
+    if (!prevActivity || (now - prevActivity) > ACTIVE_IDLE_MS) {
+      ss(SESSION_LAST_TICK_KEY, String(now));
+    }
+    ss(SESSION_LAST_ACTIVITY_KEY, String(now));
+    tickActiveTime();
+  }
+
+  function isActivelyEngaged(now) {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return false;
+    var lastActivity = parseInt(ss(SESSION_LAST_ACTIVITY_KEY) || '0', 10);
+    if (!lastActivity) return false;
+    return ((now || Date.now()) - lastActivity) <= ACTIVE_IDLE_MS;
+  }
+
+  /**
+   * Active engagement time: counts only while tab is visible AND user was active
+   * within the last 30 seconds. Pauses on hidden / idle; resumes on activity.
+   */
+  function tickActiveTime() {
+    if (!getClickId()) return;
+    ensureSessionTracking();
+    var now = Date.now();
+    var lastTick = parseInt(ss(SESSION_LAST_TICK_KEY) || '0', 10);
+    if (!lastTick) {
+      ss(SESSION_LAST_TICK_KEY, String(now));
+      return;
+    }
+
+    if (isActivelyEngaged(now)) {
+      var delta = Math.max(0, Math.round((now - lastTick) / 1000));
+      // Cap to ~2 heartbeats to avoid jumps after long background stalls.
+      if (delta > 30) delta = 0;
+      if (delta > 0) {
+        var prev = parseInt(ss(SESSION_ACTIVE_SECONDS_KEY) || '0', 10);
+        ss(SESSION_ACTIVE_SECONDS_KEY, String(prev + delta));
+      }
+    }
+
+    ss(SESSION_LAST_TICK_KEY, String(now));
+  }
+
   /** application/x-www-form-urlencoded — надійно парситься Express (sendBeacon + JSON часто ламався). */
   function buildSessionBody() {
     var clickId = getClickId();
-    var startedAt = parseInt(ss(SESSION_START_KEY) || '0', 10);
-    if (!clickId || !startedAt) return null;
-    var durationSeconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+    if (!clickId) return null;
+    tickActiveTime();
+    var durationSeconds = Math.max(0, parseInt(ss(SESSION_ACTIVE_SECONDS_KEY) || '0', 10));
     var hadEngagement = ss(SESSION_ENGAGED_KEY) === '1';
     return (
       'click_id=' + encodeURIComponent(String(clickId)) +
@@ -201,8 +266,12 @@
     if (heartbeatTimer) return;
     heartbeatTimer = setInterval(function () {
       ensureSessionTracking();
-      reportSessionMetrics();
-    }, 25000);
+      tickActiveTime();
+      // Only send while visible to reduce noise; hidden flush happens on visibilitychange.
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        reportSessionMetrics();
+      }
+    }, HEARTBEAT_MS);
   }
 
   function stopSessionHeartbeat() {
@@ -214,23 +283,31 @@
 
   function installEngagementTracking() {
     var opts = { passive: true, capture: true };
-    ['scroll', 'keydown', 'touchstart', 'mousedown'].forEach(function (eventName) {
-      window.addEventListener(eventName, markEngagement, opts);
+    ['scroll', 'keydown', 'touchstart', 'mousedown', 'pointerdown'].forEach(function (eventName) {
+      window.addEventListener(eventName, noteUserActivity, opts);
     });
 
-    // Перемикання вкладки — зберегти час, але не глушити heartbeat
-    function onVisibilityHidden() {
-      if (document.visibilityState === 'hidden') reportSessionMetrics();
+    function onVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        tickActiveTime();
+        reportSessionMetrics();
+        // Freeze tick cursor so background time is not counted on resume.
+        ss(SESSION_LAST_TICK_KEY, String(Date.now()));
+      } else {
+        // Visible again: wait for fresh user activity before counting.
+        ss(SESSION_LAST_TICK_KEY, String(Date.now()));
+      }
     }
 
     function onPageLeave() {
+      tickActiveTime();
       reportSessionMetrics();
       stopSessionHeartbeat();
     }
 
     window.addEventListener('pagehide', onPageLeave, { capture: true });
     window.addEventListener('beforeunload', onPageLeave, { capture: true });
-    document.addEventListener('visibilitychange', onVisibilityHidden, true);
+    document.addEventListener('visibilitychange', onVisibilityChange, true);
 
     startSessionHeartbeat();
     setTimeout(function () {

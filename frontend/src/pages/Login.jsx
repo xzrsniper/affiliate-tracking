@@ -413,8 +413,12 @@ export default function Login() {
         <div className="bg-white rounded-[20px] border border-slate-300 p-10 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
           {!showCheckEmail && !showForgotPassword && (
             <div className="mb-6">
-              <h2 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">{t('login.welcomeBack')}</h2>
-              <p className="text-slate-500 mt-1 text-sm">{t('login.signInTrackFlow')}</p>
+              <h2 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
+                {isRegister ? t('login.createYourAccount') : t('login.welcomeBack')}
+              </h2>
+              <p className="text-slate-500 mt-1 text-sm">
+                {isRegister ? t('login.signUpLehko') : t('login.signInTrackFlow')}
+              </p>
               <div className="mt-5 rounded-[10px] bg-slate-100 p-[3px] grid grid-cols-2 gap-1">
                 <button
                   type="button"
@@ -628,7 +632,11 @@ export default function Login() {
                     required={isRegister}
                   />
                   <span className="ml-2 text-xs text-slate-600">
-                    Я погоджуюся з <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">Угодою користувача</a>, <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">Політикою конфіденційності</a> та <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline">Політикою повернення коштів</a>
+                    {t('login.agreePrefix')}{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">{t('login.agreeTerms')}</a>,{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">{t('login.agreePrivacy')}</a>{' '}
+                    {t('login.agreeAnd')}{' '}
+                    <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline">{t('login.agreeRefund')}</a>
                   </span>
                 </label>
               </>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { changeUserLanguage } from '../i18n.js';
 import { useTheme } from '../context/ThemeContext.jsx';
 import api from '../config/api.js';
 import Logo from '../components/Logo.jsx';
@@ -139,7 +140,7 @@ export default function Home() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <button
-              onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')}
+              onClick={() => changeUserLanguage(isUk ? 'en' : 'uk')}
               className="rounded-lg px-2 py-1 text-xs font-bold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-slate-100 sm:text-sm"
             >
               {isUk ? 'EN' : 'УКР'}

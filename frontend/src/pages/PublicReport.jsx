@@ -11,11 +11,17 @@ const LANG_STORAGE_KEY = 'lehko_lang';
 
 function getInitialReportLang() {
   try {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const fromUrl = params.get('lang');
+    if (fromUrl === 'uk' || fromUrl === 'en') return fromUrl;
+  } catch (_) { /* ignore */ }
+
+  try {
     const saved = localStorage.getItem(LANG_STORAGE_KEY);
     if (saved === 'uk' || saved === 'en') return saved;
   } catch (_) { /* ignore */ }
-  const bl = (typeof navigator !== 'undefined' ? navigator.language : '') || '';
-  return bl.toLowerCase().startsWith('en') ? 'en' : 'uk';
+
+  return 'uk';
 }
 
 // ── Translation dictionary ──────────────────────────────────────────────────
@@ -70,6 +76,10 @@ const TRANSLATIONS = {
     affiliate: 'Афілейт',
     convByAffiliate: 'Конверсії по афілейтах',
     earningsByAffiliate: 'Заробіток по афілейтах',
+    // period
+    period: 'Період',
+    periodLiveHint: 'Дані оновлюються при кожному перегляді звіту',
+    periodFixedHint: 'Фіксований період на момент створення звіту',
     // progress card labels
     clicksLabel: 'Кліки',
     crLabel: 'CR',
@@ -125,12 +135,47 @@ const TRANSLATIONS = {
     affiliate: 'Affiliate',
     convByAffiliate: 'Conversions by affiliate',
     earningsByAffiliate: 'Earnings by affiliate',
+    // period
+    period: 'Period',
+    periodLiveHint: 'Data refreshes on every report view',
+    periodFixedHint: 'Fixed period from when the report was shared',
     // progress card labels
     clicksLabel: 'Clicks',
     crLabel: 'CR',
     salesRevenueLabel: 'Sales revenue',
   },
 };
+
+function formatDisplayDate(isoDate, lang) {
+  if (!isoDate) return '—';
+  const locale = lang === 'uk' ? 'uk-UA' : 'en-GB';
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return isoDate;
+  return d.toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function PeriodBanner({ period, lang, t }) {
+  if (!period) return null;
+  const fromLabel = formatDisplayDate(period.from, lang);
+  const toLabel = formatDisplayDate(period.to, lang);
+  const rangeText = period.all_time
+    ? (lang === 'uk' ? 'Весь час' : 'All time')
+    : (period.from && period.to
+      ? (period.from === period.to ? fromLabel : `${fromLabel} — ${toLabel}`)
+      : (period.from
+        ? `${lang === 'uk' ? 'З' : 'From'} ${fromLabel}`
+        : (period.to ? `${lang === 'uk' ? 'До' : 'Until'} ${toLabel}` : (period.labels?.[lang] || period.label || '—'))));
+
+  return (
+    <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">{t.period}</p>
+      <p className="text-base font-bold text-slate-900 mt-0.5">{rangeText}</p>
+      <p className="text-xs text-slate-500 mt-1">
+        {period.live ? t.periodLiveHint : t.periodFixedHint}
+      </p>
+    </div>
+  );
+}
 
 function getReportTitle(report, t, lang) {
   if (!report) return t.publicReport;
@@ -382,6 +427,7 @@ export default function PublicReport() {
               </a>
             </div>
           </div>
+          <PeriodBanner period={report?.period} lang={lang} t={t} />
         </div>
 
         {/* ── link_single ── */}

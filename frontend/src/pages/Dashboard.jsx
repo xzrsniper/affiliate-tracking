@@ -38,6 +38,7 @@ import {
   Shuffle,
   PlusCircle,
   Share2,
+  Mail,
   Link as LinkIcon
 } from 'lucide-react';
 
@@ -53,7 +54,7 @@ const EMPTY_NEW_LINK = {
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const isUk = i18n.language === 'uk';
+  const isUk = (i18n.language || '').startsWith('uk');
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -80,11 +81,14 @@ export default function Dashboard() {
   const [purchaseModalLink, setPurchaseModalLink] = useState(null);
   const [purchaseModalItems, setPurchaseModalItems] = useState([]);
   const [purchaseModalLoading, setPurchaseModalLoading] = useState(false);
+  const [leadActionId, setLeadActionId] = useState(null);
   const [selectedLinkIds, setSelectedLinkIds] = useState([]); // Bulk selection for table rows
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareLinkModal, setShareLinkModal] = useState(null);
   const [shareLinkLoading, setShareLinkLoading] = useState(null);
+  const [emailReportLoading, setEmailReportLoading] = useState(null); // linkId | 'compare' | null
+  const [emailReportSentTo, setEmailReportSentTo] = useState('');
   const [pendingDeleteIds, setPendingDeleteIds] = useState([]); // IDs waiting for delete confirmation
   const [successMessage, setSuccessMessage] = useState(''); // Success message
   const [exportingSheets, setExportingSheets] = useState(false);
@@ -102,6 +106,9 @@ export default function Dashboard() {
   const [timeRange, setTimeRange] = useState('today');
   const [affiliateSummary, setAffiliateSummary] = useState(null);
   const [adminAffiliateBalanceTotal, setAdminAffiliateBalanceTotal] = useState(null);
+  const [myOrders, setMyOrders] = useState(null);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [myOrdersFilter, setMyOrdersFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
   const isSuperAdmin = user?.role === 'super_admin';
   const isPlatformAdmin = user?.role === 'admin';
   const canSeeAffiliatesBalance = isSuperAdmin || isPlatformAdmin;
@@ -159,6 +166,18 @@ export default function Dashboard() {
   useEffect(() => {
     setSelectedLinkIds((prev) => prev.filter((id) => links.some((link) => link.id === id)));
   }, [links]);
+
+  const fetchMyOrders = async () => {
+    setMyOrdersLoading(true);
+    try {
+      const res = await api.get('/api/links/my-orders');
+      setMyOrders(res.data.orders || []);
+    } catch {
+      setMyOrders([]);
+    } finally {
+      setMyOrdersLoading(false);
+    }
+  };
 
   const fetchChartData = async (lang, snapshot = '', selectedSource = '', range = timeRange) => {
     try {
@@ -271,7 +290,7 @@ export default function Dashboard() {
       const res = await api.get(`/api/links/${link.id}/split-stats`);
       setSplitStatsData(res.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Не вдалося завантажити A/B статистику');
+      setError(err.response?.data?.error || t('dashboard.errorLoadSplitStats'));
       setSplitStatsLink(null);
     } finally {
       setSplitStatsLoading(false);
@@ -310,7 +329,7 @@ export default function Dashboard() {
       setEditSplitData(res.data);
     } catch (err) {
       if (err.response?.status !== 400) {
-        setError(err.response?.data?.error || 'Не вдалося завантажити A/B варіанти');
+        setError(err.response?.data?.error || t('dashboard.errorLoadSplitVariants'));
       }
     } finally {
       setEditSplitLoading(false);
@@ -445,13 +464,13 @@ export default function Dashboard() {
   const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
 
   const formatMoney = (value) => {
-    const isUk = i18n.language === 'uk';
+    const isUk = (i18n.language || '').startsWith('uk');
     const amount = Number(value || 0);
     return isUk ? `${amount.toLocaleString('uk-UA')} ₴` : `$${amount.toLocaleString('en-US')}`;
   };
 
   const formatPurchaseTime = (value) => {
-    const isUk = i18n.language === 'uk';
+    const isUk = (i18n.language || '').startsWith('uk');
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '—';
     return date.toLocaleString(isUk ? 'uk-UA' : 'en-US', {
@@ -482,7 +501,7 @@ export default function Dashboard() {
 
   // Export selected (or all filtered) links directly to Google Sheets
   const buildReportRows = (linksToExport) => {
-    const isUk = i18n.language === 'uk';
+    const isUk = (i18n.language || '').startsWith('uk');
     const createdAt = new Date();
     const dateStr = createdAt.toLocaleDateString(isUk ? 'uk-UA' : 'en-GB', {
       day: '2-digit',
@@ -556,17 +575,15 @@ export default function Dashboard() {
       }
 
       window.open(sheetUrl, '_blank', 'noopener,noreferrer');
-      setSuccessMessage(i18n.language === 'uk' ? 'Google таблицю створено та відкрито.' : 'Google Sheet created and opened.');
+      setSuccessMessage(t('dashboard.googleSheetCreated'));
       setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err) {
       const errCode = err.response?.data?.error;
       if (errCode === 'GOOGLE_SHEETS_NOT_CONNECTED') {
-        setError(i18n.language === 'uk'
-          ? 'Щоб експортувати у Google Sheets, спочатку підключіть Google Drive у Налаштуваннях.'
-          : 'Connect your Google Drive in Settings to export to Google Sheets.');
+        setError(t('dashboard.connectGoogleSheetsFirst'));
         setShowGoogleConnectCta(true);
       } else {
-        setError(errCode || (i18n.language === 'uk' ? 'Не вдалося створити Google таблицю.' : 'Failed to create Google Sheet.'));
+        setError(errCode || t('dashboard.failedCreateSheet'));
       }
     } finally {
       setExportingSheets(false);
@@ -596,7 +613,7 @@ export default function Dashboard() {
     setSelectedLinkIds((prev) => {
       if (prev.includes(id)) return prev.filter((item) => item !== id);
       if (prev.length >= 6) {
-        setError(i18n.language === 'uk' ? 'Для порівняння можна вибрати максимум 6 посилань' : 'You can compare up to 6 links');
+        setError(t('dashboard.max6LinksCompare'));
         return prev;
       }
       return [...prev, id];
@@ -613,7 +630,7 @@ export default function Dashboard() {
     setSelectedLinkIds((prev) => {
       const next = Array.from(new Set([...prev, ...visibleIds]));
       if (next.length > 6) {
-        setError(i18n.language === 'uk' ? 'Для порівняння можна вибрати максимум 6 посилань' : 'You can compare up to 6 links');
+        setError(t('dashboard.max6LinksCompare'));
       }
       return next.slice(0, 6);
     });
@@ -633,15 +650,35 @@ export default function Dashboard() {
       const res = await api.post('/api/reports/share', {
         type: 'links_compare',
         link_ids: selectedLinkIds,
-        currency: i18n.language === 'uk' ? '₴' : '$'
+        currency: (i18n.language || '').startsWith('uk') ? '₴' : '$'
       });
       await navigator.clipboard.writeText(res.data.url);
-      setSuccessMessage(i18n.language === 'uk' ? 'Публічний лінк звіту скопійовано' : 'Public report link copied');
+      setSuccessMessage(t('dashboard.publicReportCopied'));
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create public report link');
     } finally {
       setShareLoading(false);
+    }
+  };
+
+  const handleEmailCompare = async () => {
+    if (selectedLinkIds.length < 1) return;
+    setEmailReportLoading('compare');
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'links_compare',
+        link_ids: selectedLinkIds,
+        currency: (i18n.language || '').startsWith('uk') ? '₴' : '$',
+        lang: (i18n.language || '').startsWith('uk') ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setSuccessMessage(t('dashboard.reportEmailedTo', { email: res.data?.to || user?.email || 'email' }));
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || t('dashboard.failedEmailReport'));
+    } finally {
+      setEmailReportLoading(null);
     }
   };
 
@@ -651,16 +688,41 @@ export default function Dashboard() {
       const res = await api.post('/api/reports/share', {
         type: 'link_single',
         link_id: link.id,
-        currency: i18n.language === 'uk' ? '₴' : '$'
+        currency: (i18n.language || '').startsWith('uk') ? '₴' : '$'
       });
       const url = res.data.url;
       await navigator.clipboard.writeText(url).catch(() => {});
-      setShareLinkModal({ link, url, copied: true });
+      setShareLinkModal({ link, url, copied: true, emailed: false });
       setTimeout(() => setShareLinkModal((prev) => (prev ? { ...prev, copied: false } : prev)), 3000);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create share link');
     } finally {
       setShareLinkLoading(null);
+    }
+  };
+
+  const handleEmailLinkReport = async (link) => {
+    if (!link?.id) return;
+    setEmailReportLoading(link.id);
+    try {
+      const res = await api.post('/api/reports/email', {
+        type: 'link_single',
+        link_id: link.id,
+        currency: (i18n.language || '').startsWith('uk') ? '₴' : '$',
+        lang: (i18n.language || '').startsWith('uk') ? 'uk' : 'en'
+      });
+      setEmailReportSentTo(res.data?.to || user?.email || '');
+      setShareLinkModal((prev) => (
+        prev && prev.link?.id === link.id
+          ? { ...prev, emailed: true, emailedTo: res.data?.to || user?.email || '' }
+          : prev
+      ));
+      setSuccessMessage(t('dashboard.reportEmailedTo', { email: res.data?.to || user?.email || 'email' }));
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || t('dashboard.failedEmailReport'));
+    } finally {
+      setEmailReportLoading(null);
     }
   };
 
@@ -690,6 +752,8 @@ export default function Dashboard() {
         return link.stats?.avg_session_seconds || 0;
       case 'bounceRate':
         return link.stats?.bounce_rate || 0;
+      case 'trafficQuality':
+        return link.stats?.traffic_quality_score ?? -1;
       case 'avgCheck':
         return link.stats?.average_check || 0;
       case 'revenue':
@@ -724,6 +788,13 @@ export default function Dashboard() {
   const isAffiliate = user?.role === 'affiliate';
   const affiliateCommissionPercent = affiliateSummary?.commission_percent ?? user?.affiliate_commission_percent;
   const affiliateBalance = parseFloat(affiliateSummary?.balance ?? user?.affiliate_balance ?? 0);
+
+  useEffect(() => {
+    if (isAffiliate && myOrders === null) {
+      fetchMyOrders();
+    }
+  }, [isAffiliate]);
+
   const totalAffiliateEarnings = sourceFilteredLinks.reduce(
     (sum, link) => sum + (link.stats?.affiliate_earnings ?? 0),
     0
@@ -753,7 +824,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <div>
-              <h1 className="font-display text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 mb-1">{t('dashboard.pageTitle')}</h1>
               <p className="text-sm text-slate-600">{currentDate}</p>
             </div>
             {(isAffiliate || canSeeAffiliatesBalance) && (
@@ -764,27 +835,27 @@ export default function Dashboard() {
                 <div className="leading-tight">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-600/80 dark:text-violet-300/80">
                     {canSeeAffiliatesBalance
-                      ? (isUk ? 'Баланс афілейтів' : 'Affiliates balance')
-                      : (isUk ? 'Баланс' : 'Balance')}
+                      ? t('dashboard.affiliatesBalance')
+                      : t('dashboard.balanceLabel')}
                   </div>
                   <div className="text-base font-bold text-slate-900 dark:text-slate-100">
                     {(canSeeAffiliatesBalance ? (adminAffiliateBalanceTotal ?? 0) : affiliateBalance).toLocaleString()} ₴
                   </div>
                   {isAffiliate && affiliateCommissionPercent != null && (
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {isUk ? 'Комісія' : 'Commission'}: {affiliateCommissionPercent}%
+                      {t('dashboard.commissionLabel')}: {affiliateCommissionPercent}%
                     </div>
                   )}
                   {canSeeAffiliatesBalance && (
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {isUk ? 'Сума балансів усіх афілейтів' : 'Sum of all affiliate balances'}
+                      {t('dashboard.affiliatesBalanceHint')}
                     </div>
                   )}
                 </div>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={() => {
                 fetchLinks(true, activeSnapshot, timeRange);
@@ -792,15 +863,15 @@ export default function Dashboard() {
                 fetchAdminAffiliateBalance();
               }}
               disabled={loading}
-              className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+              className="px-3 sm:px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>{t('common.refresh')}</span>
+              <span className="hidden sm:inline">{t('common.refresh')}</span>
             </button>
             {canCreateMoreLinks && (
               <button
-                onClick={() => setShowCreateForm(!showCreateForm)}
-                className="bg-violet-700 text-white font-semibold px-4 py-2 rounded-lg hover:bg-violet-800 transition-colors flex items-center gap-2"
+                onClick={() => setShowCreateForm(true)}
+                className="hidden sm:flex bg-violet-700 text-white font-semibold px-4 py-2 rounded-lg hover:bg-violet-800 transition-colors items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 <span>{t('dashboard.createLink')}</span>
@@ -954,14 +1025,14 @@ export default function Dashboard() {
         />
         <StatCard
           icon={DollarSign}
-          label={isAffiliate ? 'Мій заробіток' : t('dashboard.revenuePayments')}
+          label={isAffiliate ? t('dashboard.myEarnings') : t('dashboard.revenuePayments')}
           value={`${revenueCardValue.toLocaleString()} ₴`}
           description={
             isAffiliate
               ? (totalPendingPayouts > 0
-                ? `Очікує підтвердження: ${totalPendingPayouts} (ліди та покупки)`
+                ? t('dashboard.earningsPending', { count: totalPendingPayouts })
                 : affiliateCommissionPercent != null
-                  ? `Комісія ${affiliateCommissionPercent}% — зараховується після підтвердження адміном`
+                  ? t('dashboard.earningsCommissionNote', { percent: affiliateCommissionPercent })
                   : undefined)
               : salesRevenue > 0 && totalLeadRevenue > 0
                 ? t('dashboard.revenueStatFootnoteBoth', {
@@ -1120,11 +1191,34 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Create Link Form */}
+      {/* Create Link Form — full-screen sheet on mobile, modal on desktop */}
       {showCreateForm && canCreateMoreLinks && (
-        <div className="mb-6 bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">{t('dashboard.createLinkTitle')}</h2>
-          <form onSubmit={handleCreateLink} className="space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+          onClick={() => {
+            setShowCreateForm(false);
+            setNewLink({ ...EMPTY_NEW_LINK });
+          }}
+        >
+          <div
+            className="bg-white w-full sm:max-w-2xl sm:rounded-2xl shadow-xl border border-slate-200 max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white px-4 sm:px-6 py-4">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800">{t('dashboard.createLinkTitle')}</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setNewLink({ ...EMPTY_NEW_LINK });
+                }}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                aria-label={t('common.cancel')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateLink} className="space-y-4 p-4 sm:p-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 {t('dashboard.linkNameLabel')} <span className="text-slate-400">{t('dashboard.linkNameOptional')}</span>
@@ -1172,18 +1266,17 @@ export default function Dashboard() {
                   }}
                   className="h-4 w-4 rounded border-violet-400 text-violet-600"
                 />
-                <span className="text-sm font-semibold text-violet-900">A/B Спліт-тест посилань</span>
+                <span className="text-sm font-semibold text-violet-900">{t('dashboard.splitTestTitle')}</span>
               </label>
               <p className="mt-2 text-xs text-violet-800/80 leading-relaxed">
-                Перші 45–55 кліків — випадковий розподіл між URL. Потім система обере переможця (більше продажів) і направлятиме весь трафік туди.
-                Потрібен домен LehkoTrack (lehko.space/r/…).
+                {t('dashboard.splitTestDesc')}
               </p>
             </div>
 
             {newLink.split_enabled ? (
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-slate-700">
-                  URL для спліт-тесту <span className="text-red-500">*</span> (мін. 2, макс. 6)
+                  {t('dashboard.splitTestUrlsLabel')} <span className="text-red-500">*</span> {t('dashboard.splitTestUrlsHint')}
                 </label>
                 {newLink.variants.map((variant, index) => (
                   <div key={index} className="flex flex-wrap items-center gap-2">
@@ -1201,7 +1294,7 @@ export default function Dashboard() {
                       className="flex-1 min-w-[200px] px-4 py-3 bg-slate-50 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 text-slate-900"
                     />
                     {newLink.variants.length > 2 && (
-                      <button type="button" onClick={() => removeVariant(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" aria-label="Видалити">
+                      <button type="button" onClick={() => removeVariant(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" aria-label={t('common.delete')}>
                         <X className="w-4 h-4" />
                       </button>
                     )}
@@ -1213,7 +1306,7 @@ export default function Dashboard() {
                     onClick={addVariantField}
                     className="inline-flex items-center gap-2 text-sm font-semibold text-violet-700 hover:text-violet-900"
                   >
-                    <PlusCircle className="w-4 h-4" /> Додати ще URL
+                    <PlusCircle className="w-4 h-4" /> {t('dashboard.splitTestAddUrl')}
                   </button>
                 )}
               </div>
@@ -1297,26 +1390,27 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-            <div className="flex justify-end space-x-3">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2 pb-[env(safe-area-inset-bottom,0px)]">
               <button
                 type="button"
                 onClick={() => {
                   setShowCreateForm(false);
                   setNewLink({ ...EMPTY_NEW_LINK });
                 }}
-                className="px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-all"
+                className="w-full sm:w-auto px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium hover:bg-slate-50 transition-all"
               >
                 {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={creating}
-                className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50"
+                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-50"
               >
                 {creating ? t('dashboard.creating') : t('dashboard.createLinkBtn')}
               </button>
             </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 
@@ -1346,13 +1440,13 @@ export default function Dashboard() {
             <label className="block text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
               {t('dashboard.trackingUrlLabel')}
             </label>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <code className="flex-1 px-4 py-3 bg-white rounded-lg text-sm font-mono text-slate-800 break-all border border-slate-200">
                 {createdLink.tracking_url}
               </code>
               <button
                 onClick={() => copyToClipboard(createdLink.tracking_url)}
-                className={`px-4 py-3 rounded-lg font-semibold transition-all flex items-center space-x-2 ${
+                className={`w-full sm:w-auto px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
                   copied
                     ? 'bg-green-100 text-green-700 border-2 border-green-300'
                     : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-violet-500/25'
@@ -1439,13 +1533,13 @@ export default function Dashboard() {
       {showGoogleConnectCta && (
         <div className="mb-6 rounded-xl border border-violet-200 bg-white px-4 py-3 flex items-center justify-between gap-3">
           <span className="text-sm font-medium text-slate-800">
-            {i18n.language === 'uk' ? 'Готові підключити Google?' : 'Ready to connect Google?'}
+            {t('dashboard.googleConnectReady')}
           </span>
           <Link
             to="/settings"
             className="px-4 py-2 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-700 transition-all whitespace-nowrap"
           >
-            {i18n.language === 'uk' ? 'Відкрити Налаштування' : 'Open Settings'}
+            {t('dashboard.openSettings')}
           </Link>
         </div>
       )}
@@ -1495,7 +1589,7 @@ export default function Dashboard() {
                         className="px-4 py-2 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 font-semibold hover:bg-violet-100 transition-colors flex items-center gap-2"
                       >
                         <FileSpreadsheet className="w-4 h-4" />
-                        <span>{exportingSheets ? (i18n.language === 'uk' ? 'Експорт...' : 'Export...') : t('dashboard.exportToSheets')}</span>
+                        <span>{exportingSheets ? t('dashboard.exporting') : t('dashboard.exportToSheets')}</span>
                         {selectedLinkIds.length > 0 && (
                           <span className="text-violet-500">({selectedLinkIds.length})</span>
                         )}
@@ -1504,10 +1598,10 @@ export default function Dashboard() {
                     <button
                       onClick={() => setShowCompareModal(true)}
                       disabled={selectedLinkIds.length < 2}
-                      title={selectedLinkIds.length < 2 ? (i18n.language === 'uk' ? 'Виберіть мінімум 2 посилання' : 'Select at least 2 links') : ''}
+                      title={selectedLinkIds.length < 2 ? t('dashboard.selectMin2Links') : ''}
                       className="px-4 py-2 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold hover:bg-indigo-100 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
-                      <span>{i18n.language === 'uk' ? 'Порівняти' : 'Compare'}</span>
+                      <span>{t('dashboard.compare')}</span>
                       <span className="text-indigo-500">({selectedLinkIds.length})</span>
                     </button>
                     {selectedLinkIds.length > 0 && (
@@ -1527,13 +1621,13 @@ export default function Dashboard() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder={t('common.search')}
-                        className="pl-9 pr-3 py-2 w-52 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400"
+                        className="pl-9 pr-3 py-2 w-full min-w-0 sm:w-52 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400"
                       />
                     </div>
                     {canCreateMoreLinks && (
                       <button
-                        onClick={() => setShowCreateForm(!showCreateForm)}
-                        className="px-4 py-2 bg-violet-700 text-white rounded-lg font-semibold hover:bg-violet-800 transition-colors"
+                        onClick={() => setShowCreateForm(true)}
+                        className="px-4 py-2 bg-violet-700 text-white rounded-lg font-semibold hover:bg-violet-800 transition-colors whitespace-nowrap"
                       >
                         + {t('dashboard.newLinkShort')}
                       </button>
@@ -1541,7 +1635,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-100 border-b border-slate-200">
@@ -1655,6 +1749,21 @@ export default function Dashboard() {
                         <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
                           <button
                             type="button"
+                            onClick={() => handleSort('trafficQuality')}
+                            className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                            title={t('dashboard.tableTrafficQualityHint')}
+                          >
+                            <span>{t('dashboard.tableTrafficQuality')}</span>
+                            {sortColumn === 'trafficQuality' ? (
+                              <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                            ) : (
+                              <span className="text-slate-400">↕</span>
+                            )}
+                          </button>
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs uppercase tracking-wider text-slate-600 font-semibold">
+                          <button
+                            type="button"
                             onClick={() => handleSort('avgCheck')}
                             className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                           >
@@ -1705,7 +1814,7 @@ export default function Dashboard() {
                             leadRevenueTitle = t('dashboard.leadRevenueHintNoConversions');
                           }
                         }
-                        const isUk = i18n.language === 'uk';
+                        const isUk = (i18n.language || '').startsWith('uk');
                         return (
                           <tr key={link.id} className="border-b border-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/70">
                             <td className="px-4 py-4 align-top">
@@ -1739,6 +1848,37 @@ export default function Dashboard() {
                             <td className="px-4 py-4 font-semibold text-slate-900">{carts.toLocaleString()}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatDuration(avgTime)}</td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{formatPercent(bounceRate)}</td>
+                            <td className="px-4 py-4">
+                              {(() => {
+                                const score = link.stats?.traffic_quality_score;
+                                const band = link.stats?.traffic_quality_band || 'na';
+                                const reasons = link.stats?.traffic_quality_reasons || [];
+                                const title = reasons.length
+                                  ? reasons.join('\n')
+                                  : t('dashboard.tableTrafficQualityHint');
+                                if (score == null) {
+                                  return (
+                                    <span className="text-xs text-slate-400" title={title}>
+                                      {t('dashboard.trafficQualityNa')}
+                                    </span>
+                                  );
+                                }
+                                const cls =
+                                  band === 'good'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : band === 'mixed'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-red-100 text-red-700';
+                                return (
+                                  <span
+                                    className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold tabular-nums ${cls}`}
+                                    title={title}
+                                  >
+                                    {score}
+                                  </span>
+                                );
+                              })()}
+                            </td>
                             <td className="px-4 py-4 font-semibold text-slate-900">{averageCheck.toLocaleString()} {isUk ? '₴' : '$'}</td>
                             <td className="px-4 py-4 tabular-nums">
                               <div className="flex flex-col gap-1.5">
@@ -1780,12 +1920,12 @@ export default function Dashboard() {
                                   onClick={() => handleShareLink(link)}
                                   disabled={shareLinkLoading === link.id}
                                   className="px-3 py-1.5 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-sm flex items-center gap-1 disabled:opacity-50"
-                                  title={isUk ? 'Поділитись звітом' : 'Share report'}
+                                  title={t('dashboard.shareReport')}
                                 >
                                   {shareLinkLoading === link.id
                                     ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                                     : <Share2 className="w-3.5 h-3.5" />}
-                                  {isUk ? 'Звіт' : 'Share'}
+                                  {t('dashboard.shareShort')}
                                 </button>
                                 <button
                                   onClick={() => openPurchaseModal(link)}
@@ -1823,7 +1963,116 @@ export default function Dashboard() {
                   </table>
                 </div>
 
-                <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between text-sm text-slate-500">
+                {/* Mobile link cards */}
+                <div className="lg:hidden divide-y divide-slate-100">
+                  {sortedFilteredLinks.map((link) => {
+                    const clicks = link.stats?.total_clicks || 0;
+                    const unique = link.stats?.unique_clicks || 0;
+                    const saleEvents = link.stats?.sales ?? 0;
+                    const revenue = link.stats?.sales_revenue ?? 0;
+                    const leadEvents = link.stats?.leads ?? 0;
+                    const score = link.stats?.traffic_quality_score;
+                    const cardUk = (i18n.language || '').startsWith('uk');
+                    return (
+                      <div key={link.id} className="p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedLinkIds.includes(link.id)}
+                            onChange={() => toggleLinkSelection(link.id)}
+                            className="mt-1 h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+                              {link.name || link.unique_code}
+                              {link.split_enabled && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold uppercase">
+                                  <Shuffle className="w-3 h-3" /> A/B
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-violet-600 text-xs break-all mt-0.5">{link.tracking_url}</div>
+                            {link.source_type && (
+                              <span className={`inline-flex mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${getSourceBadge(link.source_type)}`}>
+                                {getSourceTypeLabel(link.source_type)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableClicks')}</div>
+                            <div className="font-bold text-slate-900">{clicks.toLocaleString()}</div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableUnique')}</div>
+                            <div className="font-bold text-slate-900">{unique.toLocaleString()}</div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.sales')}</div>
+                            <div className="font-bold text-emerald-700">{saleEvents.toLocaleString()}</div>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <div className="text-[10px] uppercase text-slate-500">{t('dashboard.tableTrafficQuality')}</div>
+                            <div className="font-bold text-slate-900">{score != null ? score : '—'}</div>
+                          </div>
+                        </div>
+
+                        {(saleEvents > 0 || leadEvents > 0) && (
+                          <div className="text-sm text-slate-700">
+                            {saleEvents > 0 && (
+                              <span className="font-semibold text-emerald-700">
+                                {formatCountMoney(saleEvents, revenue, cardUk)}
+                              </span>
+                            )}
+                            {leadEvents > 0 && (
+                              <span className="ml-2 text-amber-700">{leadEvents} {t('dashboard.leadsShort')}</span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              copyToClipboard(link.tracking_url);
+                              setCopiedLinkId(link.id);
+                              setTimeout(() => setCopiedLinkId(null), 2000);
+                            }}
+                            className="px-3 py-2.5 rounded-lg border border-violet-300 text-violet-700 text-sm font-medium"
+                          >
+                            {copiedLinkId === link.id ? t('common.copied') : t('common.copy')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleShareLink(link)}
+                            disabled={shareLinkLoading === link.id}
+                            className="px-3 py-2.5 rounded-lg border border-indigo-300 text-indigo-700 text-sm font-medium disabled:opacity-50"
+                          >
+                            {shareLinkLoading === link.id ? '…' : t('dashboard.shareShort')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openPurchaseModal(link)}
+                            className="px-3 py-2.5 rounded-lg border border-emerald-300 text-emerald-700 text-sm font-medium"
+                          >
+                            {t('dashboard.purchasesBtn')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEditLink(link)}
+                            className="px-3 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium"
+                          >
+                            {t('common.edit')}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="px-4 sm:px-5 py-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm text-slate-500">
                   <div className="flex items-center gap-4">
                     <span>{t('dashboard.showingLinks', { shown: filteredLinks.length, total: sourceFilteredLinks.length })}</span>
                     {selectedLinkIds.length > 0 && <span>{t('dashboard.selectedCount', { count: selectedLinkIds.length })}</span>}
@@ -1839,6 +2088,18 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Mobile FAB — create link */}
+      {canCreateMoreLinks && !showCreateForm && (
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(true)}
+          className="sm:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-violet-700 text-white shadow-lg shadow-violet-500/30 hover:bg-violet-800 active:scale-95 transition-all"
+          aria-label={t('dashboard.createLink')}
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
+
       {shareLinkModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShareLinkModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -1848,7 +2109,7 @@ export default function Dashboard() {
                   <Share2 className="w-4 h-4 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">{isUk ? 'Публічний звіт' : 'Public report'}</h3>
+                  <h3 className="font-bold text-slate-900 text-sm">{t('dashboard.publicReport')}</h3>
                   <p className="text-xs text-slate-500 truncate max-w-[220px]">{shareLinkModal.link.name || shareLinkModal.link.unique_code}</p>
                 </div>
               </div>
@@ -1883,8 +2144,8 @@ export default function Dashboard() {
                 }`}
               >
                 {shareLinkModal.copied
-                  ? <><Check className="w-4 h-4" />{isUk ? 'Скопійовано!' : 'Copied!'}</>
-                  : <><Copy className="w-4 h-4" />{isUk ? 'Копіювати лінк' : 'Copy link'}</>}
+                  ? <><Check className="w-4 h-4" />{t('common.copied')}</>
+                  : <><Copy className="w-4 h-4" />{t('dashboard.copyLink')}</>}
               </button>
               <a
                 href={shareLinkModal.url}
@@ -1893,12 +2154,30 @@ export default function Dashboard() {
                 className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold flex items-center gap-1.5"
               >
                 <ExternalLink className="w-4 h-4" />
-                {isUk ? 'Відкрити' : 'Open'}
+                {t('dashboard.open')}
               </a>
             </div>
 
+            <button
+              type="button"
+              disabled={emailReportLoading === shareLinkModal.link.id}
+              onClick={() => handleEmailLinkReport(shareLinkModal.link)}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 ${
+                shareLinkModal.emailed
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              {emailReportLoading === shareLinkModal.link.id
+                ? t('dashboard.sending')
+                : shareLinkModal.emailed
+                  ? t('dashboard.reportEmailedTo', { email: shareLinkModal.emailedTo || emailReportSentTo || user?.email || 'email' })
+                  : t('dashboard.emailReportTo', { email: user?.email || 'email' })}
+            </button>
+
             <p className="text-xs text-slate-400 text-center">
-              {isUk ? 'Посилання автоматично скопійовано в буфер' : 'Link was auto-copied to clipboard'}
+              {t('dashboard.linkAutoCopied')}
             </p>
           </div>
         </div>
@@ -1909,12 +2188,22 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">{i18n.language === 'uk' ? 'Порівняння посилань' : 'Links comparison'}</h3>
-                <p className="text-xs text-slate-500 mt-1">{i18n.language === 'uk' ? 'До 6 посилань: кліки, конверсії, дохід та конверсія' : 'Up to 6 links: clicks, conversions, revenue, conversion rate'}</p>
+                <h3 className="text-xl font-bold text-slate-900">{t('dashboard.linksComparison')}</h3>
+                <p className="text-xs text-slate-500 mt-1">{t('dashboard.linksComparisonDesc')}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={handleShareCompare} disabled={shareLoading || selectedLinksForCompare.length < 1} className="px-3 py-2 rounded-lg border border-violet-300 text-violet-700 bg-violet-50 text-sm font-semibold disabled:opacity-50">
-                  {shareLoading ? (i18n.language === 'uk' ? 'Створення...' : 'Creating...') : (i18n.language === 'uk' ? 'Поділитись звітом' : 'Share report')}
+                  {shareLoading ? t('dashboard.creating') : t('dashboard.shareReport')}
+                </button>
+                <button
+                  onClick={handleEmailCompare}
+                  disabled={emailReportLoading === 'compare' || selectedLinksForCompare.length < 1}
+                  className="px-3 py-2 rounded-lg border border-emerald-300 text-emerald-700 bg-emerald-50 text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  {emailReportLoading === 'compare'
+                    ? t('dashboard.sending')
+                    : t('dashboard.emailReport')}
                 </button>
                 <button onClick={() => setShowCompareModal(false)} className="p-2 rounded-lg hover:bg-slate-100">
                   <X className="w-5 h-5" />
@@ -1923,12 +2212,12 @@ export default function Dashboard() {
             </div>
             <div className="p-6 space-y-6">
               {selectedLinksForCompare.length < 2 ? (
-                <p className="text-sm text-slate-500">{i18n.language === 'uk' ? 'Виберіть мінімум 2 посилання для порівняння.' : 'Select at least 2 links to compare.'}</p>
+                <p className="text-sm text-slate-500">{t('dashboard.selectMin2ToCompare')}</p>
               ) : (() => {
                 const COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2'];
                 const compareItems = selectedLinksForCompare.map((link, idx) => {
                   const clicks = Number(link.stats?.total_clicks || 0);
-                  const conversions = Number(link.stats?.conversions || 0);
+                  const conversions = Number(link.stats?.sales || 0) + Number(link.stats?.leads || 0);
                   const cr = clicks > 0 ? parseFloat(((conversions / clicks) * 100).toFixed(2)) : 0;
                   const revenue = Number(link.stats?.sales_revenue || 0);
                   const label = (link.name || link.unique_code || '').slice(0, 18);
@@ -1953,7 +2242,7 @@ export default function Dashboard() {
                             <span className="text-xs font-semibold text-slate-700 truncate">{d.label}</span>
                           </div>
                           <div className="flex justify-between text-xs text-slate-500 mb-1">
-                            <span>{isUk ? 'Кліки' : 'Clicks'}</span>
+                            <span>{t('dashboard.clicksShort')}</span>
                             <span className="font-bold text-slate-800">{d.clicks.toLocaleString(isUk ? 'uk-UA' : 'en-US')}</span>
                           </div>
                           <div className="w-full bg-slate-200 rounded-full h-1.5 mb-2">
@@ -1967,7 +2256,7 @@ export default function Dashboard() {
                             <div className="h-1.5 rounded-full" style={{ width: `${(d.cr / maxCr) * 100}%`, background: d.color }} />
                           </div>
                           <div className="flex justify-between text-xs text-slate-500">
-                            <span>{isUk ? 'Дохід' : 'Revenue'}</span>
+                            <span>{t('dashboard.revenueShort')}</span>
                             <span className="font-bold text-slate-800">{d.revenue.toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</span>
                           </div>
                           <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1">
@@ -1980,9 +2269,9 @@ export default function Dashboard() {
                     {/* Bar charts */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {[
-                        { title: isUk ? 'Кліки' : 'Clicks', data: barClicksData },
-                        { title: isUk ? 'Конверсії' : 'Conversions', data: barConvData },
-                        { title: isUk ? 'Дохід' : 'Revenue', data: barRevenueData },
+                        { title: t('dashboard.clicksShort'), data: barClicksData },
+                        { title: t('dashboard.conversionsShort'), data: barConvData },
+                        { title: t('dashboard.revenueShort'), data: barRevenueData },
                       ].map(({ title, data }) => (
                         <div key={title} className="rounded-xl border border-slate-200 bg-white p-3">
                           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{title}</p>
@@ -2011,13 +2300,13 @@ export default function Dashboard() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="bg-slate-50 text-slate-600">
-                            <th className="text-left px-3 py-2">{i18n.language === 'uk' ? 'Посилання' : 'Link'}</th>
-                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Кліки' : 'Clicks'}</th>
-                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Унікальні' : 'Unique'}</th>
-                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Конверсії' : 'Conversions'}</th>
+                            <th className="text-left px-3 py-2">{t('dashboard.orderLink')}</th>
+                            <th className="text-right px-3 py-2">{t('dashboard.clicksShort')}</th>
+                            <th className="text-right px-3 py-2">{t('dashboard.uniqueShort')}</th>
+                            <th className="text-right px-3 py-2">{t('dashboard.conversionsShort')}</th>
                             <th className="text-right px-3 py-2">CR</th>
-                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Дохід (продажі)' : 'Revenue (sales)'}</th>
-                            <th className="text-right px-3 py-2">{i18n.language === 'uk' ? 'Сер. чек' : 'Avg check'}</th>
+                            <th className="text-right px-3 py-2">{t('dashboard.revenueSales')}</th>
+                            <th className="text-right px-3 py-2">{t('dashboard.avgCheckShort')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2056,7 +2345,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 mb-4">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">A/B Спліт-тест</h2>
+                <h2 className="text-xl font-bold text-slate-900">{t('dashboard.splitTestShort')}</h2>
                 <p className="text-sm text-slate-500">{splitStatsLink.name || splitStatsLink.unique_code}</p>
               </div>
               <button type="button" onClick={() => setSplitStatsLink(null)} className="p-2 rounded-lg hover:bg-slate-100">
@@ -2064,20 +2353,19 @@ export default function Dashboard() {
               </button>
             </div>
             {splitStatsLoading ? (
-              <p className="text-slate-500 py-8 text-center">Завантаження…</p>
+              <p className="text-slate-500 py-8 text-center">{t('common.loading')}</p>
             ) : splitStatsData ? (
               <>
                 <div className="mb-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
                   {splitStatsData.split_phase === 'completed' ? (
                     <span>
-                      <strong>Фаза завершена.</strong> Переможець:{' '}
+                      <strong>{t('dashboard.splitPhaseCompleted')}</strong> {t('dashboard.splitWinner')}{' '}
                       <span className="text-violet-700 font-semibold">{splitStatsData.winner?.label || '—'}</span>
-                      {' '}— усі нові кліки йдуть на це посилання.
+                      {' '}{t('dashboard.splitWinnerTraffic')}
                     </span>
                   ) : (
                     <span>
-                      <strong>Тестування:</strong> {splitStatsData.exploration_clicks_used} / {splitStatsData.split_exploration_limit} кліків
-                      до автоматичного вибору переможця.
+                      <strong>{t('dashboard.splitPhaseTesting')}</strong> {splitStatsData.exploration_clicks_used} / {splitStatsData.split_exploration_limit} {t('dashboard.splitClicksUntilWinner')}
                     </span>
                   )}
                 </div>
@@ -2085,11 +2373,11 @@ export default function Dashboard() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-50 text-slate-600">
-                        <th className="text-left px-3 py-2">Варіант</th>
+                        <th className="text-left px-3 py-2">{t('dashboard.splitVariant')}</th>
                         <th className="text-left px-3 py-2">URL</th>
-                        <th className="text-right px-3 py-2">Кліки</th>
-                        <th className="text-right px-3 py-2">Продажі</th>
-                        <th className="text-right px-3 py-2">Дохід</th>
+                        <th className="text-right px-3 py-2">{t('dashboard.clicksShort')}</th>
+                        <th className="text-right px-3 py-2">{t('dashboard.salesShort')}</th>
+                        <th className="text-right px-3 py-2">{t('dashboard.revenueShort')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2104,7 +2392,7 @@ export default function Dashboard() {
                             <td className="px-3 py-2 max-w-[220px] truncate text-slate-500" title={v.destination_url}>{v.destination_url}</td>
                             <td className="px-3 py-2 text-right">{v.clicks}</td>
                             <td className="px-3 py-2 text-right font-semibold text-emerald-700">{v.sales}</td>
-                            <td className="px-3 py-2 text-right">{Number(v.revenue).toLocaleString('uk-UA')} ₴</td>
+                            <td className="px-3 py-2 text-right">{Number(v.revenue).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}</td>
                           </tr>
                         );
                       })}
@@ -2117,14 +2405,51 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Edit Link Modal */}
+      {/* Conversions Modal */}
       {purchaseModalLink && (() => {
         const modalSales = purchaseModalItems.filter((c) => c.event_type === 'sale' || !c.event_type);
         const modalLeads = purchaseModalItems.filter((c) => c.event_type === 'lead');
+        const canConfirm = user?.role !== 'affiliate';
+        const canManageLeads = true;
 
-        const ConvTable = ({ items, emptyKey, amountClass }) => (
+        const refreshAfterLeadChange = async () => {
+          await fetchLinks(false, activeSnapshot, timeRange);
+          fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange);
+        };
+
+        const handleConfirmLead = async (convId) => {
+          try {
+            setLeadActionId(convId);
+            await api.post(`/api/links/${purchaseModalLink.id}/conversions/${convId}/confirm`);
+            setPurchaseModalItems((prev) =>
+              prev.map((c) => (c.id === convId ? { ...c, event_type: 'sale' } : c))
+            );
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.confirmLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const handleDeleteLead = async (convId) => {
+          const ok = window.confirm(t('dashboard.deleteLeadConfirm'));
+          if (!ok) return;
+          try {
+            setLeadActionId(convId);
+            await api.delete(`/api/links/${purchaseModalLink.id}/conversions/${convId}`);
+            setPurchaseModalItems((prev) => prev.filter((c) => c.id !== convId));
+            await refreshAfterLeadChange();
+          } catch (err) {
+            setError(err.response?.data?.error || t('dashboard.deleteLeadError'));
+          } finally {
+            setLeadActionId(null);
+          }
+        };
+
+        const SalesTable = ({ items }) => (
           items.length === 0 ? (
-            <p className="text-sm text-slate-400 py-3 px-1">{t(emptyKey)}</p>
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoSales')}</p>
           ) : (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
               <table className="w-full text-sm">
@@ -2139,8 +2464,66 @@ export default function Dashboard() {
                   {items.map((item) => (
                     <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
-                      <td className={`px-4 py-3 font-semibold ${amountClass}`}>{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700">{formatMoney(item.amount)}</td>
                       <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        );
+
+        const LeadsTable = ({ items }) => (
+          items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-3 px-1">{t('dashboard.convNoLeads')}</p>
+          ) : (
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseTime')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseAmount')}</th>
+                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-slate-500">{t('dashboard.purchaseOrderId')}</th>
+                    {canManageLeads && (
+                      <th className="px-4 py-3 text-right text-xs uppercase tracking-wide text-slate-500">
+                        {t('dashboard.leadActions')}
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3 text-slate-700">{formatPurchaseTime(item.created_at)}</td>
+                      <td className="px-4 py-3 font-semibold text-amber-700">{formatMoney(item.amount)}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.order_id || '—'}</td>
+                      {canManageLeads && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
+                            {canConfirm && (
+                              <button
+                                type="button"
+                                disabled={leadActionId === item.id}
+                                onClick={() => handleConfirmLead(item.id)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                {t('dashboard.confirmLeadAsSale')}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              disabled={leadActionId === item.id}
+                              onClick={() => handleDeleteLead(item.id)}
+                              className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {t('dashboard.deleteLead')}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -2180,22 +2563,25 @@ export default function Dashboard() {
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convSaleNote')}</span>
                     </div>
-                    <ConvTable items={modalSales} emptyKey="dashboard.convNoSales" amountClass="text-emerald-700" />
+                    <SalesTable items={modalSales} />
                   </div>
 
                   <div className="border-t border-slate-100" />
 
                   {/* --- Purchase-intent leads --- */}
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
                         {t('dashboard.convSectionLeads')}
                         <span className="ml-1 font-normal text-amber-700">({modalLeads.length})</span>
                       </span>
                       <span className="text-xs text-slate-400">{t('dashboard.convLeadNote')}</span>
+                      {modalLeads.length > 0 && (
+                        <span className="text-xs text-slate-400 italic">{t('dashboard.leadActionsHint')}</span>
+                      )}
                     </div>
-                    <ConvTable items={modalLeads} emptyKey="dashboard.convNoLeads" amountClass="text-amber-700" />
+                    <LeadsTable items={modalLeads} />
                   </div>
                 </div>
               )}
@@ -2208,7 +2594,7 @@ export default function Dashboard() {
       {editingLinkId && (() => {
         const editingLink = links.find((l) => l.id === editingLinkId);
         const isSplitEdit = Boolean(editSplitData?.split_enabled);
-        const isUk = i18n.language === 'uk';
+        const isUk = (i18n.language || '').startsWith('uk');
         return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={handleCancelEdit}>
           <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-h-[90vh] overflow-y-auto ${isSplitEdit ? 'max-w-2xl' : 'max-w-lg'}`} onClick={(e) => e.stopPropagation()}>
@@ -2217,7 +2603,7 @@ export default function Dashboard() {
                 <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">{t('common.edit')} {t('dashboard.tableLink').toLowerCase()}</h3>
                 {isSplitEdit && (
                   <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5 flex items-center gap-1">
-                    <Shuffle className="w-3 h-3" /> A/B Спліт-тест
+                    <Shuffle className="w-3 h-3" /> {t('dashboard.splitTestShort')}
                   </p>
                 )}
               </div>
@@ -2257,25 +2643,25 @@ export default function Dashboard() {
 
               {editingLink?.tracking_url && (
                 <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/30 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300 mb-1">Трекінгове посилання (спільне)</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300 mb-1">{t('dashboard.trackingUrlShared')}</p>
                   <p className="text-sm text-violet-900 dark:text-violet-100 break-all font-mono">{editingLink.tracking_url}</p>
                 </div>
               )}
 
               {editSplitLoading ? (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-8 text-center text-sm text-slate-500">
-                  Завантаження даних посилання…
+                  {t('dashboard.loadingLinkData')}
                 </div>
               ) : isSplitEdit ? (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                   <div className="bg-slate-50 dark:bg-slate-800/80 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Варіанти A/B та статистика</p>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t('dashboard.splitVariantsStats')}</p>
                     {editSplitData ? (
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {editSplitData.split_phase === 'completed' ? (
-                          <>Переможець: <strong className="text-violet-600">{editSplitData.winner?.label || '—'}</strong> — усі нові кліки йдуть на цей URL</>
+                          <>{t('dashboard.splitWinnerInline', { label: editSplitData.winner?.label || '—' })}</>
                         ) : (
-                          <>Тестування: {editSplitData.exploration_clicks_used} / {editSplitData.split_exploration_limit} кліків до автовибору</>
+                          <>{t('dashboard.splitTestingInline', { used: editSplitData.exploration_clicks_used, limit: editSplitData.split_exploration_limit })}</>
                         )}
                       </p>
                     ) : null}
@@ -2296,25 +2682,25 @@ export default function Dashboard() {
                               </span>
                               {isWinner && (
                                 <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 rounded-full">
-                                  🏆 Переможець
+                                  🏆 {t('dashboard.winnerBadge')}
                                 </span>
                               )}
                               {inactive && (
-                                <span className="text-xs text-slate-500">Не активний</span>
+                                <span className="text-xs text-slate-500">{t('dashboard.inactiveVariant')}</span>
                               )}
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 break-all mb-3 font-mono leading-relaxed">{v.destination_url}</p>
                             <div className="grid grid-cols-3 gap-2 text-center">
                               <div className="rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-2 py-2">
-                                <p className="text-[10px] uppercase tracking-wide text-slate-500">Кліки</p>
+                                <p className="text-[10px] uppercase tracking-wide text-slate-500">{t('dashboard.clicksShort')}</p>
                                 <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{v.clicks}</p>
                               </div>
                               <div className="rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-2 py-2">
-                                <p className="text-[10px] uppercase tracking-wide text-slate-500">Продажі</p>
+                                <p className="text-[10px] uppercase tracking-wide text-slate-500">{t('dashboard.salesShort')}</p>
                                 <p className="text-lg font-bold text-emerald-600">{v.sales}</p>
                               </div>
                               <div className="rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-2 py-2">
-                                <p className="text-[10px] uppercase tracking-wide text-slate-500">Дохід</p>
+                                <p className="text-[10px] uppercase tracking-wide text-slate-500">{t('dashboard.revenueShort')}</p>
                                 <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                                   {Number(v.revenue).toLocaleString(isUk ? 'uk-UA' : 'en-US')} {isUk ? '₴' : '$'}
                                 </p>
@@ -2325,10 +2711,10 @@ export default function Dashboard() {
                       })}
                     </div>
                   ) : (
-                    <p className="p-4 text-sm text-slate-500">Варіанти не знайдено</p>
+                    <p className="p-4 text-sm text-slate-500">{t('dashboard.noVariantsFound')}</p>
                   )}
                   <p className="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800">
-                    URL варіантів задаються при створенні спліт-тесту. Загальна статистика лінка в таблиці — сумарно по всіх варіантах.
+                    {t('dashboard.splitVariantsHint')}
                   </p>
                 </div>
               ) : (
@@ -2446,6 +2832,108 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── My Orders (affiliate only) ──────────────────────────────────── */}
+      {isAffiliate && (
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden mt-5">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-bold text-slate-900 text-lg">{t('dashboard.myOrdersTitle')}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">{t('dashboard.myOrdersSubtitle')}</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { v: 'all', label: t('dashboard.ordersFilterAll') },
+                { v: 'pending', label: t('dashboard.ordersFilterPending') },
+                { v: 'approved', label: t('dashboard.ordersFilterApproved') },
+                { v: 'rejected', label: t('dashboard.ordersFilterRejected') },
+              ].map(({ v, label }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setMyOrdersFilter(v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    myOrdersFilter === v
+                      ? 'bg-violet-600 text-white border-violet-600'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-violet-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <button type="button" onClick={fetchMyOrders} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" title={t('common.refresh')}>
+                <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              </button>
+            </div>
+          </div>
+
+          {myOrdersLoading ? (
+            <p className="px-5 py-8 text-sm text-slate-400 text-center">{t('common.loading')}</p>
+          ) : (() => {
+            const filtered = (myOrders || []).filter((o) =>
+              myOrdersFilter === 'all' ? true : o.lead_status === myOrdersFilter
+            );
+            if (!filtered.length) {
+              return <p className="px-5 py-8 text-sm text-slate-400 text-center">{t('dashboard.noOrders')}</p>;
+            }
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                      <th className="text-left px-4 py-3">{t('dashboard.orderDate')}</th>
+                      <th className="text-left px-4 py-3">{t('dashboard.orderLink')}</th>
+                      <th className="text-left px-4 py-3">{t('dashboard.orderType')}</th>
+                      <th className="text-right px-4 py-3">{t('dashboard.orderAmount')}</th>
+                      <th className="text-left px-4 py-3">{t('dashboard.orderIdCol')}</th>
+                      <th className="text-left px-4 py-3">{t('dashboard.orderStatus')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filtered.map((o) => {
+                      const statusCfg = {
+                        approved: { label: t('dashboard.statusApproved'), cls: 'bg-emerald-100 text-emerald-700' },
+                        pending: { label: t('dashboard.statusPending'), cls: 'bg-amber-100 text-amber-700' },
+                        rejected: { label: t('dashboard.statusRejected'), cls: 'bg-red-100 text-red-700' },
+                      }[o.lead_status] || { label: '—', cls: 'bg-slate-100 text-slate-500' };
+
+                      return (
+                        <tr key={o.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
+                            {new Date(o.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 font-medium max-w-[160px] truncate" title={o.link_name}>
+                            {o.link_name || o.link_code || '—'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {o.event_type === 'sale' ? t('dashboard.orderTypeSale') : t('dashboard.orderTypeLead')}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                            {o.amount > 0 ? `${o.amount.toLocaleString(isUk ? 'uk-UA' : 'en-US')} ₴` : '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-400">
+                            {o.order_id || '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-0.5">
+                              <span className={`inline-flex w-fit px-2 py-0.5 rounded-full text-xs font-semibold ${statusCfg.cls}`}>
+                                {statusCfg.label}
+                              </span>
+                              {o.lead_status === 'rejected' && o.rejection_reason && (
+                                <span className="text-xs text-red-500 max-w-[200px]">{o.rejection_reason}</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
         </div>
       )}
     </Layout>

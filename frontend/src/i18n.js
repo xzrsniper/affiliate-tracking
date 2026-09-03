@@ -1,16 +1,10 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-
-const STORAGE_KEY = 'lehko_lang';
-
-function getInitialLanguage() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'uk' || saved === 'en') return saved;
-  } catch (e) {}
-  const nav = typeof navigator !== 'undefined' ? navigator.language : 'uk';
-  return nav.startsWith('uk') ? 'uk' : 'en';
-}
+import {
+  applyDocumentLanguage,
+  getInitialLanguage,
+  persistLanguage
+} from './utils/language.js';
 
 async function loadLocale(lng) {
   if (lng === 'en') {
@@ -25,6 +19,8 @@ async function loadLocale(lng) {
 const initialLanguage = getInitialLanguage();
 const initialTranslations = await loadLocale(initialLanguage);
 
+applyDocumentLanguage(initialLanguage);
+
 await i18n.use(initReactI18next).init({
   resources: {
     [initialLanguage]: { translation: initialTranslations }
@@ -35,16 +31,17 @@ await i18n.use(initReactI18next).init({
 });
 
 i18n.on('languageChanged', async (lng) => {
+  applyDocumentLanguage(lng);
   if (!i18n.hasResourceBundle(lng, 'translation')) {
     const translations = await loadLocale(lng);
     i18n.addResourceBundle(lng, 'translation', translations, true, true);
   }
 });
 
-i18n.on('languageChanged', (lng) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, lng);
-  } catch (e) {}
-});
+/** Call from language toggles so we only persist explicit user choice. */
+export function changeUserLanguage(lng) {
+  persistLanguage(lng);
+  return i18n.changeLanguage(lng);
+}
 
 export default i18n;
