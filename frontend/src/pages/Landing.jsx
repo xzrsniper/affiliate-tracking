@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   MousePointerClick, 
   TrendingUp, 
@@ -18,6 +19,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Landing() {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50">
@@ -31,13 +33,13 @@ export default function Landing() {
                 href="#about"
                 className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
               >
-                Про нас
+                {t('landing.about')}
               </a>
               <a
                 href="#blog"
                 className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
               >
-                Блог
+                {t('landing.blog')}
               </a>
               <a
                 href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`}
@@ -45,13 +47,13 @@ export default function Landing() {
                 rel="noopener noreferrer"
                 className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
               >
-                Контакти
+                {t('landing.contacts')}
               </a>
               <Link
                 to="/login"
                 className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
               >
-                Увійти
+                {t('landing.signIn')}
               </Link>
             {user ? (
               <Link
@@ -67,7 +69,7 @@ export default function Landing() {
                 to="/login"
                 className="px-6 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25"
               >
-                Почати
+                {t('landing.start')}
               </Link>
             )}
             </div>
@@ -79,30 +81,29 @@ export default function Landing() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
         <div className="text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6">
-            Відстежуйте{' '}
+            {t('landing.heroTitle1')}{' '}
             <span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-              кожен клік
+              {t('landing.heroHighlight')}
             </span>
             <br />
-            та конверсію
+            {t('landing.heroTitle2')}
           </h1>
           <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
-            Потужна система відстеження affiliate трафіку з детальною статистикою, 
-            автоматичним підрахунком конверсій та зручним dashboard.
+            {t('landing.heroDesc')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/login"
               className="px-8 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/25 flex items-center justify-center space-x-2"
             >
-              <span>Почати безкоштовно</span>
+              <span>{t('landing.startFree')}</span>
               <ArrowRight className="w-5 h-5" />
             </Link>
             <a
               href="#features"
               className="px-8 py-4 bg-white text-slate-700 font-semibold rounded-xl border-2 border-slate-200 hover:border-slate-300 transition-all flex items-center justify-center space-x-2"
             >
-              <span>Дізнатися більше</span>
+              <span>{t('landing.learnMore')}</span>
             </a>
           </div>
         </div>
@@ -112,10 +113,10 @@ export default function Landing() {
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 overflow-hidden">
             <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <StatPreview icon={MousePointerClick} label="Кліки" value="1,234" color="blue" />
-                <StatPreview icon={Users} label="Унікальні" value="892" color="purple" />
-                <StatPreview icon={TrendingUp} label="Конверсії" value="156" color="green" />
-                <StatPreview icon={DollarSign} label="Доходи" value="$12,450" color="emerald" />
+                <StatPreview icon={MousePointerClick} label={t('landing.statClicks')} value="1,234" color="blue" />
+                <StatPreview icon={Users} label={t('landing.statUnique')} value="892" color="purple" />
+                <StatPreview icon={TrendingUp} label={t('landing.statConversions')} value="156" color="green" />
+                <StatPreview icon={DollarSign} label={t('landing.statRevenue')} value="$12,450" color="emerald" />
               </div>
             </div>
           </div>
@@ -126,48 +127,48 @@ export default function Landing() {
       <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            Все, що потрібно для успішного tracking
+            {t('landing.featuresTitle')}
           </h2>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Потужні інструменти для відстеження та аналізу вашого affiliate трафіку
+            {t('landing.featuresSubtitle')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <FeatureCard
             icon={MousePointerClick}
-            title="Відстеження кліків"
-            description="Автоматичне відстеження кожного кліку з детальною статистикою по унікальним відвідувачам"
+            title={t('landing.featureClicksTitle')}
+            description={t('landing.featureClicksDesc')}
             color="blue"
           />
           <FeatureCard
             icon={TrendingUp}
-            title="Конверсії"
-            description="Автоматичне визначення конверсій на сторінках замовлення з підрахунком доходів"
+            title={t('landing.featureConversionsTitle')}
+            description={t('landing.featureConversionsDesc')}
             color="green"
           />
           <FeatureCard
             icon={BarChart3}
-            title="Детальна статистика"
-            description="Повна статистика по кожному tracking посиланню з метриками ROMI та конверсій"
+            title={t('landing.featureStatsTitle')}
+            description={t('landing.featureStatsDesc')}
             color="purple"
           />
           <FeatureCard
             icon={Zap}
-            title="Швидке встановлення"
-            description="Встановлення за 2 хвилини - просто додайте код на ваш сайт або через Google Tag Manager"
+            title={t('landing.featureSetupTitle')}
+            description={t('landing.featureSetupDesc')}
             color="amber"
           />
           <FeatureCard
             icon={Shield}
-            title="Безпека"
-            description="Захищені дані, надійне зберігання статистики та захист від дублікатів конверсій"
+            title={t('landing.featureSecurityTitle')}
+            description={t('landing.featureSecurityDesc')}
             color="red"
           />
           <FeatureCard
             icon={Settings}
-            title="Гнучке налаштування"
-            description="Налаштуйте tracking під ваші потреби з підтримкою різних типів джерел трафіку"
+            title={t('landing.featureFlexTitle')}
+            description={t('landing.featureFlexDesc')}
             color="indigo"
           />
         </div>
@@ -177,30 +178,30 @@ export default function Landing() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            Як це працює
+            {t('landing.howItWorks')}
           </h2>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Три прості кроки до початку відстеження
+            {t('landing.howItWorksSubtitle')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <StepCard
             number="1"
-            title="Створіть tracking посилання"
-            description="Додайте ваше посилання в систему та отримайте унікальний tracking URL"
+            title={t('landing.step1Title')}
+            description={t('landing.step1Desc')}
             icon={LinkIcon}
           />
           <StepCard
             number="2"
-            title="Встановіть tracker на сайт"
-            description="Додайте простий JavaScript код на ваш сайт продаж або через Google Tag Manager"
+            title={t('landing.step2Title')}
+            description={t('landing.step2Desc')}
             icon={Settings}
           />
           <StepCard
             number="3"
-            title="Відстежуйте результати"
-            description="Переглядайте детальну статистику кліків та конверсій в зручному dashboard"
+            title={t('landing.step3Title')}
+            description={t('landing.step3Desc')}
             icon={BarChart3}
           />
         </div>
@@ -210,16 +211,16 @@ export default function Landing() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-3xl p-12 text-center shadow-2xl">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Готові почати відстежувати?
+            {t('landing.ctaTitle')}
           </h2>
           <p className="text-xl text-violet-100 mb-8 max-w-2xl mx-auto">
-            Створіть акаунт за хвилину та почніть відстежувати ваш affiliate трафік вже сьогодні
+            {t('landing.ctaDesc')}
           </p>
           <Link
             to="/login"
             className="inline-flex items-center space-x-2 px-8 py-4 bg-white text-violet-600 font-semibold rounded-xl hover:bg-violet-50 transition-all shadow-lg"
           >
-            <span>Створити акаунт</span>
+            <span>{t('landing.ctaButton')}</span>
             <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
@@ -238,57 +239,57 @@ export default function Landing() {
                 />
               </div>
               <p className="text-slate-400">
-                Потужна система відстеження affiliate трафіку з детальною статистикою
+                {t('landing.footerDesc')}
               </p>
             </div>
             <div>
-              <h3 className="text-white font-semibold mb-4">Навігація</h3>
+              <h3 className="text-white font-semibold mb-4">{t('landing.navigation')}</h3>
               <ul className="space-y-2">
                 <li>
                   <a href="#about" className="hover:text-white transition-colors">
-                    Про нас
+                    {t('landing.about')}
                   </a>
                 </li>
                 <li>
                   <a href="#blog" className="hover:text-white transition-colors">
-                    Блог
+                    {t('landing.blog')}
                   </a>
                 </li>
                 <li>
                   <a href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-                    Контакти
+                    {t('landing.contacts')}
                   </a>
                 </li>
                 <li>
                   <Link to="/login" className="hover:text-white transition-colors">
-                    Увійти
+                    {t('landing.signIn')}
                   </Link>
                 </li>
                 <li>
                   <a href="#features" className="hover:text-white transition-colors">
-                    Можливості
+                    {t('landing.features')}
                   </a>
                 </li>
               </ul>
             </div>
             <div>
-              <h3 className="text-white font-semibold mb-4">Підтримка</h3>
+              <h3 className="text-white font-semibold mb-4">{t('landing.supportTitle')}</h3>
               <ul className="space-y-2">
                 <li>
                   <a href={`https://t.me/${import.meta.env.VITE_TELEGRAM_USERNAME || 'your_username'}`} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-                    Telegram підтримка
+                    {t('landing.telegramSupport')}
                   </a>
                 </li>
                 <li>
                   <a href="mailto:support@example.com" className="hover:text-white transition-colors">
-                    Email підтримки
+                    {t('landing.emailSupport')}
                   </a>
                 </li>
               </ul>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-slate-800 text-center text-slate-400">
-            <p>&copy; 2024 LehkoTrack. Всі права захищені.</p>
+            <p>&copy; 2024 {t('landing.copyright')}</p>
           </div>
         </div>
       </footer>

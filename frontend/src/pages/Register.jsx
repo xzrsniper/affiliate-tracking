@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../config/api.js';
 import { setAuthToken, setUser } from '../utils/auth.js';
 
 
 export default function Register() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -31,17 +33,17 @@ export default function Register() {
 
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('register.passwordsMismatch'));
       return;
     }
 
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('register.passwordMinLength'));
       return;
     }
 
     if (!formData.agree) {
-      setError('Ви повинні погодитися з Угодою користувача, Політикою конфіденційності та Політикою повернення коштів');
+      setError(t('register.agreeRequired'));
       return;
     }
 
@@ -58,7 +60,7 @@ export default function Register() {
       setUser(user);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+      setError(err.response?.data?.error || t('register.registerFailed'));
     } finally {
       setLoading(false);
     }
@@ -69,12 +71,12 @@ export default function Register() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-xl">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
+            {t('register.title')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
+            {t('register.orSignIn')}{' '}
             <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-              sign in to existing account
+              {t('register.signInLink')}
             </Link>
           </p>
         </div>
@@ -87,7 +89,7 @@ export default function Register() {
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email" className="sr-only">
-                Email address
+                {t('register.email')}
               </label>
               <input
                 id="email"
@@ -96,14 +98,14 @@ export default function Register() {
                 autoComplete="email"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                placeholder={t('register.email')}
                 value={formData.email}
                 onChange={handleChange}
               />
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
-                Password
+                {t('register.password')}
               </label>
               <input
                 id="password"
@@ -112,14 +114,14 @@ export default function Register() {
                 autoComplete="new-password"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password (min 6 characters)"
+                placeholder={t('register.password')}
                 value={formData.password}
                 onChange={handleChange}
               />
             </div>
             <div>
               <label htmlFor="confirmPassword" className="sr-only">
-                Confirm Password
+                {t('register.confirmPassword')}
               </label>
               <input
                 id="confirmPassword"
@@ -128,7 +130,7 @@ export default function Register() {
                 autoComplete="new-password"
                 required
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm Password"
+                placeholder={t('register.confirmPassword')}
                 value={formData.confirmPassword}
                 onChange={handleChange}
               />
@@ -146,7 +148,7 @@ export default function Register() {
                 required
               />
               <span className="ml-2 text-sm text-gray-700">
-                Я погоджуюся з <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">Угодою користувача</a>, <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">Політикою конфіденційності</a> та <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline">Політикою повернення коштів</a>
+                {t('register.agreeText')} <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">{t('register.termsLink')}</a>, <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">{t('register.privacyLink')}</a> та <a href="/refund" target="_blank" rel="noopener noreferrer" className="underline">{t('register.refundLink')}</a>
               </span>
             </label>
             <button
@@ -154,7 +156,7 @@ export default function Register() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? t('register.creating') : t('register.createAccount')}
             </button>
           </div>
         </form>

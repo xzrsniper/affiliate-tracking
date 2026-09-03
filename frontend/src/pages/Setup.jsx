@@ -171,7 +171,7 @@ export default function Setup() {
       await navigator.clipboard.writeText(snippet);
       alert(t('setup.codeCopied'));
     } catch (err) {
-      alert(err.response?.data?.error || 'Помилка');
+      alert(err.response?.data?.error || t('consoleCode.errorGeneric'));
     }
   }, [API_BASE, t]);
 
@@ -741,7 +741,7 @@ window.__lehkoConfig = {
                                   : 'text-amber-600 hover:bg-amber-50'
                               } ${configuringId === website.id ? 'animate-pulse' : ''}`}
                               title={(website.purchase_button_selector || website.cart_button_selector)
-                                ? `${website.purchase_button_selector ? 'Лід: ' + website.purchase_button_selector : ''}${website.cart_button_selector ? (website.purchase_button_selector ? ' | ' : '') + 'Кошик: ' + website.cart_button_selector : ''} (клікніть щоб змінити)`
+                                ? `${website.purchase_button_selector ? t('setup.leadLabel') + ': ' + website.purchase_button_selector : ''}${website.cart_button_selector ? (website.purchase_button_selector ? ' | ' : '') + t('setup.cartLabel') + ': ' + website.cart_button_selector : ''} (${t('setup.clickToChange')})`
                                 : t('setup.configureButtons')
                               }
                             >
@@ -1394,7 +1394,7 @@ window.__lehkoConfig = {
                   <h4 className="font-semibold text-blue-800 mb-2">2. {t('setup.saleMethod2')}</h4>
                   <p className="text-sm text-slate-600 mb-2">{t('setup.saleMethod2Desc')}</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {['Дякуємо за замовлення', 'Order confirmed', 'Оплата успішна'].map((phrase) => (
+                    {t('setup.saleKeywords').split(',').map((phrase) => (
                       <span key={phrase} className="text-xs bg-white px-2 py-0.5 rounded text-slate-600 italic">&quot;{phrase}&quot;</span>
                     ))}
                   </div>

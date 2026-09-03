@@ -14,7 +14,7 @@ const RANGE_OPTIONS = [
 ];
 
 export default function Affiliates() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isUk = i18n.language === 'uk';
   const [range, setRange] = useState('7');
   const [overview, setOverview] = useState(null);
@@ -108,13 +108,13 @@ export default function Affiliates() {
   const statsCards = useMemo(() => {
     const s = overview?.summary || {};
     return [
-      { label: 'Афілейти', value: s.affiliates || 0 },
-      { label: 'Кліки', value: (s.clicks || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
-      { label: 'Конверсії', value: (s.conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
-      { label: 'Pending', value: (s.pending_conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
-      { label: 'Підтв. дохід', value: money(s.approved_revenue) },
-      { label: 'Заробіток афілейтів', value: money(s.affiliate_earnings) },
-      { label: 'Баланс сумарно', value: money(s.balance_total) }
+      { label: t('affiliates.statAffiliates'), value: s.affiliates || 0 },
+      { label: t('affiliates.statClicks'), value: (s.clicks || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
+      { label: t('affiliates.statConversions'), value: (s.conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
+      { label: t('affiliates.statPending'), value: (s.pending_conversions || 0).toLocaleString(isUk ? 'uk-UA' : 'en-US') },
+      { label: t('affiliates.statApprovedRevenue'), value: money(s.approved_revenue) },
+      { label: t('affiliates.statEarnings'), value: money(s.affiliate_earnings) },
+      { label: t('affiliates.statBalanceTotal'), value: money(s.balance_total) }
     ];
   }, [overview, i18n.language]);
 
@@ -124,8 +124,8 @@ export default function Affiliates() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Афілейти</h1>
-              <p className="text-sm text-slate-500">Окрема панель по афілейтам: статистика, баланс, модерація.</p>
+              <h1 className="text-2xl font-bold text-slate-900">{t('affiliates.title')}</h1>
+              <p className="text-sm text-slate-500">{t('affiliates.subtitle')}</p>
             </div>
             <div className="flex items-center gap-2">
               {RANGE_OPTIONS.map((opt) => (
@@ -157,23 +157,23 @@ export default function Affiliates() {
 
         <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
           <div className="px-5 py-4 border-b border-slate-200">
-            <h2 className="font-bold text-slate-900">Список афілейтів</h2>
+            <h2 className="font-bold text-slate-900">{t('affiliates.listTitle')}</h2>
           </div>
           {loading ? (
-            <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+            <p className="p-5 text-sm text-slate-500">{t('affiliates.loading')}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-600">
-                  <th className="text-left px-3 py-2">Email</th>
-                  <th className="text-right px-3 py-2">Лінки</th>
-                  <th className="text-right px-3 py-2">Кліки</th>
-                  <th className="text-right px-3 py-2">Конверсії</th>
-                  <th className="text-right px-3 py-2">Pending</th>
-                  <th className="text-right px-3 py-2">Підтв. дохід</th>
-                  <th className="text-right px-3 py-2">Комісія %</th>
-                  <th className="text-right px-3 py-2">Баланс</th>
-                  <th className="text-right px-3 py-2">Дії</th>
+                  <th className="text-left px-3 py-2">{t('affiliates.email')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.links')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.clicks')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.conversions')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.pending')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.approvedRevenue')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.commissionPercent')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.balance')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,7 +212,7 @@ export default function Affiliates() {
                         disabled={updating}
                         className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50"
                       >
-                        Зберегти
+                        {t('affiliates.save')}
                       </button>
                     </td>
                   </tr>
@@ -224,26 +224,26 @@ export default function Affiliates() {
 
         <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
           <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-            <h2 className="font-bold text-slate-900">Модерація покупок (афілейти)</h2>
+            <h2 className="font-bold text-slate-900">{t('affiliates.moderationTitle')}</h2>
             <select value={modStatus} onChange={(e) => setModStatus(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg text-sm">
-              <option value="pending">Очікують</option>
-              <option value="approved">Підтверджені</option>
-              <option value="rejected">Відхилені</option>
+              <option value="pending">{t('affiliates.modPending')}</option>
+              <option value="approved">{t('affiliates.modApproved')}</option>
+              <option value="rejected">{t('affiliates.modRejected')}</option>
             </select>
           </div>
           {modLoading ? (
-            <p className="p-5 text-sm text-slate-500">Завантаження…</p>
+            <p className="p-5 text-sm text-slate-500">{t('affiliates.loading')}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-600">
-                  <th className="text-left px-3 py-2">Дата</th>
-                  <th className="text-left px-3 py-2">Афілейт</th>
-                  <th className="text-left px-3 py-2">Тип</th>
-                  <th className="text-left px-3 py-2">Лінк</th>
-                  <th className="text-right px-3 py-2">Сума</th>
-                  <th className="text-right px-3 py-2">Комісія</th>
-                  <th className="text-right px-3 py-2">Дії</th>
+                  <th className="text-left px-3 py-2">{t('affiliates.date')}</th>
+                  <th className="text-left px-3 py-2">{t('affiliates.affiliate')}</th>
+                  <th className="text-left px-3 py-2">{t('affiliates.type')}</th>
+                  <th className="text-left px-3 py-2">{t('affiliates.link')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.amount')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.commission')}</th>
+                  <th className="text-right px-3 py-2">{t('affiliates.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,7 +251,7 @@ export default function Affiliates() {
                   <tr key={item.id} className="border-t border-slate-100">
                     <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
                     <td className="px-3 py-2">{item.affiliate_email}</td>
-                    <td className="px-3 py-2">{item.event_type === 'sale' ? 'Покупка' : 'Лід'}</td>
+                    <td className="px-3 py-2">{item.event_type === 'sale' ? t('affiliates.purchase') : t('affiliates.lead')}</td>
                     <td className="px-3 py-2">{item.link_name || item.link_code}</td>
                     <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
                     <td className="px-3 py-2 text-right">{money(item.commission_amount)}</td>
@@ -273,7 +273,7 @@ export default function Affiliates() {
                 ))}
                 {!moderationItems.length && (
                   <tr>
-                    <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>Немає записів</td>
+                    <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>{t('affiliates.noRecords')}</td>
                   </tr>
                 )}
               </tbody>

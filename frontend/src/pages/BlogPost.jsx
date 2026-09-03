@@ -103,7 +103,7 @@ export default function BlogPost() {
         <div className="mx-auto flex h-[68px] w-full max-w-[1240px] items-center justify-between px-4 sm:px-8">
           <Link to="/"><Logo size="md" showText={true} /></Link>
           <div className="flex items-center gap-2">
-            <button onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')} className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">{isUk ? 'EN' : 'УКР'}</button>
+            <button onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')} className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">{t('blogExtra.langToggle')}</button>
             <button onClick={toggleTheme} className="rounded-lg p-2 text-slate-600 dark:text-slate-300">
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -120,7 +120,7 @@ export default function BlogPost() {
           {post.author_name && <span>{post.author_name}</span>}
           <span>{formatDate(post.published_at || post.created_at, isUk ? 'uk' : 'en')}</span>
           <span className="inline-flex items-center gap-1"><Eye className="w-4 h-4" /> {(post.view_count || 0).toLocaleString()}</span>
-          <span className="inline-flex items-center gap-1"><Clock className="w-4 h-4" /> {readMin} {isUk ? 'хв читання' : 'min read'}</span>
+          <span className="inline-flex items-center gap-1"><Clock className="w-4 h-4" /> {readMin} {t('blogExtra.minRead')}</span>
         </div>
 
         {post.featured_image && (

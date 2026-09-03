@@ -98,7 +98,7 @@ export default function Blog() {
           <Link to="/"><Logo size="md" showText={true} /></Link>
           <div className="flex items-center gap-2">
             <button onClick={() => i18n.changeLanguage(isUk ? 'en' : 'uk')} className="rounded-lg px-2 py-1 text-sm font-medium text-slate-600 dark:text-slate-300">
-              {isUk ? 'EN' : 'УКР'}
+              {t('blogExtra.langToggle')}
             </button>
             <button onClick={toggleTheme} className="rounded-lg p-2 text-slate-600 dark:text-slate-300" title={theme === 'dark' ? t('common.lightTheme') : t('common.darkTheme')}>
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -180,7 +180,7 @@ export default function Blog() {
                         {p.title}
                       </Link>
                       <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                        {formatDate(p.published_at || p.created_at, isUk ? 'uk' : 'en')} · {p.view_count || 0} {isUk ? 'переглядів' : 'views'}
+                        {formatDate(p.published_at || p.created_at, isUk ? 'uk' : 'en')} · {p.view_count || 0} {t('blogExtra.views')}
                       </div>
                     </li>
                   ))}
