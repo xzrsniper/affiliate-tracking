@@ -395,7 +395,14 @@
     "apply": "Застосувати",
     "creating": "Створення...",
     "shareReport": "Поділитись звітом",
-    "saveRole": "Зберегти роль"
+    "saveRole": "Зберегти роль",
+    "applyRange": "Застосувати період",
+    "selectDate": "Оберіть хоча б одну дату",
+    "invalidDateRange": "Дата «від» не може бути пізніше за «до»",
+    "salesPlural": "Покупки",
+    "emptyLog": "Лог порожній",
+    "emptyHistory": "Історія порожня",
+    "approvalHistory": "Історія підтверджень / відхилень"
   },
   "layout": {
     "menu": "Меню",

@@ -395,7 +395,14 @@
     "apply": "Apply",
     "creating": "Creating...",
     "shareReport": "Share report",
-    "saveRole": "Save role"
+    "saveRole": "Save role",
+    "applyRange": "Apply range",
+    "selectDate": "Select at least one date",
+    "invalidDateRange": "Start date cannot be after end date",
+    "salesPlural": "Purchases",
+    "emptyLog": "Log is empty",
+    "emptyHistory": "History is empty",
+    "approvalHistory": "Approval / rejection history"
   },
   "layout": {
     "menu": "Menu",

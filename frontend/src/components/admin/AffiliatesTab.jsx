@@ -360,11 +360,11 @@ export default function AffiliatesTab() {
 
   const applyCustomRange = () => {
     if (!dateFrom && !dateTo) {
-      setError(isUk ? 'Оберіть хоча б одну дату' : 'Select at least one date');
+      setError(t('admin.selectDate'));
       return;
     }
     if (dateFrom && dateTo && dateFrom > dateTo) {
-      setError(isUk ? 'Дата «від» не може бути пізніше за «до»' : 'Start date cannot be after end date');
+      setError(t('admin.invalidDateRange'));
       return;
     }
     setError('');
@@ -480,9 +480,9 @@ export default function AffiliatesTab() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">{t('admin.affiliatesPanelTitle')}</h1>
             <p className="text-sm text-slate-500">
-              t('admin.tabHint')
+              {t('admin.tabHint')}
               <span className="ml-2 text-violet-700 font-medium">
-                t('admin.periodLabel') {periodLabel}
+                {t('admin.periodLabel')} {periodLabel}
               </span>
             </p>
           </div>
@@ -505,14 +505,14 @@ export default function AffiliatesTab() {
               <RefreshCw className="w-4 h-4" />
             </button>
             <button onClick={handleShareOverview} disabled={sharing} className="px-3 py-1.5 rounded-lg border border-violet-300 bg-violet-50 text-violet-700 text-sm font-semibold disabled:opacity-50">
-              sharing ? t('admin.creating') : t('admin.shareReport')
+              {sharing ? t('admin.creating') : t('admin.shareReport')}
             </button>
           </div>
         </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">t('admin.from')</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">{t('admin.from')}</label>
             <input
               type="date"
               value={dateFrom}
@@ -522,7 +522,7 @@ export default function AffiliatesTab() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">t('admin.to')</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">{t('admin.to')}</label>
             <input
               type="date"
               value={dateTo}
@@ -537,7 +537,7 @@ export default function AffiliatesTab() {
             onClick={applyCustomRange}
             className={`px-4 py-2 rounded-lg text-sm font-semibold border ${customActive ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-violet-700 border-violet-300 hover:bg-violet-50'}`}
           >
-            {isUk ? 'Застосувати період' : 'Apply range'}
+            {t('admin.applyRange')}
           </button>
           {customActive && (
             <button
@@ -545,7 +545,7 @@ export default function AffiliatesTab() {
               onClick={() => { setCustomActive(false); setDateFrom(''); setDateTo(''); }}
               className="px-3 py-2 rounded-lg text-sm border border-slate-200 text-slate-600 bg-white"
             >
-              {isUk ? 'Скинути' : 'Reset'}
+              {t('admin.reset')}
             </button>
           )}
         </div>
@@ -600,7 +600,7 @@ export default function AffiliatesTab() {
                   </td>
                   <td className="px-3 py-2 text-right">
                     <div className="inline-flex items-center gap-1.5">
-                      <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">Зберегти</button>
+                      <button onClick={() => saveAffiliateSettings(a.user_id)} disabled={updating} className="px-3 py-1.5 text-xs rounded-lg bg-violet-600 text-white disabled:opacity-50">{t('common.save')}</button>
                       <button
                         type="button"
                         onClick={() => setSiteCommAffiliate(a)}
@@ -687,18 +687,18 @@ export default function AffiliatesTab() {
               className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
             >
               <option value="all">{t('admin.allTypes')}</option>
-              <option value="sale">Покупки</option>
-              <option value="lead">Ліди</option>
+              <option value="sale">{t('admin.salesPlural')}</option>
+              <option value="lead">{t('dashboard.leads')}</option>
             </select>
             <select
               value={convStatusFilter}
               onChange={(e) => setConvStatusFilter(e.target.value)}
               className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
             >
-              <option value="all">Усі статуси</option>
-              <option value="pending">Pending</option>
+              <option value="all">{t('admin.allStatuses')}</option>
+              <option value="pending">{t('admin.pending')}</option>
               <option value="approved">{t('admin.approved')}</option>
-              <option value="rejected">Відхилено</option>
+              <option value="rejected">{t('admin.rejected')}</option>
             </select>
           </div>
         </div>
@@ -712,10 +712,10 @@ export default function AffiliatesTab() {
                 <th className="text-left px-3 py-2">{t('admin.affiliateCol')}</th>
                 <th className="text-left px-3 py-2">{t('admin.typeCol')}</th>
                 <th className="text-left px-3 py-2">{t('admin.linkCol')}</th>
-                <th className="text-left px-3 py-2">Order ID</th>
+                <th className="text-left px-3 py-2">{t('dashboard.orderIdCol')}</th>
                 <th className="text-right px-3 py-2">{t('admin.amountCol')}</th>
                 <th className="text-right px-3 py-2">{t('admin.commissionCol')}</th>
-                <th className="text-left px-3 py-2">Статус</th>
+                <th className="text-left px-3 py-2">{t('admin.statusCol')}</th>
               </tr>
             </thead>
             <tbody>
@@ -723,7 +723,7 @@ export default function AffiliatesTab() {
                 <tr key={`log-${item.id}`} className="border-t border-slate-100">
                   <td className="px-3 py-2 whitespace-nowrap">{new Date(item.created_at).toLocaleString(isUk ? 'uk-UA' : 'en-US')}</td>
                   <td className="px-3 py-2">{item.affiliate_email}</td>
-                  <td className="px-3 py-2">{item.event_type === 'sale' ? (isUk ? 'Покупка' : 'Sale') : (isUk ? 'Лід' : 'Lead')}</td>
+                  <td className="px-3 py-2">{item.event_type === 'sale' ? t('admin.purchase') : t('admin.lead')}</td>
                   <td className="px-3 py-2">{item.link_name || item.link_code}</td>
                   <td className="px-3 py-2 text-slate-500">{item.order_id || '—'}</td>
                   <td className="px-3 py-2 text-right">{money(item.order_value)}</td>
@@ -740,7 +740,7 @@ export default function AffiliatesTab() {
               ))}
               {!filteredConversionsLog.length && (
                 <tr>
-                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={8}>Лог порожній</td>
+                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={8}>{t('admin.emptyLog')}</td>
                 </tr>
               )}
             </tbody>
@@ -750,7 +750,7 @@ export default function AffiliatesTab() {
 
       <div className="rounded-2xl border border-slate-200 bg-white overflow-x-auto">
         <div className="px-5 py-4 border-b border-slate-200">
-          <h2 className="font-bold text-slate-900">Історія підтверджень / відхилень</h2>
+          <h2 className="font-bold text-slate-900">{t('admin.approvalHistory')}</h2>
         </div>
         {historyLoading ? (
           <p className="p-5 text-sm text-slate-500">{t('common.loading')}</p>
@@ -764,7 +764,7 @@ export default function AffiliatesTab() {
                 <th className="text-left px-3 py-2">{t('admin.linkCol')}</th>
                 <th className="text-right px-3 py-2">{t('admin.amountCol')}</th>
                 <th className="text-right px-3 py-2">{t('admin.commissionCol')}</th>
-                <th className="text-left px-3 py-2">Статус</th>
+                <th className="text-left px-3 py-2">{t('admin.statusCol')}</th>
               </tr>
             </thead>
             <tbody>
@@ -788,7 +788,7 @@ export default function AffiliatesTab() {
               ))}
               {!filteredHistory.length && (
                 <tr>
-                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>Історія порожня</td>
+                  <td className="px-3 py-6 text-slate-500 text-center" colSpan={7}>{t('admin.emptyHistory')}</td>
                 </tr>
               )}
             </tbody>
