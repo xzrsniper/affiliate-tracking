@@ -34,6 +34,8 @@ const TRANSLATIONS = {
     publicReport: 'Публічний звіт',
     linkReport: 'Звіт по посиланню',
     linksCompareReport: 'Порівняння посилань',
+    userReport: 'Звіт по користувачу',
+    noUserLinks: 'У цього користувача ще немає посилань.',
     affiliatesReport: 'Звіт по афілейтах',
     // link_single
     clicks: 'Кліки',
@@ -93,6 +95,8 @@ const TRANSLATIONS = {
     publicReport: 'Public report',
     linkReport: 'Link report',
     linksCompareReport: 'Links comparison',
+    userReport: 'User report',
+    noUserLinks: 'This user has no links yet.',
     affiliatesReport: 'Affiliates overview',
     // link_single
     clicks: 'Clicks',
@@ -185,6 +189,7 @@ function getReportTitle(report, t, lang) {
     return name ? `${name} — ${t.linkReport}` : t.linkReport;
   }
   if (report.type === 'links_compare') return t.linksCompareReport;
+  if (report.type === 'user_links') return t.userReport;
   if (report.type === 'affiliates_overview') return t.affiliatesReport;
   return t.publicReport;
 }
@@ -523,8 +528,15 @@ export default function PublicReport() {
           );
         })()}
 
-        {/* ── links_compare ── */}
-        {report?.type === 'links_compare' && (() => {
+        {/* ── links_compare / user_links ── */}
+        {(report?.type === 'links_compare' || report?.type === 'user_links') && (() => {
+          if (!items.length) {
+            return (
+              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+                {t.noUserLinks}
+              </div>
+            );
+          }
           const totalClicks   = items.reduce((s, i) => s + Number(i.clicks || 0), 0);
           const totalSales    = items.reduce((s, i) => s + Number(i.sales_count || 0), 0);
           const totalLeads    = items.reduce((s, i) => s + Number(i.lead_count || 0), 0);

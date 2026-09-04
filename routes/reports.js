@@ -278,6 +278,7 @@ async function getLinksCompareData(userId, linkIds) {
   const links = await Link.findAll({
     where: { user_id: userId, id: { [Op.in]: linkIds } },
     attributes: ['id', 'name', 'unique_code', 'original_url', 'created_at'],
+    order: [['created_at', 'DESC']],
     raw: true
   });
   if (!links.length) return { items: [] };
@@ -350,6 +351,25 @@ async function getLinksCompareData(userId, linkIds) {
     items,
     period: buildPeriod({ from: periodFrom, to: periodTo, live: true })
   };
+}
+
+async function getUserLinksData(targetUserId) {
+  const owner = await User.findByPk(targetUserId, { attributes: ['id', 'email'], raw: true });
+  if (!owner) return null;
+
+  const links = await Link.findAll({
+    where: { user_id: targetUserId },
+    attributes: ['id'],
+    order: [['created_at', 'DESC']],
+    raw: true
+  });
+  const ids = links.map((l) => l.id);
+  if (!ids.length) {
+    return { items: [], user: { id: owner.id, email: owner.email } };
+  }
+
+  const data = await getLinksCompareData(targetUserId, ids);
+  return { ...data, user: { id: owner.id, email: owner.email } };
 }
 
 async function getAffiliatesOverview({ range = 'all', from = null, to = null } = {}) {
@@ -461,6 +481,24 @@ router.post('/share', authenticate, async (req, res, next) => {
         : [];
       if (linkIds.length < 1) return res.status(400).json({ error: 'link_ids required' });
       payload = { v: 1, type, user_id: req.user.id, link_ids: linkIds, currency, white_label: null };
+    } else if (type === 'user_links') {
+      if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin only report' });
+      }
+      const targetUserId = parseInt(req.body?.target_user_id, 10);
+      if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+        return res.status(400).json({ error: 'target_user_id required' });
+      }
+      const target = await User.findByPk(targetUserId, { attributes: ['id'] });
+      if (!target) return res.status(404).json({ error: 'User not found' });
+      payload = {
+        v: 1,
+        type,
+        user_id: targetUserId,
+        created_by: req.user.id,
+        currency,
+        white_label: null
+      };
     } else if (type === 'affiliates_overview') {
       if (req.user.role !== 'super_admin' && req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Admin only report' });
@@ -716,6 +754,23 @@ router.get('/public/:token', async (req, res, next) => {
         ...data
       });
     }
+    if (payload.type === 'user_links') {
+      const data = await getUserLinksData(payload.user_id);
+      if (!data) return res.status(404).json({ error: 'User not found' });
+      const email = data.user?.email || '';
+      return res.json({
+        success: true,
+        type: payload.type,
+        title: email ? `${email} — User report` : 'User report',
+        titles: {
+          uk: email ? `${email} — Звіт по користувачу` : 'Звіт по користувачу',
+          en: email ? `${email} — User report` : 'User report'
+        },
+        currency,
+        white_label: payload.white_label,
+        ...data
+      });
+    }
     if (payload.type === 'affiliates_overview') {
       const data = await getAffiliatesOverview({
         range: payload.range || 'all',
@@ -811,8 +866,11 @@ router.get('/public/:token/export', async (req, res, next) => {
       res.setHeader('Content-Disposition', `attachment; filename="link-report-${data.link.unique_code}.csv"`);
       return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
-    if (payload.type === 'links_compare') {
-      const data = await getLinksCompareData(payload.user_id, payload.link_ids || []);
+    if (payload.type === 'links_compare' || payload.type === 'user_links') {
+      const data = payload.type === 'user_links'
+        ? await getUserLinksData(payload.user_id)
+        : await getLinksCompareData(payload.user_id, payload.link_ids || []);
+      if (!data) return res.status(404).send('Report not found');
       const periodLabel = data.period?.labels?.[lang] || data.period?.label || '';
       const rows = [
         [periodHeader, periodLabel],
@@ -820,7 +878,8 @@ router.get('/public/:token/export', async (req, res, next) => {
         [h.link, h.url, h.clicks, h.unique, h.conversions, h.cr, h.salesCount, h.salesRevenue, h.leadCount, h.leadRevenue, h.carts, h.cartRevenue]
       ];
       data.items.forEach((i) => rows.push([i.name, i.original_url, i.clicks, i.unique_clicks, i.conversions, i.conversion_rate, i.sales_count, i.sales_revenue, i.lead_count, i.lead_revenue, i.cart_count, i.cart_revenue]));
-      res.setHeader('Content-Disposition', 'attachment; filename="links-report.csv"');
+      const filename = payload.type === 'user_links' ? 'user-report.csv' : 'links-report.csv';
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       return res.send('\uFEFF' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n'));
     }
 

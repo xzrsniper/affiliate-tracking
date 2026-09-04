@@ -21,7 +21,10 @@ import {
   Trash2,
   Upload,
   Loader2,
-  Handshake
+  Handshake,
+  Share2,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import AffiliatesTab from '../components/admin/AffiliatesTab.jsx';
 
@@ -249,6 +252,8 @@ export default function Admin() {
   const [blogSaving, setBlogSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showBlogForm, setShowBlogForm] = useState(false);
+  const [userReportModal, setUserReportModal] = useState(null);
+  const [userReportLoading, setUserReportLoading] = useState(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentSaving, setContentSaving] = useState(false);
   const [contentSuccess, setContentSuccess] = useState('');
@@ -590,6 +595,26 @@ export default function Admin() {
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || t('admin.errorLoadUserData'));
+    }
+  };
+
+  const handleShareUserReport = async (user) => {
+    setUserReportLoading(user.id);
+    setError('');
+    try {
+      const res = await api.post('/api/reports/share', {
+        type: 'user_links',
+        target_user_id: user.id,
+        currency: i18n.language === 'uk' ? '₴' : '$'
+      });
+      const url = res.data.url;
+      await navigator.clipboard.writeText(url).catch(() => {});
+      setUserReportModal({ email: user.email, url, copied: true });
+      setTimeout(() => setUserReportModal((prev) => (prev ? { ...prev, copied: false } : prev)), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || t('admin.errorCreateUserReport'));
+    } finally {
+      setUserReportLoading(null);
     }
   };
 
@@ -1378,13 +1403,22 @@ export default function Admin() {
                       </td>
                       <td className="px-4 py-4 text-slate-600">{new Date(user.created_at).toLocaleDateString(i18n.language === 'uk' ? 'uk-UA' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <button
                             onClick={() => handleViewUser(user.id)}
                             className="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
                             title={t('admin.viewStats')}
                           >
                             {t('admin.view')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleShareUserReport(user)}
+                            disabled={userReportLoading === user.id}
+                            className="px-3 py-1.5 bg-violet-50 border border-violet-200 text-violet-700 rounded-lg hover:bg-violet-100 transition-colors text-sm font-medium disabled:opacity-50"
+                            title={t('admin.userReport')}
+                          >
+                            {userReportLoading === user.id ? t('admin.creatingUserReport') : t('admin.userReport')}
                           </button>
                           <button
                             type="button"
@@ -1538,6 +1572,85 @@ export default function Admin() {
           document.body
         )}
       </div>
+
+      {userReportModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setUserReportModal(null)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                    <Share2 className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">{t('admin.userReport')}</h3>
+                    <p className="text-xs text-slate-500 truncate max-w-[240px]">{userReportModal.email}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUserReportModal(null)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500">{t('admin.userReportHint')}</p>
+
+              <div className="bg-violet-50 border border-violet-200 rounded-xl p-3 flex items-center gap-2">
+                <a
+                  href={userReportModal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-xs text-violet-700 font-mono truncate hover:underline"
+                >
+                  {userReportModal.url}
+                </a>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(userReportModal.url);
+                    setUserReportModal((prev) => ({ ...prev, copied: true }));
+                    setTimeout(() => setUserReportModal((prev) => (prev ? { ...prev, copied: false } : prev)), 2000);
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                    userReportModal.copied
+                      ? 'bg-green-100 text-green-700 border border-green-300'
+                      : 'bg-violet-600 text-white hover:bg-violet-700'
+                  }`}
+                >
+                  {userReportModal.copied ? (
+                    <><Check className="w-4 h-4" />{t('common.copied')}</>
+                  ) : (
+                    <><Copy className="w-4 h-4" />{t('admin.copyReportLink')}</>
+                  )}
+                </button>
+                <a
+                  href={userReportModal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  {t('admin.openReport')}
+                </a>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {editingUser &&
         createPortal(
