@@ -1,5 +1,6 @@
 /**
- * LehkoTrack Pixel v5.2 — active engagement time (visible + activity ≤30s); heartbeat 12s
+ * LehkoTrack Pixel v5.3 — do not glue neighbouring numbers into fake prices
+ * (v5.2 — active engagement time (visible + activity ≤30s); heartbeat 12s)
  * (v5.1 — lead sum from checkout «Всього» / sibling of form; v5.0 — cross-subdomain cookies)
  *
  * Install ONCE: <script src="https://YOUR_DOMAIN/pixel.js" data-site="SITE_ID" async></script>
@@ -472,7 +473,25 @@
   // ── 4. Price Extraction ───────────────────────────────────────────────
   function parsePrice(text) {
     if (!text) return 0;
-    var s = text.replace(/\s/g, '').replace(/[^\d.,-]/g, '');
+    var raw = String(text);
+    var currencyRe = /(?:((\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,]\d{1,2})?))\s*(?:грн|uah|₴|\$|€|usd|eur)|(?:грн|uah|₴|\$|€|usd|eur)\s*(?:((\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,]\d{1,2})?))/i;
+    var m = raw.match(currencyRe);
+    if (m) {
+      var token = m[1] || m[3] || '';
+      var fromCur = parseNumericPrice(token);
+      if (fromCur > 0) return fromCur;
+    }
+    var s = raw.replace(/\s/g, '').replace(/[^\d.,-]/g, '');
+    if (/^\d{7,}$/.test(s)) return 0;
+    if (/^\d+,\d{1,2}$/.test(s)) s = s.replace(',', '.');
+    else s = s.replace(/,/g, '');
+    var v = parseFloat(s);
+    return (v > 0 && v < 10000000) ? v : 0;
+  }
+
+  function parseNumericPrice(token) {
+    if (!token) return 0;
+    var s = String(token).replace(/[\s\u00a0]/g, '');
     if (/^\d+,\d{1,2}$/.test(s)) s = s.replace(',', '.');
     else s = s.replace(/,/g, '');
     var v = parseFloat(s);
@@ -560,6 +579,7 @@
       var raw = el.getAttribute(attrs[ai]);
       if (raw == null || raw === '') continue;
       var cleaned = String(raw).replace(/[^\d.,-]/g, '');
+      if (/^\d{7,}$/.test(cleaned)) continue;
       if (/^\d+,\d{1,2}$/.test(cleaned)) cleaned = cleaned.replace(',', '.');
       else cleaned = cleaned.replace(/,/g, '');
       var v = parseFloat(cleaned);

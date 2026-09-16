@@ -5,6 +5,7 @@ import { Link, Click, Conversion, TrackerVerification, Website, LinkClick } from
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { verifyToken } from '../utils/jwt.js';
 import { resolveLeadOrderValueFallback } from '../utils/leadOrderValueFallback.js';
+import { parseOrderValue, sanitizeLeadOrderValue } from '../utils/orderValue.js';
 import { applyAffiliateConversionEffects, getAffiliateOwnerForLink } from '../utils/affiliate.js';
 import { recordAttributedConversion } from '../utils/conversionRecord.js';
 import { resolveAttributionClick, ATTRIBUTION_WINDOW_DAYS } from '../utils/attribution.js';
@@ -746,44 +747,20 @@ router.post('/conversion', async (req, res, next) => {
     visitorFingerprint = visitor_id || getVisitorFingerprint(req);
 
     // UNIVERSAL order value parsing - handles ANY format
-    let parsedOrderValue = 0;
-    if (order_value !== undefined && order_value !== null && order_value !== '') {
-      try {
-        // Convert to string and clean
-        let cleaned = String(order_value);
-        
-        // Remove common currency symbols and formatting
-        cleaned = cleaned
-          .replace(/[^\d.,-]/g, ''); // Remove everything except digits, dots, commas, minus
-        
-        // Handle comma as decimal separator (e.g. "1499,50" → "1499.50")
-        // If there's exactly one comma and no dots, and 1-2 digits after comma → it's a decimal
-        if (/^\d+,\d{1,2}$/.test(cleaned)) {
-          cleaned = cleaned.replace(',', '.');
-        } else {
-          cleaned = cleaned.replace(/,/g, ''); // Remove commas (thousand separators)
-        }
-        cleaned = cleaned.replace(/^-/, ''); // Remove leading minus (negative prices not supported)
-        
-        parsedOrderValue = parseFloat(cleaned) || 0;
-        
-        // Sanity check: reasonable price range
-        if (parsedOrderValue < 0 || parsedOrderValue > 10000000) {
-          parsedOrderValue = 0;
-        }
-      } catch (e) {
-        console.warn('[Conversion Warning] Could not parse order_value', { order_value, error: e.message });
-        parsedOrderValue = 0;
-      }
-    }
+    let parsedOrderValue = parseOrderValue(order_value);
 
-    // Lead with suspiciously high DOM-extracted value: reset and use reliable fallback instead
-    const LEAD_MAX_REASONABLE = 50000;
-    if (event_type === 'lead' && parsedOrderValue > LEAD_MAX_REASONABLE) {
-      console.warn('[Conversion] Lead order_value too large (likely DOM mis-parse), resetting to 0', {
-        raw_value: parsedOrderValue,
-        link_id: link.id
-      });
+    // Lead: recover glued DOM prices (516 грн + 1 200 → 5161200) instead of storing 0
+    if (event_type === 'lead') {
+      const sanitized = sanitizeLeadOrderValue(parsedOrderValue);
+      if (sanitized !== parsedOrderValue) {
+        console.warn('[Conversion] Lead order_value adjusted (DOM glue / overflow)', {
+          raw_value: parsedOrderValue,
+          recovered: sanitized,
+          link_id: link.id
+        });
+      }
+      parsedOrderValue = sanitized;
+    } else if (parsedOrderValue < 0 || parsedOrderValue > 10000000) {
       parsedOrderValue = 0;
     }
 
@@ -927,13 +904,8 @@ router.get('/conversion-pixel', async (req, res, next) => {
 
     // Parse order value (accept both order_value and value)
     const orderValueStr = order_value || value;
-    let parsedOrderValue = 0;
-    if (orderValueStr !== undefined && orderValueStr !== null && orderValueStr !== '') {
-      const cleaned = String(orderValueStr).replace(/[^\d.,-]/g, '').replace(/,/g, '');
-      parsedOrderValue = parseFloat(cleaned) || 0;
-    }
+    let parsedOrderValue = parseOrderValue(orderValueStr);
 
-    // Get order_id for duplicate prevention (accept both order_id and orderId from query)
     const finalOrderId = (order_id || orderId || null);
     const originalFinalOrderId = finalOrderId !== undefined && finalOrderId !== null && String(finalOrderId).trim() !== ''
       ? String(finalOrderId).trim()
@@ -943,6 +915,9 @@ router.get('/conversion-pixel', async (req, res, next) => {
     const eventTypePixel = (req.query.event_type === 'lead' || req.query.event_type === 'sale' || req.query.event_type === 'cart')
       ? req.query.event_type
       : 'sale';
+    if (eventTypePixel === 'lead') {
+      parsedOrderValue = sanitizeLeadOrderValue(parsedOrderValue);
+    }
 
     let conversion;
     try {
@@ -1045,10 +1020,10 @@ router.get('/conversion', async (req, res, next) => {
     }
 
     // Parse order value
-    let parsedOrderValue = 0;
-    if (value !== undefined && value !== null && value !== '') {
-      const cleaned = String(value).replace(/[^\d.-]/g, '');
-      parsedOrderValue = parseFloat(cleaned) || 0;
+    let parsedOrderValue = parseOrderValue(value);
+
+    if (event_type === 'lead') {
+      parsedOrderValue = sanitizeLeadOrderValue(parsedOrderValue);
     }
 
     if (event_type === 'lead' && parsedOrderValue === 0) {
@@ -1197,15 +1172,8 @@ router.post('/conversion-server', async (req, res, next) => {
       });
     }
 
-    // Parse order value
-    let parsedOrderValue = 0;
-    try {
-      const cleaned = String(orderValueStr).replace(/[^\d.,-]/g, '').replace(/,/g, '');
-      parsedOrderValue = parseFloat(cleaned) || 0;
-      if (parsedOrderValue < 0 || parsedOrderValue > 10000000) {
-        parsedOrderValue = 0;
-      }
-    } catch (e) {
+    let parsedOrderValue = parseOrderValue(orderValueStr);
+    if (parsedOrderValue <= 0) {
       return res.status(400).json({
         error: 'Invalid order_value format',
         message: 'Order value must be a valid number'
