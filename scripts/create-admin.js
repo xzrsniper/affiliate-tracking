@@ -1,7 +1,7 @@
-import bcrypt from 'bcryptjs';
 import { User } from '../models/index.js';
 import { testConnection } from '../config/database.js';
 import '../models/index.js'; // Import models to register associations
+import { hashPassword } from '../utils/password.js';
 
 const createSuperAdmin = async () => {
   try {
@@ -33,7 +33,7 @@ const createSuperAdmin = async () => {
     }
 
     // Hash password
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await hashPassword(password);
 
     // Create super admin
     const admin = await User.create({

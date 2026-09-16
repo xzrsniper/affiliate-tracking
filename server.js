@@ -22,13 +22,19 @@ import pageStructureRoutes from './routes/pageStructure.js';
 import blogRoutes from './routes/blog.js';
 import googleSheetsRoutes from './routes/googleSheets.js';
 import reportRoutes from './routes/reports.js';
-import { BlogPost, PageContent } from './models/index.js';
+import { BlogPost, PageContent, User } from './models/index.js';
 import { Op, fn, col } from 'sequelize';
 import { applySeoToHtml, loadSpaIndexHtml } from './utils/seoShell.js';
+import { assertProductionSecrets } from './utils/secrets.js';
+import { encryptExistingGoogleTokens } from './utils/crypto.js';
+import { securityHeaders } from './middleware/securityHeaders.js';
+import { corsOptionsFor } from './middleware/corsPolicy.js';
 
 dotenv.config();
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 3000;
 const SITE_URL = (process.env.SITE_URL || 'https://lehko.space').replace(/\/$/, '');
 
@@ -56,23 +62,13 @@ function absoluteAssetUrl(maybeRelative) {
 }
 
 // Middleware
-// CORS: Allow requests from ANY origin (for JS pixel on client domains)
-app.use(cors({
-  origin: '*', // Allow all origins for tracking pixel
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Visitor-ID', 'X-Tracker-Version', 'ngrok-skip-browser-warning'],
-  exposedHeaders: ['X-Tracker-Version'],
-  credentials: false,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}));
+app.use(securityHeaders);
+app.use((req, res, next) => cors(corsOptionsFor(req))(req, res, next));
+app.options('*', (req, res, next) => cors(corsOptionsFor(req))(req, res, next));
 
-// Explicitly handle OPTIONS requests for CORS preflight
-app.options('*', cors());
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Enable cookie parsing for conversion tracking
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(cookieParser());
 
 // API responses should be fresh for dashboards; public CMS page JSON can be cached briefly.
 app.use('/api', (req, res, next) => {
@@ -90,9 +86,6 @@ app.use('/api', (req, res, next) => {
   res.setHeader('Expires', '0');
   next();
 });
-
-// Trust proxy for accurate IP detection (if behind reverse proxy)
-app.set('trust proxy', true);
 
 // Serve pixel.js — CORS + MIME щоб не було ERR_BLOCKED_BY_ORB при завантаженні з GTM/інших сайтів
 function serveTrackerScript(req, res) {
@@ -330,10 +323,11 @@ app.get('/console-code', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('Error:', err?.message || err);
+  const isDev = process.env.NODE_ENV === 'development';
   res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    error: isDev ? (err.message || 'Internal server error') : 'Internal server error',
+    ...(isDev && { stack: err.stack })
   });
 });
 
@@ -470,12 +464,21 @@ if (process.env.NODE_ENV === 'production') {
 // Start server
 const startServer = async () => {
   try {
-    // Test database connection
+    assertProductionSecrets();
+
     const connected = await testConnection();
     if (!connected) {
       console.warn('⚠️  Warning: Failed to connect to database. Server will start but database features may not work.');
       console.warn('⚠️  Please ensure MySQL is running and database is configured.');
-      // Do not exit, allow server to start for frontend development
+    } else {
+      try {
+        const encrypted = await encryptExistingGoogleTokens(User);
+        if (encrypted > 0) {
+          console.log(`🔐 Encrypted ${encrypted} Google Sheets refresh token(s) at rest`);
+        }
+      } catch (migrateError) {
+        console.warn('⚠️  Could not encrypt stored OAuth tokens:', migrateError.message);
+      }
     }
 
     app.listen(PORT, () => {
@@ -487,7 +490,9 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
-    // Still try to start the server even if DB connection fails
+    if (process.env.NODE_ENV === 'production' && /must be set in production/i.test(String(error?.message || ''))) {
+      process.exit(1);
+    }
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT} (without database)`);
       console.warn('⚠️  Database connection failed - some features may not work');

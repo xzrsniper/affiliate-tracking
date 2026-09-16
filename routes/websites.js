@@ -1,9 +1,9 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { Website } from '../models/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { checkTrackerInstallation } from '../utils/trackerCheck.js';
 import { storeConfigCode } from './track.js';
+import { generateToken } from '../utils/jwt.js';
 
 const router = express.Router();
 
@@ -183,11 +183,10 @@ router.post('/:id/configure-session', async (req, res, next) => {
       return res.status(400).json({ error: 'Website domain is required for configuration' });
     }
 
-    const token = jwt.sign(
-      { websiteId: website.id, userId: req.user.id, purpose: 'configure' },
-      process.env.JWT_SECRET,
-      { expiresIn: '30m' }
-    );
+    const token = generateToken(req.user.id, {
+      websiteId: website.id,
+      purpose: 'configure'
+    }, '30m');
 
     const shortCode = storeConfigCode(token);
     const protocol = website.domain.startsWith('localhost') ? 'http' : 'https';

@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import readline from 'readline';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -15,7 +16,7 @@ const createDB = async () => {
   try {
     console.log('🔧 Створення бази даних через Sequelize...\n');
     
-    let password = process.env.DB_PASSWORD || 'Vanua123';
+    let password = process.env.DB_PASSWORD || '';
     
     // Try to connect with default password
     let connection;
@@ -66,7 +67,9 @@ DB_USER=root
 DB_PASSWORD=${password}
 
 # JWT Secret
-JWT_SECRET=affiliate-tracking-super-secret-key-change-in-production-2024
+JWT_SECRET=${crypto.randomBytes(32).toString('hex')}
+ENCRYPTION_KEY=${crypto.randomBytes(32).toString('hex')}
+REPORT_SHARE_SECRET=${crypto.randomBytes(32).toString('hex')}
 
 # Server Configuration
 PORT=3000

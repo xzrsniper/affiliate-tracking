@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import sequelize from '../config/database.js';
 import { BlogPost, BlogPostUniqueView } from '../models/index.js';
 import { authenticate, requireSuperAdmin } from '../middleware/auth.js';
+import { getBlogViewSalt } from '../utils/secrets.js';
 import { Op } from 'sequelize';
 
 const router = express.Router();
@@ -43,7 +44,7 @@ const upload = multer({
 
 /** Унікальний ключ відвідувача (той самий браузер + мережа → той самий ключ; F5 не додає перегляд). */
 function blogVisitorKey(req) {
-  const salt = process.env.BLOG_VIEW_SALT || process.env.JWT_SECRET || 'lehko-blog-views';
+  const salt = getBlogViewSalt();
   const raw = req.headers['x-forwarded-for'];
   const fromXff = typeof raw === 'string' ? raw.split(',')[0].trim() : '';
   const ip = fromXff || req.ip || req.socket?.remoteAddress || 'unknown';

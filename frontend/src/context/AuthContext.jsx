@@ -59,6 +59,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    api.post('/api/auth/logout').catch(() => {});
     setAuthToken(null);
     setUser(null);
     setUserState(null);

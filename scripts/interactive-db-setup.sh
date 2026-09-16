@@ -27,7 +27,9 @@ DB_USER=root
 DB_PASSWORD=$MYSQL_PASS
 
 # JWT Secret
-JWT_SECRET=affiliate-tracking-super-secret-key-change-in-production-2024
+JWT_SECRET=$(openssl rand -hex 32)
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+REPORT_SHARE_SECRET=$(openssl rand -hex 32)
 
 # Server Configuration
 PORT=3000

@@ -6,6 +6,7 @@ import { runTrackingRedirect } from '../utils/trackingRedirect.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
+import { decryptAtRest } from '../utils/crypto.js';
 import {
   commissionFromOrder,
   isAffiliateUser,
@@ -140,7 +141,10 @@ router.post('/export-sheets', async (req, res, next) => {
       });
     }
 
-    const refreshToken = req.user?.google_sheets_refresh_token;
+    const owner = await User.findByPk(req.user.id, {
+      attributes: ['id', 'google_sheets_refresh_token']
+    });
+    const refreshToken = decryptAtRest(owner?.getDataValue('google_sheets_refresh_token'));
     if (!refreshToken) {
       return res.status(400).json({ error: 'GOOGLE_SHEETS_NOT_CONNECTED' });
     }

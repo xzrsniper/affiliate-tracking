@@ -3,10 +3,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+if (process.env.NODE_ENV === 'production' && !process.env.DB_PASSWORD) {
+  throw new Error('DB_PASSWORD must be set in production');
+}
+
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'affiliate_tracking',
   process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || 'Vanua123.',
+  process.env.DB_PASSWORD || '',
   {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 3306,

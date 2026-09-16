@@ -1,9 +1,9 @@
 import express from 'express';
 import path from 'path';
-import jwt from 'jsonwebtoken';
 import { fileURLToPath } from 'url';
 import { Link, Click, Conversion, TrackerVerification, Website, LinkClick } from '../models/index.js';
 import { getVisitorFingerprint, getClientIP } from '../utils/fingerprint.js';
+import { verifyToken } from '../utils/jwt.js';
 import { resolveLeadOrderValueFallback } from '../utils/leadOrderValueFallback.js';
 import { applyAffiliateConversionEffects, getAffiliateOwnerForLink } from '../utils/affiliate.js';
 import { recordAttributedConversion } from '../utils/conversionRecord.js';
@@ -68,7 +68,7 @@ router.get('/mapper/:code', (req, res) => {
   const token = entry.token;
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = verifyToken(token);
   } catch (e) {
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     return res.send('console.error("[LehkoTrack] Токен невалідний.");');
@@ -196,7 +196,7 @@ router.post('/save-selector', async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      decoded = verifyToken(token);
     } catch (e) {
       return res.status(401).json({ error: 'Invalid or expired configuration token' });
     }

@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import fs from 'fs';
+import crypto from 'crypto';
 
 const setupDatabase = async () => {
   try {
@@ -34,7 +35,7 @@ DB_USER=root
 DB_PASSWORD=${password}
 
 # JWT Secret
-JWT_SECRET=affiliate-tracking-super-secret-key-change-in-production-2024
+JWT_SECRET=${crypto.randomBytes(32).toString('hex')}
 
 # Server Configuration
 PORT=3000
