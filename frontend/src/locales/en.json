@@ -769,7 +769,7 @@
     "agreeRefund": "Refund Policy",
     "mustAgree": "You must agree to the User Agreement, Privacy Policy, and Refund Policy",
     "passwordsDoNotMatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 6 characters"
+    "passwordTooShort": "Password must be at least 8 characters"
   },
   "settings": {
     "title": "Settings",
@@ -794,7 +794,7 @@
     "newPassword": "New password",
     "confirmPassword": "Confirm password",
     "passwordsMismatch": "New passwords do not match",
-    "passwordMinLength": "Password must be at least 6 characters",
+    "passwordMinLength": "Password must be at least 8 characters",
     "passwordSuccess": "Password changed successfully!",
     "passwordError": "Failed to change password. Check that the current password is correct.",
     "passwordCheckEmailTitle": "Check your email",

@@ -1,7 +1,8 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { User, Link, Click, Conversion, Website, LinkVariant, LinkClick } from '../models/index.js';
 import { authenticate, requireSuperAdmin, requireAdminOrAbove } from '../middleware/auth.js';
+import { generateToken } from '../utils/jwt.js';
+import { SENSITIVE_USER_ATTRIBUTES } from '../utils/password.js';
 import { Op, fn, col, QueryTypes } from 'sequelize';
 import { applyRevenueAdjustment } from '../utils/revenueAdjustment.js';
 import sequelize from '../config/database.js';
@@ -177,7 +178,7 @@ router.get('/users', requireSuperAdmin, async (req, res, next) => {
 
     const query = {
       where,
-      attributes: { exclude: ['password_hash'] },
+      attributes: { exclude: SENSITIVE_USER_ATTRIBUTES },
       order: [['created_at', 'DESC']]
     };
     if (limit) {
@@ -393,7 +394,7 @@ router.delete('/users/:id', requireSuperAdmin, async (req, res, next) => {
 router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
-      attributes: { exclude: ['password_hash'] },
+      attributes: { exclude: SENSITIVE_USER_ATTRIBUTES },
       include: [
         {
           model: Link,
@@ -495,7 +496,7 @@ router.get('/users/:id', requireSuperAdmin, async (req, res, next) => {
 router.post('/users/:id/impersonate-token', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
-      attributes: { exclude: ['password_hash'] }
+      attributes: { exclude: SENSITIVE_USER_ATTRIBUTES }
     });
 
     if (!user) {
@@ -506,11 +507,7 @@ router.post('/users/:id/impersonate-token', requireSuperAdmin, async (req, res, 
       return res.status(403).json({ error: 'Cannot impersonate another super admin' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, impersonatedBy: req.user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '2h' }
-    );
+    const token = generateToken(user.id, { impersonatedBy: req.user.id }, '2h');
 
     return res.json({
       success: true,
@@ -536,7 +533,7 @@ router.post('/users/:id/impersonate-token', requireSuperAdmin, async (req, res, 
 router.get('/users/:id/impersonate', requireSuperAdmin, async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id, {
-      attributes: { exclude: ['password_hash'] }
+      attributes: { exclude: SENSITIVE_USER_ATTRIBUTES }
     });
 
     if (!user) {

@@ -30,6 +30,7 @@ export const isAuthenticated = () => {
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
   window.location.href = '/login';
 };
 

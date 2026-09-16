@@ -24,7 +24,7 @@ const testConnection = async (password) => {
 };
 
 // Try the provided password
-const password = 'Vanua123';
+const password = process.env.DB_PASSWORD || '';
 console.log(`🔍 Testing MySQL connection with password...\n`);
 const success = await testConnection(password);
 

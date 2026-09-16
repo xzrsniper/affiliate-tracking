@@ -1,35 +1,37 @@
-import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
+import { getRequestToken, verifyToken } from '../utils/jwt.js';
+import { SENSITIVE_USER_ATTRIBUTES } from '../utils/password.js';
 
-// Verify JWT token and attach user to request
+function isAdminApiRequest(req) {
+  const url = (req.originalUrl || req.url || '').split('?')[0];
+  return url.startsWith('/api/admin');
+}
+
+async function loadUserFromToken(req) {
+  const token = getRequestToken(req);
+  if (!token) return { error: 'No token provided', status: 401 };
+
+  const decoded = verifyToken(token);
+  const includeSensitive = isAdminApiRequest(req);
+
+  const user = await User.findByPk(decoded.userId, {
+    attributes: includeSensitive ? undefined : { exclude: SENSITIVE_USER_ATTRIBUTES }
+  });
+
+  if (!user) return { error: 'User not found', status: 401 };
+  if (user.is_banned) return { error: 'Account is banned', status: 403 };
+
+  return { user, decoded };
+}
+
 export const authenticate = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
+    const result = await loadUserFromToken(req);
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
     }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // For admin routes, we need password_hash to check if user can access admin panel
-    const includePasswordHash = req.path && req.path.startsWith('/api/admin');
-    
-    const user = await User.findByPk(decoded.userId, {
-      attributes: includePasswordHash ? undefined : { exclude: ['password_hash'] }
-    });
-
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    if (user.is_banned) {
-      return res.status(403).json({ error: 'Account is banned' });
-    }
-
-    req.user = user;
+    req.user = result.user;
+    req.auth = result.decoded;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -42,46 +44,35 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
-// Check if user is super admin
 export const requireSuperAdmin = async (req, res, next) => {
-  // Check if user is authenticated
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  // Check if user has super_admin role
   if (req.user.role !== 'super_admin') {
     return res.status(403).json({ error: 'Access denied. Super admin required.' });
   }
-  
-  // Check if user has password_hash (registered via email, not Google OAuth)
-  // Admin panel is only accessible to users registered via email
+
   const user = await User.findByPk(req.user.id, {
     attributes: ['id', 'email', 'password_hash', 'role']
   });
-  
+
   if (!user || !user.password_hash) {
-    return res.status(403).json({ 
-      error: 'Access denied. Admin panel is only accessible to users registered via email, not Google OAuth.' 
+    return res.status(403).json({
+      error: 'Access denied. Admin panel is only accessible to users registered via email, not Google OAuth.'
     });
   }
-  
-  // Check if user is the owner/client (only one specific email can access admin panel)
+
   const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
   if (ADMIN_EMAIL && user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-    return res.status(403).json({ 
-      error: `Access denied. Admin panel is only accessible to the owner (${ADMIN_EMAIL}). Your email: ${user.email}` 
+    return res.status(403).json({
+      error: 'Access denied. Admin panel is only accessible to the owner.'
     });
   }
-  
+
   next();
 };
 
-/**
- * Allows super_admin (with full owner checks) OR admin (role check only).
- * Base guard for /api/admin. Super-admin-only routes add requireSuperAdmin inline.
- * Admin must NOT go through ADMIN_EMAIL check — otherwise only the owner can work.
- */
 export const requireAdminOrAbove = async (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
@@ -98,42 +89,37 @@ export const requireAdminOrAbove = async (req, res, next) => {
   return res.status(403).json({ error: 'Access denied. Admin role required.' });
 };
 
-// Optional authentication (doesn't fail if no token)
 export const optionalAuth = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = getRequestToken(req);
+    if (!token) return next();
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = verifyToken(token);
       try {
-        const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // Try to get user from database, but don't fail if DB is unavailable
-        try {
-          const user = await User.findByPk(decoded.userId, {
-            attributes: { exclude: ['password_hash'] }
-          });
-
-          if (user && !user.is_banned) {
-            req.user = user;
-          }
-        } catch (dbError) {
-          // If database is not available, just continue without user
-          if (dbError.name === 'SequelizeConnectionError' || dbError.name === 'SequelizeDatabaseError' || dbError.message?.includes('database')) {
-            console.warn('⚠️  Database not available in optionalAuth, continuing without user');
-          } else {
-            // Re-throw if it's not a database error
-            throw dbError;
-          }
+        const user = await User.findByPk(decoded.userId, {
+          attributes: { exclude: SENSITIVE_USER_ATTRIBUTES }
+        });
+        if (user && !user.is_banned) {
+          req.user = user;
+          req.auth = decoded;
         }
-      } catch (tokenError) {
-        // Continue without authentication if token is invalid
-        // This is expected for optional auth
+      } catch (dbError) {
+        if (
+          dbError.name === 'SequelizeConnectionError' ||
+          dbError.name === 'SequelizeDatabaseError' ||
+          dbError.message?.includes('database')
+        ) {
+          console.warn('⚠️  Database not available in optionalAuth, continuing without user');
+        } else {
+          throw dbError;
+        }
       }
+    } catch {
+      // invalid/expired token — continue as anonymous
     }
     next();
-  } catch (error) {
-    // Continue without authentication on any error
+  } catch {
     next();
   }
 };

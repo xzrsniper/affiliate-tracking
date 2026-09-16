@@ -106,7 +106,7 @@ export default function Login() {
         const checkGoogleLoaded = () => {
           if (window.google && window.google.accounts) {
             setGoogleScriptLoaded(true);
-            console.log('✅ Google Sign-In script loaded');
+            if (import.meta.env.DEV) console.log('Google Sign-In script loaded');
             return true;
           }
           return false;
@@ -169,58 +169,10 @@ export default function Login() {
             if (tokenResponse.error) {
               throw new Error(tokenResponse.error);
             }
-            
-            // Отримуємо інформацію про користувача
-            const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-              headers: {
-                Authorization: `Bearer ${tokenResponse.access_token}`
-              }
-            });
-            
-            if (!userInfoResponse.ok) {
-              throw new Error('Failed to get user info from Google');
-            }
-            
-            const userInfo = await userInfoResponse.json();
-            
-            console.log('📥 Raw userInfo from Google:', userInfo);
-            console.log('📥 userInfo keys:', Object.keys(userInfo || {}));
-            console.log('📥 userInfo.id:', userInfo?.id);
-            console.log('📥 userInfo.email:', userInfo?.email);
-            
-            // Перевіряємо, чи отримано всі необхідні дані
-            if (!userInfo || (!userInfo.id && !userInfo.sub) || !userInfo.email) {
-              console.error('❌ Invalid userInfo from Google:', userInfo);
-              throw new Error('Invalid userInfo from Google: missing id/sub or email');
-            }
-            
-            // Створюємо payload з обов'язковими полями
-            const userId = userInfo.id || userInfo.sub;
-            const payload = {
-              accessToken: tokenResponse.access_token,
-              userInfo: {
-                id: String(userId), // Переконуємося, що це рядок
-                email: String(userInfo.email),
-                name: userInfo.name || null,
-                picture: userInfo.picture || null
-              },
-              googleId: String(userId)
-            };
-            
-            console.log('📤 Full payload object:', payload);
-            console.log('📤 Payload JSON string:', JSON.stringify(payload, null, 2));
-            console.log('📤 userInfo.id type:', typeof payload.userInfo.id);
-            console.log('📤 userInfo.id value:', payload.userInfo.id);
-            console.log('📤 userInfo.email:', payload.userInfo.email);
 
-            // Відправляємо на backend
-            console.log('📡 Sending POST request to /api/auth/google...');
-            const result = await api.post('/api/auth/google', payload, {
-              headers: {
-                'Content-Type': 'application/json'
-              }
+            const result = await api.post('/api/auth/google', {
+              accessToken: tokenResponse.access_token
             });
-            console.log('✅ Backend response:', result.data);
 
                 const { token, user } = result.data;
                 
@@ -271,6 +223,12 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setEmailNotVerifiedEmail('');
+
+    if (isRegister && formData.password && formData.password.length < 8) {
+      setError(t('login.passwordTooShort'));
+      return;
+    }
+
     setLoading(true);
 
     try {

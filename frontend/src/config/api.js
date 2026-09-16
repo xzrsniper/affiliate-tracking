@@ -12,6 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 20000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache',
@@ -51,7 +52,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Don't redirect on auth endpoints — let the login page handle its own errors
       const url = error.config?.url || '';
-      const isAuthEndpoint = /\/api\/auth\/(login|register|forgot-password|reset-password|google)/.test(url);
+      const isAuthEndpoint = /\/api\/auth\/(login|register|forgot-password|reset-password|google|logout)/.test(url);
       if (!isAuthEndpoint) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');

@@ -2,6 +2,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { authenticate } from '../middleware/auth.js';
 import { User } from '../models/index.js';
+import { getJwtSecret } from '../utils/secrets.js';
+import { encryptAtRest } from '../utils/crypto.js';
 
 const router = express.Router();
 
@@ -19,19 +21,24 @@ function getFrontendUrl(req) {
 }
 
 router.get('/status', authenticate, async (req, res) => {
+  const user = await User.findByPk(req.user.id, {
+    attributes: ['google_sheets_refresh_token', 'google_sheets_connected_at', 'google_sheets_email']
+  });
   res.json({
-    connected: !!req.user.google_sheets_refresh_token,
-    connected_at: req.user.google_sheets_connected_at || null,
-    email: req.user.google_sheets_email || null
+    connected: !!user?.google_sheets_refresh_token,
+    connected_at: user?.google_sheets_connected_at || null,
+    email: user?.google_sheets_email || null
   });
 });
 
 // Disconnect (clear user's refresh token)
 router.post('/disconnect', authenticate, async (req, res) => {
-  req.user.google_sheets_refresh_token = null;
-  req.user.google_sheets_connected_at = null;
-  req.user.google_sheets_email = null;
-  await req.user.save();
+  const user = await User.findByPk(req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  user.google_sheets_refresh_token = null;
+  user.google_sheets_connected_at = null;
+  user.google_sheets_email = null;
+  await user.save();
 
   res.json({ success: true });
 });
@@ -67,7 +74,7 @@ router.get('/connect', authenticate, async (req, res) => {
   // Signed state to safely identify user in callback without relying on Authorization header.
   const state = jwt.sign(
     { userId: req.user.id, codeVerifier },
-    process.env.JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: '15m' }
   );
 
@@ -106,7 +113,7 @@ router.get('/oauth/callback', async (req, res) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(state, process.env.JWT_SECRET);
+      decoded = jwt.verify(state, getJwtSecret());
     } catch {
       const frontendUrl = getFrontendUrl(req);
       return res.redirect(`${frontendUrl}/settings?googleConnected=0&err=invalid_state`);
@@ -156,7 +163,7 @@ router.get('/oauth/callback', async (req, res) => {
       return res.redirect(`${frontendUrl}/settings?googleConnected=0&err=no_refresh_token`);
     }
 
-    user.google_sheets_refresh_token = refreshToken;
+    user.google_sheets_refresh_token = encryptAtRest(refreshToken);
     user.google_sheets_connected_at = new Date();
     user.google_sheets_email = user.email;
     await user.save();

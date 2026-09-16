@@ -148,10 +148,12 @@ jobs:
             DB_PORT=3306
             DB_NAME=affiliate_tracking
             DB_USER=affiliate_user
-            DB_PASSWORD=AffPass2024!
+            DB_PASSWORD=CHANGE_ME_DB_PASSWORD
             PORT=3000
             NODE_ENV=production
-            JWT_SECRET=change-me-to-random-64-char-string
+            JWT_SECRET=CHANGE_ME_GENERATE_RANDOM_64_CHARS
+            ENCRYPTION_KEY=CHANGE_ME_GENERATE_RANDOM_64_HEX
+            REPORT_SHARE_SECRET=CHANGE_ME_GENERATE_RANDOM_64_CHARS
             ADMIN_EMAIL=admin@lehkotrack.com
             ENVEOF
               echo "Created default .env — edit /var/www/affiliate-tracking/.env to adjust"
@@ -161,7 +163,7 @@ jobs:
             source "$APP_DIR/.env" 2>/dev/null || true
             mysql -u root <<SQL 2>/dev/null || true
             CREATE DATABASE IF NOT EXISTS \`${DB_NAME:-affiliate_tracking}\`;
-            CREATE USER IF NOT EXISTS '${DB_USER:-affiliate_user}'@'localhost' IDENTIFIED BY '${DB_PASSWORD:-AffPass2024!}';
+            CREATE USER IF NOT EXISTS '${DB_USER:-affiliate_user}'@'localhost' IDENTIFIED BY '${DB_PASSWORD:-CHANGE_ME_DB_PASSWORD}';
             GRANT ALL PRIVILEGES ON \`${DB_NAME:-affiliate_tracking}\`.* TO '${DB_USER:-affiliate_user}'@'localhost';
             FLUSH PRIVILEGES;
             SQL

@@ -27,7 +27,7 @@ export default function ResetPassword() {
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       setError(t('settings.passwordMinLength'));
       return;
     }
@@ -114,7 +114,7 @@ export default function ResetPassword() {
                   id="newPassword"
                   type="password"
                   required
-                  minLength={6}
+                  minLength={8}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                   placeholder={t('settings.newPasswordPlaceholder')}
                   value={newPassword}
@@ -130,7 +130,7 @@ export default function ResetPassword() {
                   id="confirmPassword"
                   type="password"
                   required
-                  minLength={6}
+                  minLength={8}
                   className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 rounded-xl border-0 focus:ring-2 focus:ring-violet-500 focus:bg-white dark:focus:bg-slate-600 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                   placeholder={t('settings.confirmPasswordPlaceholder')}
                   value={confirmPassword}

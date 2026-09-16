@@ -74,7 +74,7 @@ export default function Settings() {
       setPasswordError(t('settings.passwordsMismatch'));
       return;
     }
-    if (passwordForm.new_password.length < 6) {
+    if (passwordForm.new_password.length < 8) {
       setPasswordError(t('settings.passwordMinLength'));
       return;
     }
@@ -106,7 +106,7 @@ export default function Settings() {
       return;
     }
 
-    if (passwordForm.new_password.length < 6) {
+    if (passwordForm.new_password.length < 8) {
       setPasswordError(t('settings.passwordMinLength'));
       return;
     }
@@ -353,7 +353,7 @@ export default function Settings() {
                         value={passwordForm.new_password}
                         onChange={handlePasswordChange}
                         required
-                        minLength={6}
+                        minLength={8}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 placeholder-slate-400 transition-all focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                         placeholder={t('settings.newPasswordPlaceholder')}
                       />
@@ -368,7 +368,7 @@ export default function Settings() {
                         value={passwordForm.confirm_password}
                         onChange={handlePasswordChange}
                         required
-                        minLength={6}
+                        minLength={8}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 placeholder-slate-400 transition-all focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                         placeholder={t('settings.confirmPasswordPlaceholder')}
                       />
@@ -412,7 +412,7 @@ export default function Settings() {
                         value={passwordForm.new_password}
                         onChange={handlePasswordChange}
                         required
-                        minLength={6}
+                        minLength={8}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 placeholder-slate-400 transition-all focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                         placeholder={t('settings.newPasswordPlaceholder')}
                       />
@@ -428,7 +428,7 @@ export default function Settings() {
                         value={passwordForm.confirm_password}
                         onChange={handlePasswordChange}
                         required
-                        minLength={6}
+                        minLength={8}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 placeholder-slate-400 transition-all focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
                         placeholder={t('settings.confirmPasswordPlaceholder')}
                       />

@@ -1,8 +1,8 @@
 import express from 'express';
-import crypto from 'crypto';
 import { Op, fn, col } from 'sequelize';
 import { authenticate } from '../middleware/auth.js';
 import { User, Link, Click, Conversion, Website } from '../models/index.js';
+import { openJsonPayload, sealJsonPayload } from '../utils/crypto.js';
 import {
   parseCommissionPercent,
   commissionFromOrder,
@@ -17,8 +17,6 @@ import {
 import { sendPublicReportEmail } from '../services/email.js';
 
 const router = express.Router();
-
-const REPORT_SECRET = process.env.REPORT_SHARE_SECRET || process.env.JWT_SECRET || 'lehko-report-secret';
 
 /** Classify conversion by event_type (same rules as dashboard / links stats). */
 function classifyEventType(eventType) {
@@ -63,21 +61,11 @@ function emptyBuckets() {
 }
 
 function signPayload(payload) {
-  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = crypto.createHmac('sha256', REPORT_SECRET).update(body).digest('base64url');
-  return `${body}.${sig}`;
+  return sealJsonPayload(payload);
 }
 
 function verifyToken(token) {
-  const [body, sig] = String(token || '').split('.');
-  if (!body || !sig) return null;
-  const expected = crypto.createHmac('sha256', REPORT_SECRET).update(body).digest('base64url');
-  if (expected !== sig) return null;
-  try {
-    return JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-  } catch {
-    return null;
-  }
+  return openJsonPayload(token);
 }
 
 function parseDateOnly(value, endOfDay = false) {
