@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, ArrowLeft, DollarSign } from 'lucide-react';
+import { getRefCode } from '../utils/tracking';
 
 export default function Success() {
   const { t, i18n } = useTranslation();
@@ -18,11 +19,8 @@ export default function Success() {
     setOrderValue(parseFloat(value) || 0);
     setOrderId(id);
 
-    // Отримуємо ref код з localStorage (встановлений tracker.js)
-    const storedRefCode = localStorage.getItem('aff_ref_code') || 
-                         document.cookie.split('; ').find(row => row.startsWith('aff_ref_code='))?.split('=')[1] ||
-                         searchParams.get('ref') ||
-                         '';
+    // Hard 14-day attribution (getRefCode clears expired / immortal storage)
+    const storedRefCode = getRefCode() || '';
     
     setRefCode(storedRefCode);
 
