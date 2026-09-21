@@ -1,5 +1,6 @@
 /**
- * LehkoTrack Pixel v5.4 — sticky first-touch attribution (do not steal affiliate refs)
+ * LehkoTrack Pixel v5.5 — hard 14-day attribution (no sliding window)
+ * (v5.4 — sticky first-touch attribution; do not steal affiliate refs)
  * (v5.3 — do not glue neighbouring numbers into fake prices)
  * (v5.2 — active engagement time (visible + activity ≤30s); heartbeat 12s)
  * (v5.1 — lead sum from checkout «Всього» / sibling of form; v5.0 — cross-subdomain cookies)
@@ -14,6 +15,7 @@
  *   5. Deferred conversion: if user returns after purchase → sale detected
  *   6. Works even if installed only on ONE page (cookies + URL decoration)
  *   7. Extracts price from: URL params, GTM dataLayer, JSON-LD, meta tags, global vars, DOM scan
+ *   8. Attribution expires hard at 14 days from first touch (server click age is source of truth)
  */
 (function () {
   'use strict';
@@ -58,22 +60,48 @@
     } catch (e) { return null; }
   }
 
+  function expireCookie(name) {
+    var base = 'expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax';
+    var dom = cookieBaseDomain();
+    document.cookie = name + '=;' + base + (dom ? ';domain=' + dom : '');
+    document.cookie = name + '=;' + base; // also clear host-only copy
+  }
+
   function clearAttributionStorage() {
     ls('lehko_ref', null);
     ls('lehko_click_id', null);
     ls(ATTRIB_AT_KEY, null);
+    ls('aff_ref_code', null);
+    expireCookie('lehko_ref');
+    expireCookie('lehko_click_id');
+    expireCookie('aff_ref_code');
   }
 
-  function touchAttributionTimestamp() {
+  /** Set first-touch timestamp only. Never slides the 14-day window on revisits. */
+  function markAttributionStart() {
     ls(ATTRIB_AT_KEY, String(Date.now()));
   }
 
-  function isAttributionFresh() {
+  function getAttributionStartedAt() {
     var raw = ls(ATTRIB_AT_KEY);
-    if (!raw) return false;
+    if (!raw) return null;
     var ts = parseInt(raw, 10);
-    if (!Number.isFinite(ts)) return false;
+    return Number.isFinite(ts) ? ts : null;
+  }
+
+  function isAttributionFresh() {
+    var ts = getAttributionStartedAt();
+    if (!ts) return false;
     return (Date.now() - ts) <= ATTRIBUTION_MS;
+  }
+
+  /** Remaining cookie TTL so revisits never extend past the original 14 days. */
+  function remainingAttributionMinutes() {
+    var ts = getAttributionStartedAt();
+    if (!ts) return 0;
+    var leftMs = ATTRIBUTION_MS - (Date.now() - ts);
+    if (leftMs <= 0) return 0;
+    return Math.max(1, Math.ceil(leftMs / 60000));
   }
 
   /** So checkout.pay.shop.com sees click_id set on www.shop.com (localStorage is per-host). */
@@ -106,21 +134,24 @@
   }
 
   // Read from ANY available source (URL params > localStorage > cookies).
-  // localStorage without a fresh timestamp (or older than 14 days) is cleared.
-  // Also accept legacy aff_ref_code cookie set by /r/ redirect.
+  // Hard 14-day window: always require lehko_attrib_at; cookies alone are not enough
+  // (cookies used to be refreshed on every visit and never expired).
+  // Also accept legacy aff_ref_code cookie/LS set by /r/ redirect or ref-saver snippets.
   function getStoredAttribution(key) {
     var fromCookie = getCookie(key);
     if (!fromCookie && key === 'lehko_ref') {
       fromCookie = getCookie('aff_ref_code');
     }
     var fromLs = ls(key);
+    if (!fromLs && key === 'lehko_ref') {
+      fromLs = ls('aff_ref_code');
+    }
     if (!fromCookie && !fromLs) return null;
-    // Prefer cookie (has browser-enforced 14d expiry). For LS-only, require timestamp.
-    if (fromLs && !fromCookie) {
-      if (!isAttributionFresh()) {
-        clearAttributionStorage();
-        return null;
-      }
+
+    // No first-touch timestamp → treat as expired legacy data (e.g. immortal aff_ref_code)
+    if (!getAttributionStartedAt() || !isAttributionFresh()) {
+      clearAttributionStorage();
+      return null;
     }
     return fromLs || fromCookie || null;
   }
@@ -129,16 +160,17 @@
    * Prefer sticky stored attribution over bare ?ref= in the URL.
    * A new tracked click (?ref= + ?click_id= from /r/ redirect) may replace it.
    * Bare ?ref= without click_id (blog/deeplink leftover) must NOT steal an active affiliate.
+   * After 14 days attribution is cleared — bare ?ref= alone may start a new first-touch.
    */
   function getRef() {
     var urlRef = new URLSearchParams(location.search).get('ref');
     var urlCid = new URLSearchParams(location.search).get('click_id');
     var stored = getStoredAttribution('lehko_ref');
-    if (stored && isAttributionFresh()) {
+    if (stored) {
       if (urlCid && urlRef && urlRef !== stored) return urlRef;
       return stored;
     }
-    return urlRef || stored || null;
+    return urlRef || null;
   }
 
   function getClickId() {
@@ -146,12 +178,12 @@
     var urlRef = new URLSearchParams(location.search).get('ref');
     var storedCid = getStoredAttribution('lehko_click_id');
     var storedRef = getStoredAttribution('lehko_ref');
-    if (storedCid && isAttributionFresh()) {
+    if (storedCid) {
       // New tracked click for a different ref replaces click_id together with ref.
       if (urlCid && urlRef && storedRef && urlRef !== storedRef) return urlCid;
       return storedCid;
     }
-    return urlCid || storedCid || null;
+    return urlCid || null;
   }
 
   var SESSION_START_KEY = 'lehko_session_started_at';
@@ -344,15 +376,16 @@
   // ── 1b. Track click for "original" format links ───────────────────────
   // When a user arrives via google.com?ref=CODE (original format), the tracking
   // server redirect was bypassed. Fire /api/track/view/CODE to record the click.
+  // Only for first-touch / after expiry — never mint a new click while attribution
+  // is still fresh (that would slide the server-side 14-day window).
   function trackOriginalFormatClick() {
     var params = new URLSearchParams(location.search);
     var urlRef = params.get('ref');
     var urlCid = params.get('click_id');
     // Only fire if ?ref= is present but ?click_id= is NOT (= "original" format link)
     if (!urlRef || urlCid) return;
-    // Sticky first-touch: do not record a competing bare ?ref= while attribution is fresh
-    var existingRef = ls('lehko_ref') || getCookie('lehko_ref') || getCookie('aff_ref_code');
-    if (existingRef && isAttributionFresh() && existingRef !== urlRef) return;
+    // Already inside hard 14-day window — do not create another Click row
+    if (isAttributionFresh() && getStoredAttribution('lehko_ref')) return;
     // Avoid double-firing on the same page session
     var sessionKey = 'lehko_view_fired_' + urlRef;
     try { if (sessionStorage.getItem(sessionKey)) return; sessionStorage.setItem(sessionKey, '1'); } catch(e) {}
@@ -365,57 +398,137 @@
         if (d.success && d.click_id) {
           // Store click_id so conversions can be linked to this click
           ls('lehko_click_id', String(d.click_id));
-          setCookie('lehko_click_id', String(d.click_id), ATTRIBUTION_MINUTES);
-          touchAttributionTimestamp();
+          var mins = remainingAttributionMinutes() || ATTRIBUTION_MINUTES;
+          setCookie('lehko_click_id', String(d.click_id), mins);
+          if (!getAttributionStartedAt()) markAttributionStart();
           ensureSessionTracking();
         }
       })
       .catch(function() {});
   }
 
-  // Save tracking params to ALL persistence layers (14-day attribution window).
+  function writeAttribution(ref, cid, resetClock) {
+    if (resetClock) markAttributionStart();
+    var mins = remainingAttributionMinutes() || ATTRIBUTION_MINUTES;
+    if (ref) {
+      ls('lehko_ref', ref);
+      ls('aff_ref_code', ref);
+      setCookie('lehko_ref', ref, mins);
+      setCookie('aff_ref_code', ref, mins);
+    }
+    if (cid) {
+      ls('lehko_click_id', String(cid));
+      setCookie('lehko_click_id', String(cid), mins);
+    }
+  }
+
+  // Persist with remaining TTL only — never extends the original 14-day clock.
+  function ensureAttributionPersisted() {
+    if (!isAttributionFresh()) {
+      clearAttributionStorage();
+      return;
+    }
+    var mins = remainingAttributionMinutes();
+    if (!mins) {
+      clearAttributionStorage();
+      return;
+    }
+    var ref = ls('lehko_ref') || getCookie('lehko_ref') || getCookie('aff_ref_code') || ls('aff_ref_code');
+    var cid = ls('lehko_click_id') || getCookie('lehko_click_id');
+    if (ref) {
+      if (!ls('lehko_ref')) ls('lehko_ref', ref);
+      if (!ls('aff_ref_code')) ls('aff_ref_code', ref);
+      if (!getCookie('lehko_ref')) setCookie('lehko_ref', ref, mins);
+      if (!getCookie('aff_ref_code')) setCookie('aff_ref_code', ref, mins);
+    }
+    if (cid) {
+      if (!ls('lehko_click_id')) ls('lehko_click_id', cid);
+      if (!getCookie('lehko_click_id')) setCookie('lehko_click_id', cid, mins);
+    }
+  }
+
+  // Save tracking params to ALL persistence layers (hard 14-day attribution window).
   // Sticky first-touch: do not overwrite a fresh ref with a bare ?ref= (no click_id).
+  // CRITICAL: never refresh lehko_attrib_at or cookie max-age on same-ref revisits —
+  // decorated URLs (?ref=&click_id=) used to slide the window forever.
   function captureAndPersist() {
     var params = new URLSearchParams(location.search);
     var urlRef = params.get('ref');
     var urlCid = params.get('click_id');
-    var existingRef = ls('lehko_ref') || getCookie('lehko_ref') || getCookie('aff_ref_code');
-    var hasFresh = existingRef && isAttributionFresh();
 
-    // Real tracked click (/r/… → ?ref=&click_id=) may replace attribution.
-    // Bare ?ref= alone only sticks when there is no fresh attribution yet.
-    var allowReplace = !hasFresh || (!!urlCid && !!urlRef);
-    if (urlRef && allowReplace) {
-      ls('lehko_ref', urlRef);
-      setCookie('lehko_ref', urlRef, ATTRIBUTION_MINUTES);
-      setCookie('aff_ref_code', urlRef, ATTRIBUTION_MINUTES);
-      touchAttributionTimestamp();
-    } else if (urlRef && hasFresh && urlRef === existingRef) {
-      // Same affiliate — refresh the 14-day window
-      touchAttributionTimestamp();
-      setCookie('lehko_ref', existingRef, ATTRIBUTION_MINUTES);
-      setCookie('aff_ref_code', existingRef, ATTRIBUTION_MINUTES);
+    // Expire first so legacy immortal storage cannot revive itself from cookies/LS
+    if (getAttributionStartedAt() && !isAttributionFresh()) {
+      clearAttributionStorage();
     }
-    if (urlCid && allowReplace) {
-      ls('lehko_click_id', urlCid);
-      setCookie('lehko_click_id', urlCid, ATTRIBUTION_MINUTES);
-      touchAttributionTimestamp();
+    // Legacy: ref in cookie/LS but no timestamp → clear (would live forever otherwise)
+    var legacyRef = ls('lehko_ref') || ls('aff_ref_code') || getCookie('lehko_ref') || getCookie('aff_ref_code');
+    if (legacyRef && !getAttributionStartedAt()) {
+      clearAttributionStorage();
     }
 
-    // Sync: if localStorage has data but cookie doesn't (or vice versa)
-    var ref = getRef();
-    var cid = getClickId();
-    if (ref) {
-      if (!ls('lehko_ref')) ls('lehko_ref', ref);
-      if (!getCookie('lehko_ref')) setCookie('lehko_ref', ref, ATTRIBUTION_MINUTES);
-      if (!getCookie('aff_ref_code')) setCookie('aff_ref_code', ref, ATTRIBUTION_MINUTES);
-      if (!ls(ATTRIB_AT_KEY)) touchAttributionTimestamp();
+    var existingRef = getStoredAttribution('lehko_ref');
+    var existingCid = getStoredAttribution('lehko_click_id');
+    var hasFresh = !!existingRef;
+
+    if (urlRef && urlCid) {
+      if (hasFresh && existingRef === urlRef) {
+        // Same affiliate still in window — never slide the clock.
+        // Keep original click_id; only fill it in if it was missing.
+        if (!existingCid) writeAttribution(urlRef, urlCid, false);
+        else ensureAttributionPersisted();
+      } else if (!hasFresh || urlRef !== existingRef) {
+        // First touch, or a genuine new /r/ click for a different affiliate
+        writeAttribution(urlRef, urlCid, true);
+      } else {
+        ensureAttributionPersisted();
+      }
+    } else if (urlRef && !urlCid) {
+      // Bare ?ref= — first-touch only when nothing is fresh (never slides)
+      if (!hasFresh) {
+        writeAttribution(urlRef, null, true);
+      }
+    } else {
+      ensureAttributionPersisted();
     }
-    if (cid) {
-      if (!ls('lehko_click_id')) ls('lehko_click_id', cid);
-      if (!getCookie('lehko_click_id')) setCookie('lehko_click_id', cid, ATTRIBUTION_MINUTES);
-      if (!ls(ATTRIB_AT_KEY)) touchAttributionTimestamp();
+  }
+
+  // Ask server whether stored click_id is still inside the 14-day window.
+  // Clears client storage immediately for stuck attributions (e.g. click from months ago
+  // whose local timestamp was incorrectly refreshed by the old sliding window).
+  function enforceServerAttributionWindow() {
+    var cid = ls('lehko_click_id') || getCookie('lehko_click_id');
+    if (!cid) return;
+    if (!isAttributionFresh()) {
+      clearAttributionStorage();
+      return;
     }
+    fetch(BASE_URL + '/api/track/attribution-check?click_id=' + encodeURIComponent(cid), {
+      mode: 'cors',
+      keepalive: true
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.valid === false) {
+          console.log('[LehkoTrack] Attribution expired (server): clearing after',
+            d.window_days || ATTRIBUTION_DAYS, 'days');
+          clearAttributionStorage();
+        } else if (d && d.valid === true && d.created_at) {
+          // Align local first-touch clock to real click time (fixes previously slid timestamps)
+          var serverTs = new Date(d.created_at).getTime();
+          if (Number.isFinite(serverTs)) {
+            var localTs = getAttributionStartedAt();
+            if (!localTs || localTs > serverTs) {
+              ls(ATTRIB_AT_KEY, String(serverTs));
+            }
+            if (!isAttributionFresh()) {
+              clearAttributionStorage();
+            } else {
+              ensureAttributionPersisted();
+            }
+          }
+        }
+      })
+      .catch(function () { /* offline / CORS — client clock still applies */ });
   }
 
   // ── 2. URL Decoration (auto-propagate to ALL pages) ────────────────────
@@ -1483,7 +1596,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=5.4', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=5.5', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1760,7 +1873,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '5.0',
+    version: '5.5',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,
@@ -1811,6 +1924,7 @@
     });
   } else {
     captureAndPersist();
+    enforceServerAttributionWindow();
     trackOriginalFormatClick();
     ensureSessionTracking();
     installEngagementTracking();

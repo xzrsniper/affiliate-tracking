@@ -288,8 +288,9 @@ if (updated.purchase_button_selector) parts.push(`${t('setup.leadButton')}: ${up
   const trackerConfigCode = universalCode;
   const modalCode = showCodeModal ? getUniversalCode(showCodeModal.id) : universalCode;
 
-  // Зберігач ref: один рядок для сторінок без повного трекера (щоб ref потрапляв на сторінку подяки через URL)
-  const refSaverSnippet = `<script>(function(){var m=location.search.match(/[?&]ref=([^&]+)/);if(m)try{localStorage.setItem('aff_ref_code',decodeURIComponent(m[1]));}catch(e){}})();<\/script>`;
+  // Зберігач ref: один рядок для сторінок без повного трекера (щоб ref потрапляв на сторінку подяки через URL).
+  // Hard 14-day expiry via lehko_attrib_at — never immortal localStorage.
+  const refSaverSnippet = `<script>(function(){var D=14*24*60*60*1000,K='lehko_attrib_at';function ok(){try{var t=parseInt(localStorage.getItem(K)||'',10);return Number.isFinite(t)&&(Date.now()-t)<=D;}catch(e){return false;}}var m=location.search.match(/[?&]ref=([^&]+)/);if(m){try{var r=decodeURIComponent(m[1]);localStorage.setItem('aff_ref_code',r);localStorage.setItem('lehko_ref',r);if(!ok())localStorage.setItem(K,String(Date.now()));}catch(e){}}else{try{if(!ok()){localStorage.removeItem('aff_ref_code');localStorage.removeItem('lehko_ref');localStorage.removeItem(K);}}catch(e){}}})();<\/script>`;
 
   // GTM code generator — uses __lehkoConfig for reliable config passing (no document.currentScript issues)
   const getGtmCode = (siteId) => {
