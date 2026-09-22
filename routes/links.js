@@ -123,6 +123,35 @@ function buildRangeCondition(range = '7d') {
   }
 }
 
+/** Previous window of equal length (for % change). Null when range is "all". */
+function buildPreviousRangeCondition(range = '7d') {
+  switch (range) {
+    case 'all':
+      return null;
+    case 'today':
+      return ' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND created_at < CURDATE()';
+    case '30d':
+      return ' AND created_at >= DATE_SUB(NOW(), INTERVAL 60 DAY) AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)';
+    case '7d':
+    default:
+      return ' AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) AND created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  }
+}
+
+function rangeDaySpan(range = '7d') {
+  switch (range) {
+    case 'today':
+      return 1;
+    case '30d':
+      return 30;
+    case 'all':
+      return null;
+    case '7d':
+    default:
+      return 7;
+  }
+}
+
 // All routes require authentication
 router.use(authenticate);
 
@@ -379,8 +408,9 @@ router.get('/:id/split-stats', async (req, res, next) => {
 
 /**
  * GET /api/links/clicks-chart
- * Get time-series click data for the chart (last 7 days, hourly)
+ * Get time-series click data for the chart (hourly buckets in selected range)
  * Optional query: ?snapshot=YYYY-MM-DDTHH  — show data only up to that hour
+ * Optional query: ?range=today|7d|30d|all
  */
 router.get('/clicks-chart', async (req, res, next) => {
   try {
@@ -397,7 +427,17 @@ router.get('/clicks-chart', async (req, res, next) => {
     const linkIds = userLinks.map(l => l.id);
 
     if (linkIds.length === 0) {
-      return res.json({ success: true, data: [] });
+      return res.json({
+        success: true,
+        data: [],
+        summary: {
+          total_clicks: 0,
+          unique_clicks: 0,
+          avg_per_day: 0,
+          unique_change_pct: null,
+          day_span: rangeDaySpan(range)
+        }
+      });
     }
 
     // Build snapshot filter
@@ -431,7 +471,54 @@ router.get('/clicks-chart', async (req, res, next) => {
       replacements
     });
 
-    res.json({ success: true, data: rows });
+    const totalClicks = rows.reduce((sum, row) => sum + Number(row.clicks || 0), 0);
+
+    // Distinct uniques across the whole window (not sum of hourly uniques)
+    const [uniqueRows] = await sequelize.query(`
+      SELECT COUNT(DISTINCT visitor_fingerprint) as unique_clicks
+      FROM clicks
+      WHERE link_id IN (?)${snapshotCondition}
+    `, { replacements });
+    const uniqueClicks = Number(uniqueRows?.[0]?.unique_clicks || 0);
+
+    let uniqueChangePct = null;
+    if (!snapshot) {
+      const prevCondition = buildPreviousRangeCondition(range);
+      if (prevCondition) {
+        const [prevRows] = await sequelize.query(`
+          SELECT COUNT(DISTINCT visitor_fingerprint) as unique_clicks
+          FROM clicks
+          WHERE link_id IN (?)${prevCondition}
+        `, { replacements: [linkIds] });
+        const prevUnique = Number(prevRows?.[0]?.unique_clicks || 0);
+        if (prevUnique > 0) {
+          uniqueChangePct = Number((((uniqueClicks - prevUnique) / prevUnique) * 100).toFixed(1));
+        } else if (uniqueClicks > 0) {
+          uniqueChangePct = 100;
+        } else {
+          uniqueChangePct = 0;
+        }
+      }
+    }
+
+    const daySpan = snapshot ? 7 : rangeDaySpan(range);
+    const avgPerDay = daySpan
+      ? Math.round(totalClicks / daySpan)
+      : (rows.length > 0
+        ? Math.round(totalClicks / Math.max(1, new Set(rows.map((r) => String(r.time_bucket).slice(0, 10))).size))
+        : 0);
+
+    res.json({
+      success: true,
+      data: rows,
+      summary: {
+        total_clicks: totalClicks,
+        unique_clicks: uniqueClicks,
+        avg_per_day: avgPerDay,
+        unique_change_pct: uniqueChangePct,
+        day_span: daySpan
+      }
+    });
   } catch (error) {
     next(error);
   }

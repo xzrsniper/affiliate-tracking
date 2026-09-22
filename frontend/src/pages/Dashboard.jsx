@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Layout from '../components/Layout.jsx';
+import ClicksBentoChart from '../components/ClicksBentoChart.jsx';
 import api from '../config/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
 } from 'recharts';
 import {
@@ -96,6 +97,7 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState(null); // Track last update time
   const [hasFetched, setHasFetched] = useState(true); // Data loads automatically
   const [chartData, setChartData] = useState([]); // Time-series data for chart
+  const [chartSummary, setChartSummary] = useState(null);
   const [chartLoading, setChartLoading] = useState(false);
   const isMountedRef = useRef(false); // Track if component is mounted
 
@@ -188,15 +190,17 @@ export default function Dashboard() {
       if (selectedSource) params.source_type = selectedSource;
       const response = await api.get('/api/links/clicks-chart', { params });
       const raw = response.data.data || [];
-      const locale = lang && lang.startsWith('en') ? 'en-US' : 'uk-UA';
       const formatted = raw.map(row => ({
-        time: new Date(row.time_bucket).toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        clicks: parseInt(row.clicks || 0),
-        unique: parseInt(row.unique_clicks || 0)
+        time_bucket: row.time_bucket,
+        clicks: parseInt(row.clicks || 0, 10),
+        unique: parseInt(row.unique_clicks || 0, 10),
       }));
       setChartData(formatted);
+      setChartSummary(response.data.summary || null);
     } catch (err) {
       console.error('Chart data error:', err);
+      setChartData([]);
+      setChartSummary(null);
     } finally {
       setChartLoading(false);
     }
@@ -1051,103 +1055,14 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Clicks Chart - Keitaro style */}
-      <div className="mb-8 bg-white rounded-xl border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">{t('dashboard.clicksChartTitle')}</h3>
-          <button
-            onClick={() => fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange)}
-            disabled={chartLoading}
-            className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-            title={t('dashboard.refreshChart')}
-          >
-            <RefreshCw className={`w-4 h-4 ${chartLoading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-        {chartLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="inline-block w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <defs>
-                <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorUnique" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 11, fill: '#94a3b8' }}
-                tickLine={false}
-                axisLine={{ stroke: '#e2e8f0' }}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#94a3b8' }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#f8fafc',
-                  fontSize: '12px',
-                  padding: '8px 12px'
-                }}
-                labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
-                formatter={(value, name) => [
-                  value,
-                  name === 'clicks' ? t('dashboard.totalClicks') : t('dashboard.uniqueClicks')
-                ]}
-              />
-              <Legend
-                verticalAlign="top"
-                height={36}
-                iconType="line"
-                formatter={(value) => (
-                  <span style={{ color: '#64748b', fontSize: '12px' }}>
-                    {value === 'clicks' ? t('dashboard.totalClicks') : t('dashboard.uniqueClicks')}
-                  </span>
-                )}
-              />
-              <Area
-                type="monotone"
-                dataKey="clicks"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                fill="url(#colorClicks)"
-                dot={false}
-                activeDot={{ r: 4, fill: '#3b82f6' }}
-              />
-              <Area
-                type="monotone"
-                dataKey="unique"
-                stroke="#a855f7"
-                strokeWidth={2}
-                fill="url(#colorUnique)"
-                dot={false}
-                activeDot={{ r: 4, fill: '#a855f7' }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-            <TrendingUp className="w-10 h-10 mb-3 opacity-40" />
-            <p className="text-sm">{t('dashboard.noChartData')}</p>
-            <p className="text-xs mt-1">{t('dashboard.chartHint')}</p>
-          </div>
-        )}
-      </div>
+      {/* Clicks Chart — Bento modern */}
+      <ClicksBentoChart
+        data={chartData}
+        summary={chartSummary}
+        loading={chartLoading}
+        timeRange={activeSnapshot ? 'custom' : timeRange}
+        onRefresh={() => fetchChartData(i18n.language, activeSnapshot, sourceFilter, timeRange)}
+      />
 
       {/* Quick Start Steps */}
       {links.length === 0 && !loading && (

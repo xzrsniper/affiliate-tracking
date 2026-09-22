@@ -129,3 +129,87 @@
 .animate-float-in {
   animation: floatIn 0.5s ease-out both;
 }
+
+/* —— Bento clicks chart: A (stagger) + B (draw line / sequential bars) —— */
+@keyframes bento-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bento-draw-line {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes bento-fade-fill {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bento-bar-grow {
+  from {
+    opacity: 0.35;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.bento-stagger > [data-bento-item] {
+  animation: bento-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--bento-delay, 0s);
+}
+
+.bento-spark-anim .recharts-area-curve {
+  animation: bento-draw-line 1.15s 0.28s ease forwards;
+}
+
+.bento-spark-anim .recharts-area-area {
+  opacity: 0;
+  animation: bento-fade-fill 0.55s 1s ease forwards;
+}
+
+.bento-bars-anim .recharts-bar-rectangle {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: bento-bar-grow 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bento-bars-anim .recharts-bar-rectangle:nth-child(1) { animation-delay: 0.52s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(2) { animation-delay: 0.6s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(3) { animation-delay: 0.68s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(4) { animation-delay: 0.76s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(5) { animation-delay: 0.84s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(6) { animation-delay: 0.92s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(7) { animation-delay: 1s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(8) { animation-delay: 1.08s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(9) { animation-delay: 1.16s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(10) { animation-delay: 1.24s; }
+.bento-bars-anim .recharts-bar-rectangle:nth-child(n+11) { animation-delay: 1.3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bento-stagger > [data-bento-item],
+  .bento-spark-anim .recharts-area-curve,
+  .bento-spark-anim .recharts-area-area,
+  .bento-bars-anim .recharts-bar-rectangle {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+}
+
