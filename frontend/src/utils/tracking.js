@@ -10,39 +10,121 @@ const DEFAULT_API_BASE_URL =
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
 
+/** Hard 14-day attribution window (must match utils/attribution.js / pixel.js). */
+const ATTRIBUTION_MS = 14 * 24 * 60 * 60 * 1000;
+const ATTRIB_AT_KEY = 'lehko_attrib_at';
+
+function getAttributionStartedAt() {
+  try {
+    const ts = parseInt(localStorage.getItem(ATTRIB_AT_KEY) || '', 10);
+    return Number.isFinite(ts) ? ts : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function isAttributionFresh() {
+  const ts = getAttributionStartedAt();
+  if (!ts) return false;
+  return Date.now() - ts <= ATTRIBUTION_MS;
+}
+
+function clearAttributionStorage() {
+  try {
+    localStorage.removeItem('aff_ref_code');
+    localStorage.removeItem('lehko_ref');
+    localStorage.removeItem('lehko_click_id');
+    localStorage.removeItem(ATTRIB_AT_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    const expire = 'expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax';
+    document.cookie = `aff_ref_code=;${expire}`;
+    document.cookie = `lehko_ref=;${expire}`;
+    document.cookie = `lehko_click_id=;${expire}`;
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+function markAttributionStartIfNeeded() {
+  if (!getAttributionStartedAt()) {
+    try {
+      localStorage.setItem(ATTRIB_AT_KEY, String(Date.now()));
+    } catch (e) {
+      /* ignore */
+    }
+  }
+}
+
 /**
- * Отримати ref код з URL або localStorage
+ * Отримати ref код з URL або localStorage (hard 14-day expiry)
  */
 export function getRefCode() {
+  // Expire stale / legacy immortal storage first
+  const legacy =
+    (() => {
+      try {
+        return localStorage.getItem('aff_ref_code') || localStorage.getItem('lehko_ref');
+      } catch (e) {
+        return null;
+      }
+    })();
+  if (legacy && !isAttributionFresh()) {
+    clearAttributionStorage();
+  }
+
   // Спочатку перевіряємо URL параметр
   const urlParams = new URLSearchParams(window.location.search);
   const refFromUrl = urlParams.get('ref');
   if (refFromUrl) {
-    // Зберігаємо в localStorage для подальшого використання
     try {
-      localStorage.setItem('aff_ref_code', refFromUrl);
+      const existing = localStorage.getItem('aff_ref_code') || localStorage.getItem('lehko_ref');
+      const fresh = isAttributionFresh();
+      // Sticky first-touch: do not overwrite a fresh different ref with bare ?ref=
+      if (!fresh || !existing || existing === refFromUrl) {
+        localStorage.setItem('aff_ref_code', refFromUrl);
+        localStorage.setItem('lehko_ref', refFromUrl);
+        if (!fresh) markAttributionStartIfNeeded();
+      }
     } catch (e) {
       // localStorage може бути недоступний
+    }
+    if (isAttributionFresh()) {
+      try {
+        return localStorage.getItem('aff_ref_code') || refFromUrl;
+      } catch (e) {
+        return refFromUrl;
+      }
     }
     return refFromUrl;
   }
 
   // Перевіряємо localStorage
   try {
-    const refFromStorage = localStorage.getItem('aff_ref_code');
+    const refFromStorage = localStorage.getItem('aff_ref_code') || localStorage.getItem('lehko_ref');
     if (refFromStorage) {
+      if (!isAttributionFresh()) {
+        clearAttributionStorage();
+        return null;
+      }
       return refFromStorage;
     }
   } catch (e) {
     // localStorage недоступний
   }
 
-  // Перевіряємо cookies
+  // Перевіряємо cookies (still require local timestamp — cookies alone used to live forever)
   try {
+    if (!isAttributionFresh()) {
+      clearAttributionStorage();
+      return null;
+    }
     const cookies = document.cookie.split('; ');
-    const refCookie = cookies.find(row => row.startsWith('aff_ref_code='));
+    const refCookie = cookies.find(row => row.startsWith('aff_ref_code=') || row.startsWith('lehko_ref='));
     if (refCookie) {
-      return refCookie.split('=')[1];
+      return decodeURIComponent(refCookie.split('=').slice(1).join('='));
     }
   } catch (e) {
     // cookies недоступні

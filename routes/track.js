@@ -8,7 +8,7 @@ import { resolveLeadOrderValueFallback } from '../utils/leadOrderValueFallback.j
 import { parseOrderValue, sanitizeLeadOrderValue } from '../utils/orderValue.js';
 import { applyAffiliateConversionEffects, getAffiliateOwnerForLink } from '../utils/affiliate.js';
 import { recordAttributedConversion } from '../utils/conversionRecord.js';
-import { resolveAttributionClick, ATTRIBUTION_WINDOW_DAYS } from '../utils/attribution.js';
+import { resolveAttributionClick, ATTRIBUTION_WINDOW_DAYS, isWithinAttributionWindow } from '../utils/attribution.js';
 import { Op, QueryTypes } from 'sequelize';
 import sequelize from '../config/database.js';
 
@@ -430,6 +430,56 @@ router.get('/verify', async (req, res, next) => {
       verified: true,
       message: 'Tracker verified',
       service: 'LehkoTrack'
+    });
+  }
+});
+
+/**
+ * GET /api/track/attribution-check?click_id=
+ * Pixel calls this on load to drop client cookies when the click is older than
+ * the hard 14-day window (fixes previously slid local timestamps).
+ */
+router.get('/attribution-check', async (req, res) => {
+  try {
+    const clickId = parseInt(req.query.click_id, 10);
+    if (!Number.isFinite(clickId) || clickId <= 0) {
+      return res.json({
+        success: true,
+        valid: false,
+        reason: 'missing_click_id',
+        window_days: ATTRIBUTION_WINDOW_DAYS
+      });
+    }
+
+    const click = await Click.findByPk(clickId, {
+      attributes: ['id', 'link_id', 'created_at']
+    });
+
+    if (!click) {
+      return res.json({
+        success: true,
+        valid: false,
+        reason: 'not_found',
+        window_days: ATTRIBUTION_WINDOW_DAYS
+      });
+    }
+
+    const valid = isWithinAttributionWindow(click.created_at);
+    return res.json({
+      success: true,
+      valid,
+      reason: valid ? 'ok' : 'expired',
+      created_at: click.created_at,
+      window_days: ATTRIBUTION_WINDOW_DAYS
+    });
+  } catch (error) {
+    console.error('[Attribution Check]', error);
+    // Fail open for availability — client still enforces local 14d clock
+    return res.json({
+      success: true,
+      valid: true,
+      reason: 'check_error',
+      window_days: ATTRIBUTION_WINDOW_DAYS
     });
   }
 });
