@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AreaChart,
@@ -65,9 +65,18 @@ function computeStability(dailyValues) {
   return 'volatile';
 }
 
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Bento-modern clicks overview for the dashboard.
  * Expects hourly points: [{ time_bucket, clicks, unique }]
+ * Motion: A (stagger fade-up) + B (draw sparkline, sequential bars).
  */
 export default function ClicksBentoChart({
   data = [],
@@ -79,6 +88,8 @@ export default function ClicksBentoChart({
   const { t, i18n } = useTranslation();
   const locale = i18n.language?.startsWith('en') ? 'en-US' : 'uk-UA';
   const isHourly = timeRange === 'today';
+  const sparkRef = useRef(null);
+  const gradId = useId().replace(/:/g, '');
 
   const { sparkData, barData, peakKey, dailyValues } = useMemo(() => {
     const points = (data || [])
@@ -225,7 +236,48 @@ export default function ClicksBentoChart({
   }[stability];
 
   const hasData = totalClicks > 0 || (data && data.length > 0);
-  const tickFill = '#94a3b8'; // readable on both light/dark card backgrounds
+  const tickFill = '#94a3b8';
+  const animationKey = `${timeRange}-${barData.length}-${totalClicks}-${uniqueClicks ?? 'x'}`;
+
+  // B: measure spark path and set dashoffset so the line "draws" itself
+  useEffect(() => {
+    if (loading || !hasData) return undefined;
+    if (prefersReducedMotion()) return undefined;
+
+    let cancelled = false;
+    let tries = 0;
+
+    const applyDraw = () => {
+      if (cancelled) return;
+      const root = sparkRef.current;
+      if (!root) return;
+      const curves = root.querySelectorAll('.recharts-area-curve');
+      if (!curves.length && tries < 20) {
+        tries += 1;
+        requestAnimationFrame(applyDraw);
+        return;
+      }
+      curves.forEach((path) => {
+        try {
+          const len = path.getTotalLength();
+          if (!Number.isFinite(len) || len <= 0) return;
+          path.style.strokeDasharray = `${len}`;
+          path.style.strokeDashoffset = `${len}`;
+          path.style.animation = 'none';
+          path.getBoundingClientRect();
+          path.style.animation = '';
+        } catch {
+          /* SVG length unavailable */
+        }
+      });
+    };
+
+    const timer = window.setTimeout(applyDraw, 40);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [animationKey, loading, hasData]);
 
   return (
     <div className="mb-8 rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_20px_50px_rgba(20,24,40,0.06)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-none sm:p-5">
@@ -257,9 +309,16 @@ export default function ClicksBentoChart({
           <p className="mt-1 text-xs opacity-80">{t('dashboard.chartHint')}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.15fr_0.85fr_0.85fr] lg:grid-rows-[150px_280px]">
-          {/* Hero — always dark surface, always light text */}
-          <div className="relative overflow-hidden rounded-3xl bg-[#111827] p-5 text-white lg:row-span-2 dark:bg-[#0b1220]">
+        <div
+          key={animationKey}
+          className="bento-stagger grid grid-cols-1 gap-3 lg:grid-cols-[1.15fr_0.85fr_0.85fr] lg:grid-rows-[150px_280px]"
+        >
+          {/* Hero — A stagger + B spark draw */}
+          <div
+            data-bento-item
+            style={{ '--bento-delay': '0.04s' }}
+            className="relative overflow-hidden rounded-3xl bg-[#111827] p-5 text-white lg:row-span-2 dark:bg-[#0b1220]"
+          >
             <p className="relative z-10 mb-3 text-sm font-medium text-slate-300">
               {t('dashboard.bentoHeroTitle', { range: rangeLabel })}
             </p>
@@ -269,11 +328,14 @@ export default function ClicksBentoChart({
             <p className="relative z-10 mt-2 text-sm text-slate-300">
               {t('dashboard.bentoHeroSubtitle')}
             </p>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[55%]">
+            <div
+              ref={sparkRef}
+              className="bento-spark-anim pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[55%]"
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={sparkData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="bentoSparkFill" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id={`bentoSparkFill-${gradId}`} x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#34d399" stopOpacity={0.45} />
                       <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
                     </linearGradient>
@@ -283,7 +345,7 @@ export default function ClicksBentoChart({
                     dataKey="clicks"
                     stroke="#34d399"
                     strokeWidth={3}
-                    fill="url(#bentoSparkFill)"
+                    fill={`url(#bentoSparkFill-${gradId})`}
                     dot={false}
                     isAnimationActive={false}
                   />
@@ -292,8 +354,12 @@ export default function ClicksBentoChart({
             </div>
           </div>
 
-          {/* Unique — explicit light/dark pair so parent dark:text cannot wash out numbers */}
-          <div className="rounded-3xl bg-emerald-50 p-5 dark:bg-emerald-950/45 dark:ring-1 dark:ring-emerald-800/60">
+          {/* Unique */}
+          <div
+            data-bento-item
+            style={{ '--bento-delay': '0.12s' }}
+            className="rounded-3xl bg-emerald-50 p-5 dark:bg-emerald-950/45 dark:ring-1 dark:ring-emerald-800/60"
+          >
             <p className="mb-1.5 text-xs font-medium text-emerald-800/70 dark:text-emerald-200/80">
               {t('dashboard.uniqueClicks')}
             </p>
@@ -319,7 +385,11 @@ export default function ClicksBentoChart({
           </div>
 
           {/* Average */}
-          <div className="rounded-3xl bg-sky-50 p-5 dark:bg-sky-950/45 dark:ring-1 dark:ring-sky-800/60">
+          <div
+            data-bento-item
+            style={{ '--bento-delay': '0.2s' }}
+            className="rounded-3xl bg-sky-50 p-5 dark:bg-sky-950/45 dark:ring-1 dark:ring-sky-800/60"
+          >
             <p className="mb-1.5 text-xs font-medium text-sky-900/70 dark:text-sky-200/80">
               {t('dashboard.bentoAvgPerDay')}
             </p>
@@ -331,8 +401,12 @@ export default function ClicksBentoChart({
             </span>
           </div>
 
-          {/* By day / hour bars */}
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50 lg:col-span-2">
+          {/* By day / hour bars — B sequential grow */}
+          <div
+            data-bento-item
+            style={{ '--bento-delay': '0.28s' }}
+            className="rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50 lg:col-span-2"
+          >
             <p className="mb-3 text-xs font-medium text-slate-600 dark:text-slate-300">
               {isHourly ? t('dashboard.bentoByHour') : t('dashboard.bentoByDay')}
             </p>
@@ -341,52 +415,63 @@ export default function ClicksBentoChart({
                 {t('dashboard.noChartData')}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={210}>
-                <BarChart data={barData} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="bentoBarBlue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#60a5fa" />
-                      <stop offset="100%" stopColor="#2563eb" />
-                    </linearGradient>
-                    <linearGradient id="bentoBarGreen" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#34d399" />
-                      <stop offset="100%" stopColor="#059669" />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: tickFill, fontWeight: 600 }}
-                    tickLine={false}
-                    axisLine={false}
-                    interval={barData.length > 14 ? 'preserveStartEnd' : 0}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(148, 163, 184, 0.12)' }}
-                    contentStyle={{
-                      borderRadius: 12,
-                      border: '1px solid #334155',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: 12,
-                      boxShadow: '0 8px 24px rgba(15,23,42,0.24)',
-                    }}
-                    labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
-                    itemStyle={{ color: '#f8fafc' }}
-                    formatter={(value) => [
-                      Number(value).toLocaleString(locale),
-                      t('dashboard.totalClicks'),
-                    ]}
-                  />
-                  <Bar dataKey="clicks" radius={[14, 14, 10, 10]} maxBarSize={48}>
-                    {barData.map((entry) => (
-                      <Cell
-                        key={entry.key}
-                        fill={entry.key === peakKey ? 'url(#bentoBarGreen)' : 'url(#bentoBarBlue)'}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="bento-bars-anim h-[210px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData} margin={{ top: 8, right: 4, left: 4, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id={`bentoBarBlue-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#60a5fa" />
+                        <stop offset="100%" stopColor="#2563eb" />
+                      </linearGradient>
+                      <linearGradient id={`bentoBarGreen-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" />
+                        <stop offset="100%" stopColor="#059669" />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: tickFill, fontWeight: 600 }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={barData.length > 14 ? 'preserveStartEnd' : 0}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(148, 163, 184, 0.12)' }}
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: '1px solid #334155',
+                        background: '#0f172a',
+                        color: '#f8fafc',
+                        fontSize: 12,
+                        boxShadow: '0 8px 24px rgba(15,23,42,0.24)',
+                      }}
+                      labelStyle={{ color: '#94a3b8', marginBottom: 4 }}
+                      itemStyle={{ color: '#f8fafc' }}
+                      formatter={(value) => [
+                        Number(value).toLocaleString(locale),
+                        t('dashboard.totalClicks'),
+                      ]}
+                    />
+                    <Bar
+                      dataKey="clicks"
+                      radius={[14, 14, 10, 10]}
+                      maxBarSize={48}
+                      isAnimationActive={false}
+                    >
+                      {barData.map((entry) => (
+                        <Cell
+                          key={entry.key}
+                          fill={
+                            entry.key === peakKey
+                              ? `url(#bentoBarGreen-${gradId})`
+                              : `url(#bentoBarBlue-${gradId})`
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </div>
         </div>
