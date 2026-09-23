@@ -36,6 +36,10 @@ function upsertCanonical(html, url) {
   return html.replace(/<\/head>/i, `    ${tag}\n  </head>`);
 }
 
+function removeCanonical(html) {
+  return html.replace(/<link\s+rel=["']canonical["'][^>]*>\s*/gi, '');
+}
+
 function upsertTitle(html, title) {
   const safeTitle = escapeHtml(title);
   if (/<title>[\s\S]*?<\/title>/i.test(html)) {
@@ -54,20 +58,42 @@ function absoluteUrl(siteUrl, maybeRelative) {
 
 /**
  * Inject SEO tags into the SPA index.html shell for crawlers.
+ * @param {object} opts
+ * @param {boolean} [opts.noindex] - Mark page as noindex (404 / private shells).
+ * @param {boolean} [opts.omitCanonical] - Do not emit a self-referencing canonical (missing URLs).
  */
-export function applySeoToHtml(html, { siteUrl, title, description, canonicalPath, image, jsonLd }) {
+export function applySeoToHtml(html, {
+  siteUrl,
+  title,
+  description,
+  canonicalPath,
+  image,
+  jsonLd,
+  noindex = false,
+  omitCanonical = false
+}) {
   let out = html;
-  const canonical = `${siteUrl}${canonicalPath === '/' ? '' : canonicalPath}`;
+  const pathPart = canonicalPath === '/' || !canonicalPath ? '' : canonicalPath;
+  const canonical = `${siteUrl}${pathPart}`;
   const desc = (description || '').replace(/\s+/g, ' ').trim().slice(0, 300);
   const img = absoluteUrl(siteUrl, image);
 
   out = upsertTitle(out, title);
   if (desc) out = upsertMetaByName(out, 'description', desc);
-  out = upsertCanonical(out, canonical);
+  if (omitCanonical) {
+    out = removeCanonical(out);
+  } else if (canonicalPath != null) {
+    out = upsertCanonical(out, canonical);
+  }
+  if (noindex) {
+    out = upsertMetaByName(out, 'robots', 'noindex, nofollow');
+  }
   out = upsertMetaByProperty(out, 'og:type', jsonLd?.['@type'] === 'Article' ? 'article' : 'website');
   out = upsertMetaByProperty(out, 'og:title', title);
   if (desc) out = upsertMetaByProperty(out, 'og:description', desc);
-  out = upsertMetaByProperty(out, 'og:url', canonical);
+  if (!omitCanonical && canonicalPath != null) {
+    out = upsertMetaByProperty(out, 'og:url', canonical);
+  }
   if (img) out = upsertMetaByProperty(out, 'og:image', img);
   out = upsertMetaByName(out, 'twitter:card', img ? 'summary_large_image' : 'summary');
   out = upsertMetaByName(out, 'twitter:title', title);

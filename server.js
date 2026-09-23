@@ -341,14 +341,71 @@ if (process.env.NODE_ENV === 'production') {
     res.setHeader('Expires', '0');
   }
 
-  function sendSeoShell(res, seo) {
+  function sendSeoShell(res, seo, statusCode = 200) {
     noCacheHeaders(res);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (statusCode >= 400 || seo?.noindex) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
     const html = applySeoToHtml(loadSpaIndexHtml(frontendPath), {
       siteUrl: SITE_URL,
       ...seo
     });
-    res.status(200).send(html);
+    res.status(statusCode).send(html);
+  }
+
+  /** SPA routes that must return 200 (even when robots.txt Disallows them). */
+  const SPA_EXACT_ROUTES = new Set([
+    '/',
+    '/guide',
+    '/blog',
+    '/terms',
+    '/privacy',
+    '/refund',
+    '/home-new',
+    '/login',
+    '/register',
+    '/verify-email',
+    '/confirm-password-change',
+    '/reset-password',
+    '/dashboard',
+    '/admin',
+    '/settings',
+    '/setup',
+    '/utm-builder',
+    '/link-shortener',
+    '/console-code',
+    '/success',
+    '/pixel.js'
+  ]);
+
+  const SPA_PREFIX_ROUTES = [
+    '/report/',
+    '/r/',
+    '/track/'
+  ];
+
+  function isKnownSpaRoute(pathname) {
+    const pathName = (pathname || '/').split('?')[0] || '/';
+    if (SPA_EXACT_ROUTES.has(pathName)) return true;
+    if (pathName.startsWith('/blog/')) return true; // existence checked in /blog/:slug handler
+    return SPA_PREFIX_ROUTES.some((prefix) => pathName.startsWith(prefix));
+  }
+
+  function sendSpaIndex(res, statusCode = 200, seoExtras = null) {
+    noCacheHeaders(res);
+    if (statusCode >= 400) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
+    if (seoExtras) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      const html = applySeoToHtml(loadSpaIndexHtml(frontendPath), {
+        siteUrl: SITE_URL,
+        ...seoExtras
+      });
+      return res.status(statusCode).send(html);
+    }
+    res.status(statusCode).sendFile(path.join(frontendPath, 'index.html'));
   }
 
   // Blog index + posts: inject correct title/description/canonical for crawlers.
@@ -386,12 +443,13 @@ if (process.env.NODE_ENV === 'production') {
       });
 
       if (!post) {
-        // Keep SPA 404 behavior, but avoid homepage canonical on missing posts.
+        // Real HTTP 404 — avoids Soft 404 in Search Console while SPA still renders NotFound.
         return sendSeoShell(res, {
           title: 'Статтю не знайдено | lehko.space',
           description: 'Запитувану статтю блогу не знайдено.',
-          canonicalPath: `/blog/${encodeURIComponent(slug)}`
-        });
+          omitCanonical: true,
+          noindex: true
+        }, 404);
       }
 
       const description = (post.excerpt || post.title || '').replace(/\s+/g, ' ').trim();
@@ -422,12 +480,10 @@ if (process.env.NODE_ENV === 'production') {
 
   // Головна та index.html — завжди без кешу, щоб браузер підхоплював нові assets
   app.get('/', (req, res) => {
-    noCacheHeaders(res);
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    sendSpaIndex(res, 200);
   });
   app.get('/index.html', (req, res) => {
-    noCacheHeaders(res);
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    sendSpaIndex(res, 200);
   });
 
   app.use(express.static(frontendPath, {
@@ -449,9 +505,20 @@ if (process.env.NODE_ENV === 'production') {
       res.setHeader('Cache-Control', 'public, max-age=604800');
     }
   }));
+
+  // SPA fallback: known routes → 200; unknown → real 404 (still serves index.html for client NotFound).
+  // Nginx must proxy HTML fallback to Node (not try_files → index.html) or Soft 404 persists.
   app.get('*', (req, res) => {
-    noCacheHeaders(res);
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    const pathname = req.path || '/';
+    if (isKnownSpaRoute(pathname)) {
+      return sendSpaIndex(res, 200);
+    }
+    return sendSpaIndex(res, 404, {
+      title: 'Сторінку не знайдено | lehko.space',
+      description: 'Запитувану сторінку не знайдено.',
+      omitCanonical: true,
+      noindex: true
+    });
   });
 } else {
   // In development, Vite handles frontend
