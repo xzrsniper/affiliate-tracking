@@ -16,6 +16,16 @@ export default function NotFound() {
 
   useEffect(() => {
     document.title = t('notFound.documentTitle');
+    let robots = document.querySelector('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.setAttribute('name', 'robots');
+      document.head.appendChild(robots);
+    }
+    robots.setAttribute('content', 'noindex, nofollow');
+    return () => {
+      robots.setAttribute('content', 'index, follow');
+    };
   }, [t]);
 
   useEffect(() => {

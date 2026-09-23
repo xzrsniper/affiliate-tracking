@@ -83,6 +83,18 @@ export default function BlogPost() {
     });
   }, [post]);
 
+  useEffect(() => {
+    if (loading) return;
+    if (post && !error) return;
+    let robots = document.querySelector('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.setAttribute('name', 'robots');
+      document.head.appendChild(robots);
+    }
+    robots.setAttribute('content', 'noindex, nofollow');
+  }, [error, post, loading]);
+
   const imageSrc = (url) => {
     if (!url) return null;
     if (url.startsWith('http')) return url;
