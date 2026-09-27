@@ -130,6 +130,9 @@ router.get('/pixel.js', (req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, '..', 'public', 'pixel.js'));
 });
 

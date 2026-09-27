@@ -87,17 +87,25 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// Serve pixel.js — CORS + MIME щоб не було ERR_BLOCKED_BY_ORB при завантаженні з GTM/інших сайтів
-function serveTrackerScript(req, res) {
+// /pixel.js and /tracker.js: tiny bootstrap → always load the real tracker from
+// /api/track/pixel.js (CF BYPASS + no-store). Avoids edge cache keeping a broken
+// full pixel.js build for hours after deploy.
+function serveTrackerBootstrap(req, res) {
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Cache-Control', 'public, max-age=300');
-  res.sendFile(path.join(__dirname, 'public', 'pixel.js'));
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  // Keep in sync with public/pixel.js header version when bumping the tracker.
+  const PIXEL_BOOTSTRAP_VERSION = '5.6';
+  res.send(
+    `(function(){var c=document.currentScript;var o=(c&&c.src)?new URL(c.src).origin:location.origin;var s=document.createElement('script');s.src=o+'/api/track/pixel.js?v=${PIXEL_BOOTSTRAP_VERSION}';s.async=true;if(c){var d=c.getAttribute('data-site');if(d)s.setAttribute('data-site',d);}document.head.appendChild(s);})();`
+  );
 }
-app.get('/pixel.js', serveTrackerScript);
-app.get('/tracker.js', serveTrackerScript);
+app.get('/pixel.js', serveTrackerBootstrap);
+app.get('/tracker.js', serveTrackerBootstrap);
 
 // Serve static files (for other static files)
 app.use(express.static('public', {

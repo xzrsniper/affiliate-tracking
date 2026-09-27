@@ -282,7 +282,8 @@ if (updated.purchase_button_selector) parts.push(`${t('setup.leadButton')}: ${up
     if (!apiUrl.includes('localhost') && apiUrl.startsWith('http://')) {
       apiUrl = apiUrl.replace('http://', 'https://');
     }
-    return `<script src="${apiUrl}/pixel.js" data-site="${siteId || 'YOUR_SITE_ID'}" async></script>`;
+    // Prefer /api/track/pixel.js — Cloudflare bypasses cache there (avoids stale tracker builds).
+    return `<script src="${apiUrl}/api/track/pixel.js?v=5.6" data-site="${siteId || 'YOUR_SITE_ID'}" async></script>`;
   };
   const universalCode = getUniversalCode(null);
   const trackerConfigCode = universalCode;
@@ -313,7 +314,7 @@ window.__lehkoConfig = {
 };
 (function() {
   var s = document.createElement('script');
-  s.src = '${apiUrl}/pixel.js';
+  s.src = '${apiUrl}/api/track/pixel.js?v=5.6';
   s.setAttribute('data-site', '${sid}');
   s.async = true;
   document.head.appendChild(s);
