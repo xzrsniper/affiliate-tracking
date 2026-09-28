@@ -99,7 +99,7 @@ function serveTrackerBootstrap(req, res) {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   // Keep in sync with public/pixel.js header version when bumping the tracker.
-  const PIXEL_BOOTSTRAP_VERSION = '5.6';
+  const PIXEL_BOOTSTRAP_VERSION = '5.7';
   res.send(
     `(function(){var c=document.currentScript;var o=(c&&c.src)?new URL(c.src).origin:location.origin;var s=document.createElement('script');s.src=o+'/api/track/pixel.js?v=${PIXEL_BOOTSTRAP_VERSION}';s.async=true;if(c){var d=c.getAttribute('data-site');if(d)s.setAttribute('data-site',d);}document.head.appendChild(s);})();`
   );
