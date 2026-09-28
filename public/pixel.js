@@ -1,5 +1,6 @@
 /**
- * LehkoTrack Pixel v5.6 — hard 14-day attribution (no sliding window)
+ * LehkoTrack Pixel v5.7 — hard 14-day attribution (no sliding window)
+ * (v5.6 — first-touch original click; v5.7 — count every landing, sticky only for conversions)
  * (v5.5 — hard 14d; v5.6 fixes original-format click recording after captureAndPersist)
  * (v5.4 — sticky first-touch attribution; do not steal affiliate refs)
  * (v5.3 — do not glue neighbouring numbers into fake prices)
@@ -375,12 +376,16 @@
   }
 
   // ── 1b. Track click for "original" format links ───────────────────────
-  // When a user arrives via google.com?ref=CODE (original format), the tracking
+  // When a user arrives via shop.com?ref=CODE (original format), the tracking
   // server redirect was bypassed. Fire /api/track/view/CODE to record the click.
-  // First touch must always mint a Click + click_id. Revisits with the same ref
-  // inside the hard 14-day window (already have click_id) must not mint again.
-  // IMPORTANT: captureAndPersist() runs before this and writes lehko_ref +
-  // lehko_attrib_at for bare ?ref= — that alone must NOT skip recording (v5.5 bug).
+  //
+  // Click STATS: every new landing (new sessionStorage session) with bare ?ref=
+  // must mint a Click — including when sticky first-touch has another affiliate
+  // (v5.6 wrongly skipped those → "1 click then silence" when testing / when
+  // visitors already had a prior topface/divia cookie).
+  //
+  // CONVERSION attribution stays sticky via captureAndPersist/getRef — we only
+  // write click_id into storage when this ref owns (or may own) attribution.
   function trackOriginalFormatClick() {
     var params = new URLSearchParams(location.search);
     var urlRef = params.get('ref');
@@ -388,16 +393,7 @@
     // Only fire if ?ref= is present but ?click_id= is NOT (= "original" format link)
     if (!urlRef || urlCid) return;
 
-    var existingRef = getStoredAttribution('lehko_ref');
-    var existingCid = getStoredAttribution('lehko_click_id');
-
-    // Sticky first-touch: do not record a competing bare ?ref= while another affiliate is fresh
-    if (existingRef && existingRef !== urlRef) return;
-
-    // Same affiliate already has a server click_id in-window — do not mint another row
-    if (existingCid && existingRef === urlRef) return;
-
-    // Avoid double-firing on the same page session
+    // Avoid double-firing on the same page session only (not 14-day / sticky)
     var sessionKey = 'lehko_view_fired_' + urlRef;
     try { if (sessionStorage.getItem(sessionKey)) return; sessionStorage.setItem(sessionKey, '1'); } catch(e) {}
     var visitorId = ls('lehko_vid') || null;
@@ -407,7 +403,12 @@
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.success && d.click_id) {
-          // Store click_id so conversions can be linked to this click
+          var stickyRef = getStoredAttribution('lehko_ref');
+          // Don't let a competing bare ?ref= steal conversion attribution
+          if (stickyRef && stickyRef !== urlRef) {
+            ensureSessionTracking();
+            return;
+          }
           ls('lehko_click_id', String(d.click_id));
           var mins = remainingAttributionMinutes() || ATTRIBUTION_MINUTES;
           setCookie('lehko_click_id', String(d.click_id), mins);
@@ -1607,7 +1608,7 @@
   // ── 13. Verification Ping ─────────────────────────────────────────────
   function verify() {
     fetch(BASE_URL + '/api/track/verify?domain=' + encodeURIComponent(location.hostname) +
-      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=5.6', { mode: 'cors' }).catch(function () {});
+      '&site_id=' + encodeURIComponent(SITE_ID) + '&version=5.7', { mode: 'cors' }).catch(function () {});
   }
 
   // ── 14. Configuration Mode (Visual Event Mapper) ──────────────────────
@@ -1884,7 +1885,7 @@
 
   // ── 15. Public API ────────────────────────────────────────────────────
   window.LehkoTrack = {
-    version: '5.6',
+    version: '5.7',
     trackPurchase: function (o) { o = o || {}; sendEvent('sale', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     trackLead: function (o) { o = o || {}; sendEvent('lead', o.amount || o.value || o.price || 0, o.orderId || o.order_id || null); },
     getRef: getRef,
